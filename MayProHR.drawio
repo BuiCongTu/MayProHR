@@ -73,7 +73,7 @@
         <mxCell id="uj-CHMlZpiFNWq1PhYLO-28" value="&lt;p style=&quot;white-space-collapse: preserve;&quot; dir=&quot;auto&quot;&gt;View Personal Info&lt;/p&gt;" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="200" y="670" width="180" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="uj-CHMlZpiFNWq1PhYLO-29" value="&lt;p style=&quot;white-space: pre-wrap;&quot; dir=&quot;auto&quot;&gt;Department Head&lt;/p&gt;" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" parent="1" vertex="1">
+        <mxCell id="uj-CHMlZpiFNWq1PhYLO-29" value="&lt;p style=&quot;white-space: pre-wrap;&quot; dir=&quot;auto&quot;&gt;Department Manager&lt;/p&gt;" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" parent="1" vertex="1">
           <mxGeometry x="470" y="360" width="30" height="60" as="geometry" />
         </mxCell>
         <mxCell id="uj-CHMlZpiFNWq1PhYLO-40" value="&lt;p style=&quot;white-space-collapse: preserve;&quot; dir=&quot;auto&quot;&gt;Performance Evaluation&lt;/p&gt;" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
@@ -128,7 +128,7 @@
           <mxGeometry x="600" y="550" width="180" height="50" as="geometry" />
         </mxCell>
         <mxCell id="uj-CHMlZpiFNWq1PhYLO-65" value="&lt;p style=&quot;white-space: pre-wrap;&quot; dir=&quot;auto&quot;&gt;Leader&lt;/p&gt;" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" parent="1" vertex="1">
-          <mxGeometry x="860" y="545" width="30" height="60" as="geometry" />
+          <mxGeometry x="860" y="500" width="30" height="60" as="geometry" />
         </mxCell>
         <mxCell id="uj-CHMlZpiFNWq1PhYLO-66" value="&lt;p style=&quot;white-space: pre-wrap;&quot; dir=&quot;auto&quot;&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;Assistant &lt;/span&gt;Leader&lt;/p&gt;" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" parent="1" vertex="1">
           <mxGeometry x="460" y="505" width="30" height="60" as="geometry" />
