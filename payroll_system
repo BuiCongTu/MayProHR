@@ -1,0 +1,291 @@
+CREATE DATABASE payroll_system;
+GO
+
+USE payroll_system;
+GO
+
+-- 1. Role(Worker, Manager, Factory Director,...)
+CREATE TABLE tbRole (
+    role_id INT IDENTITY(2024101,1) PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL,
+    description TEXT
+);
+GO
+
+-- 2. Departments: (May, KCS, Hoàn thành,...)
+CREATE TABLE tbDepartment (
+    department_id INT IDENTITY(2024101,1) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    manager_id INT, -- ID của Manager quản lý bộ phận
+    description TEXT,
+    CONSTRAINT FK_Department_Manager FOREIGN KEY (manager_id) REFERENCES tbUser(user_id) ON DELETE SET NULL
+);
+GO
+
+-- 3. SkillLevel: bậc tay nghề của nhân viên
+CREATE TABLE tbSkillLevel (
+    skill_level_id INT IDENTITY(2024101,1) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL, -- ( Level 1….Level 7)
+    description TEXT
+);
+GO
+
+-- 4. User
+CREATE TABLE tbUser (
+    user_id INT IDENTITY(2024101,1) PRIMARY KEY,
+    full_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255), -- nullable
+    phone VARCHAR(20) NOT NULL,
+    role_id INT, --FK tới tbRole
+    department_id INT, -- FK tới tbDepartment
+    face_data TEXT, -- gương mặt (mã hóa AES/base64)
+    salary_type VARCHAR(20) DEFAULT 'TimeBased' CHECK (salary_type IN ('ProductBased', 'TimeBased')), -- Loại lương: theo thời gian hoặc sản phẩm
+    base_salary DECIMAL(10,2) DEFAULT 0, -- Lương cơ bản
+    skill_level_id INT, -- Bậc tay nghề (FK tới tbSkillLevel)
+    hire_date DATE, -- Ngày tuyển dụng
+    status VARCHAR(20) DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive', 'Terminated')), --Hoạt động, Không hoạt động, Đuổi việc
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT FK_User_Role FOREIGN KEY (role_id) REFERENCES tbRole(role_id) ON DELETE SET NULL,
+    CONSTRAINT FK_User_Department FOREIGN KEY (department_id) REFERENCES tbDepartment(department_id) ON DELETE SET NULL,
+    CONSTRAINT FK_User_SkillLevel FOREIGN KEY (skill_level_id) REFERENCES tbSkillLevel(skill_level_id) ON DELETE SET NULL
+);
+GO
+
+-- 5. LeaveReason: lý do nghỉ phép (Bệnh, Thai sản,...)
+CREATE TABLE tbLeaveReason (
+    leave_reason_id INT IDENTITY(2024101,1) PRIMARY KEY,
+    reason VARCHAR(255) NOT NULL,
+    description TEXT
+);
+GO
+
+-- 6. WorkSchedule: lịch làm việc của nhân viên
+CREATE TABLE tbWorkSchedule (
+    schedule_id INT IDENTITY(2024101,1) PRIMARY KEY,
+    user_id INT NOT NULL, --FK tới tbUser
+    date DATE NOT NULL, -- Ngày làm việc
+    shift_start TIME, -- Giờ bắt đầu ca
+    shift_end TIME, -- Giờ kết thúc ca
+    is_holiday BIT DEFAULT 0, -- Có phải ngày lễ không
+    CONSTRAINT FK_WorkSchedule_User FOREIGN KEY (user_id) REFERENCES tbUser(user_id) ON DELETE CASCADE
+);
+GO
+
+-- 7. Attendance: dữ liệu chấm công
+CREATE TABLE tbAttendance (
+    attendance_id INT IDENTITY(2024101,1) PRIMARY KEY,
+    user_id INT NOT NULL,
+    date DATE NOT NULL, -- Ngày chấm công
+    time_in TIME, -- Giờ vào
+    time_out TIME, -- Giờ ra
+    status VARCHAR(20) NOT NULL CHECK (status IN ('success', 'late', 'manual', 'error')), -- Thành công, Muộn, Thủ công, Lỗi
+    reason TEXT, -- Lý do muộn/lỗi
+    manual_updated_by INT, -- Người cập nhật thủ công (HR, FK tới tbUser)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+    CONSTRAINT FK_Attendance_User FOREIGN KEY (user_id) REFERENCES tbUser(user_id) ON DELETE CASCADE,
+    CONSTRAINT FK_Attendance_UpdatedBy FOREIGN KEY (manual_updated_by) REFERENCES tbUser(user_id) ON DELETE SET NULL,
+    INDEX idx_user_date NONCLUSTERED (user_id, date) -- Index để tối ưu truy vấn theo user_id và date
+);
+GO
+
+-- 8. LeaveRequest: đơn xin nghỉ phép
+CREATE TABLE tbLeaveRequest (
+    request_id INT IDENTITY(2024101,1) PRIMARY KEY,
+    user_id INT NOT NULL,
+    leave_reason_id INT NOT NULL, -- Lý do nghỉ (FK tới tbLeaveReason)
+    type VARCHAR(20) NOT NULL CHECK (type IN ('ShortTerm', 'LongTerm', 'Maternity', 'Accident', 'Other')), -- Loại nghỉ phép
+    start_date DATE NOT NULL, -- Ngày bắt đầu nghỉ
+    end_date DATE NOT NULL, -- Ngày kết thúc nghỉ
+    reason TEXT, -- Lý do chi tiết
+    comment TEXT, -- Bình luận bổ sung từ Manager
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'approved', 'rejected')),
+    confirmed_by INT, -- Manager xác nhận (FK tới tbUser)
+    approved_by INT, -- Factory Manager duyệt (FK tới tbUser)
+    reject_reason TEXT, -- Lý do từ chối
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+    CONSTRAINT FK_LeaveRequest_User FOREIGN KEY (user_id) REFERENCES tbUser(user_id) ON DELETE CASCADE,
+    CONSTRAINT FK_LeaveRequest_Reason FOREIGN KEY (leave_reason_id) REFERENCES tbLeaveReason(leave_reason_id) ON DELETE NO ACTION,
+    CONSTRAINT FK_LeaveRequest_ConfirmedBy FOREIGN KEY (confirmed_by) REFERENCES tbUser(user_id) ON DELETE SET NULL,
+    CONSTRAINT FK_LeaveRequest_ApprovedBy FOREIGN KEY (approved_by) REFERENCES tbUser(user_id) ON DELETE SET NULL,
+    INDEX idx_user_status NONCLUSTERED (user_id, status) -- Index để tối ưu truy vấn đơn theo user_id và status
+);
+GO
+
+-- 9. Proposal: đề xuất (tăng lương, thay đổi vị trí, bậc tay nghề)
+CREATE TABLE tbProposal (
+    proposal_id INT IDENTITY(2024101,1) PRIMARY KEY,
+    type VARCHAR(30) NOT NULL CHECK (type IN ('SalaryIncrease', 'PositionChange', 'SkillLevelChange')), -- Loại đề xuất
+    proposer_id INT NOT NULL, -- Người đề xuất (FK tới tbUser)
+    target_user_id INT NOT NULL, -- Nhân viên mục tiêu (FK tới tbUser)
+    details NVARCHAR(MAX), -- Chi tiết: {increase: 250000, new_role_id: 2, new_department_id: 3, new_salary: 10000000}
+    reason TEXT, -- Lý do đề xuất
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'approved', 'rejected')),
+    approved_by INT, -- Factory Director duyệt (FK tới tbUser)
+    reject_reason TEXT, -- Lý do từ chối
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+    CONSTRAINT FK_Proposal_Proposer FOREIGN KEY (proposer_id) REFERENCES tbUser(user_id) ON DELETE CASCADE,
+    CONSTRAINT FK_Proposal_Target FOREIGN KEY (target_user_id) REFERENCES tbUser(user_id) ON DELETE CASCADE,
+    CONSTRAINT FK_Proposal_ApprovedBy FOREIGN KEY (approved_by) REFERENCES tbUser(user_id) ON DELETE SET NULL,
+    INDEX idx_target_status NONCLUSTERED (target_user_id, status) -- Index để tối ưu truy vấn đề xuất
+);
+GO
+
+-- 10. OvertimeRequest: yêu cầu tăng ca
+CREATE TABLE tbOvertimeRequest (
+    request_id INT IDENTITY(2024101,1) PRIMARY KEY,
+    factory_manager_id INT NOT NULL, -- Factory Manager yêu cầu (FK tới tbUser)
+    department_id INT NOT NULL, -- Bộ phận (FK tới tbDepartment)
+    overtime_time FLOAT NOT NULL, -- Thời gian tăng ca (ví dụ: ‘2.5')
+    num_employees INT NOT NULL, -- Số lượng nhân viên cần
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'processed')),
+    details TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+    CONSTRAINT FK_OvertimeRequest_Manager FOREIGN KEY (factory_manager_id) REFERENCES tbUser(user_id) ON DELETE CASCADE,
+    CONSTRAINT FK_OvertimeRequest_Department FOREIGN KEY (department_id) REFERENCES tbDepartment(department_id) ON DELETE CASCADE
+);
+GO
+
+-- 11. OvertimeTicket: phiếu tăng ca
+CREATE TABLE tbOvertimeTicket (
+    ticket_id INT IDENTITY(2024101,1) PRIMARY KEY,
+    manager_id INT NOT NULL, -- Manager lập phiếu (FK tới tbUser)
+    request_id INT, -- Yêu cầu tăng ca liên quan (FK tới tbOvertimeRequest, có thể NULL)
+    employee갑_list NVARCHAR(MAX) NOT NULL, -- Danh sách nhân viên: [user_id1, user_id2,...]
+    overtime_time DECIMAL(15,2) NOT NULL, -- Thời gian tăng ca
+    reason TEXT, -- Lý do tăng ca
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'approved', 'rejected')),
+    confirmed_by INT, -- Factory Manager xác nhận (FK tới tbUser)
+    approved_by INT, -- Factory Director duyệt (FK tới tbUser)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+    CONSTRAINT FK_OvertimeTicket_Manager FOREIGN KEY (manager_id) REFERENCES tbUser(user_id) ON DELETE CASCADE,
+    CONSTRAINT FK_OvertimeTicket_Request FOREIGN KEY (request_id) REFERENCES tbOvertimeRequest(request_id) ON DELETE SET NULL,
+    CONSTRAINT FK_OvertimeTicket_ConfirmedBy FOREIGN KEY (confirmed_by) REFERENCES tbUser(user_id) ON DELETE SET NULL,
+    CONSTRAINT FK_OvertimeTicket_ApprovedBy FOREIGN KEY (approved_by) REFERENCES tbUser(user_id) ON DELETE SET NULL
+);
+GO
+
+-- 12. Production: dữ liệu sản phẩm cho lương sản phẩm
+CREATE TABLE tbProduction (
+    production_id INT IDENTITY(2024101,1) PRIMARY KEY,
+    user_id INT NOT NULL, -- Nhân viên (FK tới tbUser)
+    department_id INT NOT NULL, -- Bộ phận (FK tới tbDepartment)
+    product_count INT NOT NULL, -- Số lượng sản phẩm
+    date DATE NOT NULL, -- Ngày sản xuất
+    unit_price DECIMAL(15,1) DEFAULT 0, -- Giá đơn vị sản phẩm
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT FK_Production_User FOREIGN KEY (user_id) REFERENCES tbUser(user_id) ON DELETE CASCADE,
+    CONSTRAINT FK_Production_Department FOREIGN KEY (department_id) REFERENCES tbDepartment(department_id) ON DELETE CASCADE,
+    INDEX idx_user_date NONCLUSTERED (user_id, date) -- Index để tối ưu truy vấn sản phẩm
+);
+GO
+
+-- 13. Payroll: bảng lương hàng tháng
+CREATE TABLE tbPayroll (
+    payroll_id INT IDENTITY(2024101,1) PRIMARY KEY,
+    month DATE NOT NULL, -- Tháng lương (ví dụ: '2025-10-01')
+    department_id INT NOT NULL, -- Bộ phận (FK tới tbDepartment)
+    total_salary DECIMAL(12,2) NOT NULL, -- Tổng lương
+    details NVARCHAR(MAX), -- Chi tiết: {user_id: {time_salary: X, product_salary: Y, overtime_bonus: Z, deductions: W}}
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'balanced', 'approved', 'rejected')),
+    created_by INT NOT NULL, -- Factory Manager tạo (FK tới tbUser)
+    approved_by INT, -- Factory Director duyệt (FK tới tbUser)
+    balance_note TEXT, -- Ghi chú cân đối quỹ
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT FK_Payroll_Department FOREIGN KEY (department_id) REFERENCES tbDepartment(department_id) ON DELETE CASCADE,
+    CONSTRAINT FK_Payroll_CreatedBy FOREIGN KEY (created_by) REFERENCES tbUser(user_id) ON DELETE CASCADE,
+    CONSTRAINT FK_Payroll_ApprovedBy FOREIGN KEY (approved_by) REFERENCES tbUser(user_id) ON DELETE SET NULL,
+    INDEX idx_month_status NONCLUSTERED (month, status) -- Index để tối ưu truy vấn lương
+);
+GO
+
+-- 14. ReservedPayroll: lương bảo lưu
+CREATE TABLE tbReservedPayroll (
+    reserved_id INT IDENTITY(2024101,1) PRIMARY KEY,
+    payroll_id INT NOT NULL, -- Bảng lương liên quan (FK tới tbPayroll)
+    reserved_amount DECIMAL(12,2) NOT NULL, -- Số tiền bảo lưu
+    details NVARCHAR(MAX), -- Chi tiết: {user_id: amount}
+    created_by INT NOT NULL, -- Factory Director tạo (FK tới tbUser)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP, 
+    CONSTRAINT FK_ReservedPayroll_Payroll FOREIGN KEY (payroll_id) REFERENCES tbPayroll(payroll_id) ON DELETE CASCADE,
+    CONSTRAINT FK_ReservedPayroll_CreatedBy FOREIGN KEY (created_by) REFERENCES tbUser(user_id) ON DELETE CASCADE
+);
+GO
+
+-- 15. UserHistory: lịch sử thay đổi hồ sơ nhân viên
+CREATE TABLE tbUserHistory (
+    history_id INT IDENTITY(2024101,1) PRIMARY KEY,
+    user_id INT NOT NULL, -- Nhân viên (FK tới tbUser)
+    field_changed VARCHAR(100) NOT NULL, -- Trường thay đổi (base_salary, role_id,...)
+    old_value TEXT,
+    new_value TEXT,
+    updated_by INT NOT NULL, -- HR thực hiện (FK tới tbUser)
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT FK_UserHistory_User FOREIGN KEY (user_id) REFERENCES tbUser(user_id) ON DELETE CASCADE,
+    CONSTRAINT FK_UserHistory_UpdatedBy FOREIGN KEY (updated_by) REFERENCES tbUser(user_id) ON DELETE CASCADE
+);
+GO
+
+-- 16. Notification: thông báo
+CREATE TABLE tbNotification (
+    notification_id INT IDENTITY(2024101,1) PRIMARY KEY,
+    recipient_id INT NOT NULL, -- Người nhận (FK tới tbUser)
+    type VARCHAR(20) NOT NULL CHECK (type IN ('error', 'approval', 'rejection', 'other')), -- Loại thông báo
+    message TEXT NOT NULL,
+    sent_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(10) DEFAULT 'sent' CHECK (status IN ('sent', 'read')),
+    CONSTRAINT FK_Notification_Recipient FOREIGN KEY (recipient_id) REFERENCES tbUser(user_id) ON DELETE CASCADE
+);
+GO
+
+-- 17: Tự động cập nhật tbUser.status = 'Terminated' nếu nghỉ không phép quá 5 ngày
+CREATE TRIGGER check_unauthorized_leave
+ON tbLeaveRequest
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @user_id INT, @total_unauthorized_days INT;
+
+    -- Lấy user_id từ bản ghi bị update
+    SELECT @user_id = inserted.user_id
+    FROM inserted
+    WHERE inserted.status = 'rejected';
+
+    IF @user_id IS NOT NULL
+    BEGIN
+        -- Đếm tổng số ngày nghỉ không phép (rejected)
+        SELECT @total_unauthorized_days = SUM(DATEDIFF(DAY, lr.start_date, lr.end_date) + 1)
+        FROM tbLeaveRequest lr
+        WHERE lr.user_id = @user_id
+          AND lr.status = 'rejected'
+          AND DATEDIFF(DAY, lr.start_date, lr.end_date) + 1 > 0;
+
+        IF @total_unauthorized_days > 5
+        BEGIN
+            -- Cập nhật trạng thái nhân viên
+            UPDATE tbUser
+            SET status = 'Terminated'
+            WHERE user_id = @user_id;
+
+            -- Gửi thông báo tới HR
+            DECLARE @hr_user_id INT;
+            SELECT @hr_user_id = user_id 
+            FROM tbUser u
+            INNER JOIN tbRole r ON u.role_id = r.role_id
+            WHERE r.name = 'HR';
+
+            IF @hr_user_id IS NOT NULL
+            BEGIN
+                INSERT INTO tbNotification (recipient_id, type, message, status)
+                VALUES (
+                    @hr_user_id,
+                    'other',
+                    'Employee ' + CAST(@user_id AS VARCHAR(10)) + ' terminated due to unauthorized leave > 5 days',
+                    'sent'
+                );
+            END
+        END
+    END
+END;
+GO
