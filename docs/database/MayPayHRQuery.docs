@@ -1,9 +1,9 @@
 -- ms sql server
 
-CREATE DATABASE may_pay_hr;
+CREATE DATABASE MayPayHR;
 GO
 
-USE MayProHR;
+USE MayPayHR;
 GO
 
 -- =============================================
