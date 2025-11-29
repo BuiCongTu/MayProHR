@@ -42,8 +42,8 @@ public class OvertimeAppController {
     public ResponseEntity<?> respondToInvite(@RequestBody OvertimeResponseDTO body, Authentication authentication) {
         if (authentication == null) return ResponseEntity.status(401).build();
 
-        String phone = authentication.getName();
-        TbUser user = userService.findByPhone(phone).orElse(null);
+        String email = authentication.getName();
+        TbUser user = userService.findByEmail(email).orElse(null);
 
         if (user == null) return ResponseEntity.status(404).build();
 
