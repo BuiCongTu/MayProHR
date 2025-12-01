@@ -13,10 +13,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import fpt.aptech.springbootapp.dtos.request.UpdateProfileRequest;
 import fpt.aptech.springbootapp.dtos.request.Auth.ChangePassReq;
 import fpt.aptech.springbootapp.dtos.request.Auth.LoginReq;
 import fpt.aptech.springbootapp.dtos.request.Auth.RegisterReq;
+import fpt.aptech.springbootapp.dtos.request.UpdateProfileRequest;
 import fpt.aptech.springbootapp.dtos.response.LoginResponse;
 import fpt.aptech.springbootapp.dtos.response.UserResponseDto;
 import fpt.aptech.springbootapp.entities.Core.TbDepartment;
@@ -29,8 +29,8 @@ import fpt.aptech.springbootapp.repositories.DepartmentRepository;
 import fpt.aptech.springbootapp.repositories.LineRepository;
 import fpt.aptech.springbootapp.repositories.RoleRepository;
 import fpt.aptech.springbootapp.repositories.SkillLevelRepo;
-import fpt.aptech.springbootapp.repositories.UserRepository;
 import fpt.aptech.springbootapp.repositories.System.PassResetTokenRepo;
+import fpt.aptech.springbootapp.repositories.UserRepository;
 import fpt.aptech.springbootapp.securities.JwtUtils;
 
 @Service
@@ -482,5 +482,88 @@ public class UserServiceImp implements UserService {
 
         TbUser savedUser = userRepo.save(user);
         return buildUserResponseDto(savedUser);
+    }
+
+    @Override
+    public UserResponseDto findDuplicateUser(Integer departmentId, Integer parentLineId, Integer lineId,
+            Integer subLineId, Integer roleId) {
+        TbRole role = roleRepo.findById(roleId).orElse(null);
+        if (role == null) {
+            System.out.println("DEBUG: Role not found for roleId=" + roleId);
+            return null;
+        }
+
+        String roleName = role.getName();
+        System.out.println("DEBUG: findDuplicateUser - roleName=" + roleName + ", departmentId=" + departmentId);
+        List<TbUser> usersWithRole;
+
+        // Factory Director
+        if ("Factory Director".equals(roleName)) {
+            System.out.println("DEBUG: Checking Factory Director");
+            usersWithRole = userRepo.findAll().stream()
+                    .filter(u -> u.getRole() != null && u.getRole().getId().equals(roleId))
+                    .collect(Collectors.toList());
+            System.out.println("DEBUG: Found " + usersWithRole.size() + " Factory Director users");
+            if (!usersWithRole.isEmpty()) {
+                System.out.println("DEBUG: Returning first Factory Director: " + usersWithRole.get(0).getFullName());
+                return buildUserResponseDto(usersWithRole.get(0));
+            }
+            return null;
+        }
+
+        // HR
+        if ("HR".equals(roleName)) {
+            System.out.println("DEBUG: Checking HR");
+            usersWithRole = userRepo.findAll().stream()
+                    .filter(u -> u.getRole() != null && u.getRole().getId().equals(roleId))
+                    .collect(Collectors.toList());
+            System.out.println("DEBUG: Found " + usersWithRole.size() + " HR users");
+            if (!usersWithRole.isEmpty()) {
+                System.out.println("DEBUG: Returning first HR: " + usersWithRole.get(0).getFullName());
+                return buildUserResponseDto(usersWithRole.get(0));
+            }
+            return null;
+        }
+
+        if ("Factory Manager".equals(roleName)) {
+            System.out.println("DEBUG: Checking Factory Manager with departmentId=" + departmentId);
+            usersWithRole = userRepo.findAll().stream()
+                    .filter(u -> u.getRole() != null && u.getRole().getId().equals(roleId)
+                            && u.getDepartment() != null && u.getDepartment().getId().equals(departmentId))
+                    .collect(Collectors.toList());
+            System.out.println("DEBUG: Found " + usersWithRole.size() + " Factory Manager users in this department");
+            if (!usersWithRole.isEmpty()) {
+                System.out.println("DEBUG: Returning first Factory Manager: " + usersWithRole.get(0).getFullName());
+                return buildUserResponseDto(usersWithRole.get(0));
+            }
+            return null;
+        }
+
+
+        // Các role khác
+        usersWithRole = userRepo.findAll().stream()
+                .filter(u -> u.getRole() != null && u.getRole().getId().equals(roleId)
+                && u.getDepartment() != null && u.getDepartment().getId().equals(departmentId))
+                .collect(Collectors.toList());
+
+        for (TbUser user : usersWithRole) {
+
+            if ("Manager".equals(roleName) && parentLineId != null) {
+                if (user.getLine() != null && user.getLine().getId().equals(parentLineId)) {
+                    return buildUserResponseDto(user);
+                }
+            } else if (("Leader".equals(roleName) || "Assistant Leader".equals(roleName)) && lineId != null) {
+                if (user.getLine() != null && user.getLine().getId().equals(lineId)) {
+                    return buildUserResponseDto(user);
+                }
+            } // Worker không kiểm tra duplicate
+            else if ("Worker".equals(roleName)) {
+                continue;
+            } else if ("Admin".equals(roleName)) {
+                return buildUserResponseDto(user);
+            }
+        }
+
+        return null;
     }
 }

@@ -44,4 +44,6 @@ public interface UserService {
     UserResponseDto getUserByLoginId(String loginId);
 
     UserResponseDto updateUserProfile(String loginId, UpdateProfileRequest request);
+
+    UserResponseDto findDuplicateUser(Integer departmentId, Integer parentLineId, Integer lineId, Integer subLineId, Integer roleId);
 }

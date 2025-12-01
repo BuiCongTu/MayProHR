@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/auth_provider.dart';
 import '../overtime/my_overtime_screen.dart';
 
 class UserHome extends StatelessWidget {
+  const UserHome({super.key});
+
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
@@ -18,7 +21,7 @@ class UserHome extends StatelessWidget {
               Navigator.pop(context);
             },
             icon: const Icon(Icons.logout),
-          )
+          ),
         ],
       ),
       body: Container(
@@ -30,7 +33,9 @@ class UserHome extends StatelessWidget {
             Card(
               color: Colors.blue[50],
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
@@ -52,10 +57,13 @@ class UserHome extends StatelessWidget {
                         ),
                         Text(
                           auth.currentUser?["fullName"] ?? "Employee",
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
-                    )
+                    ),
                   ],
                 ),
               ),
@@ -77,14 +85,14 @@ class UserHome extends StatelessWidget {
                 children: [
                   // 1. Payroll Button (Placeholder logic based on your previous code)
                   _buildMenuCard(
-                      context,
-                      title: "Payroll",
-                      icon: Icons.monetization_on,
-                      color: Colors.blue,
-                      onTap: () {
-                        // Add navigation to your PayrollListScreen here if needed
-                        // Navigator.push(context, MaterialPageRoute(builder: (context) => PayrollListScreen(...)));
-                      }
+                    context,
+                    title: "Payroll",
+                    icon: Icons.monetization_on,
+                    color: Colors.blue,
+                    onTap: () {
+                      // Add navigation to your PayrollListScreen here if needed
+                      // Navigator.push(context, MaterialPageRoute(builder: (context) => PayrollListScreen(...)));
+                    },
                   ),
 
                   // 2. [NEW] Overtime Button
@@ -96,18 +104,20 @@ class UserHome extends StatelessWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const MyOvertimeScreen()),
+                        MaterialPageRoute(
+                          builder: (context) => const MyOvertimeScreen(),
+                        ),
                       );
                     },
                   ),
 
                   // 3. Attendance (Placeholder)
                   _buildMenuCard(
-                      context,
-                      title: "Attendance",
-                      icon: Icons.qr_code_scanner,
-                      color: Colors.purple,
-                      onTap: () {}
+                    context,
+                    title: "Attendance",
+                    icon: Icons.qr_code_scanner,
+                    color: Colors.purple,
+                    onTap: () {},
                   ),
                 ],
               ),
@@ -118,7 +128,13 @@ class UserHome extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuCard(BuildContext context, {required String title, required IconData icon, required Color color, required VoidCallback onTap}) {
+  Widget _buildMenuCard(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -137,7 +153,10 @@ class UserHome extends StatelessWidget {
               child: Icon(icon, size: 32, color: color),
             ),
             const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
           ],
         ),
       ),

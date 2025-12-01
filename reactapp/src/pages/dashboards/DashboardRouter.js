@@ -8,7 +8,7 @@ import ManagerDashboard from './ManagerDashboard';
 
 const DashboardRouter = () =>
 {
-  // Kiểm tra đăng nhập
+  // check authentication
   if (!isAuthenticated())
   {
     return <Navigate to="/login" replace />;
