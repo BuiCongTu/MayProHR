@@ -18,12 +18,16 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
 @Service
 public class OvertimeRequestServiceImpl implements OvertimeRequestService {
+
+    //config
+    private static final double MAX_DAILY_OT_HOURS = 4.0;
 
     private final OvertimeRequestRepository overtimeRequestRepository;
     private final DepartmentRepository departmentRepository;
@@ -82,6 +86,13 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
 
         if (!overtimeRequest.getEndTime().isAfter(overtimeRequest.getStartTime())) {
             throw new IllegalArgumentException("End time must be after Start time");
+        }
+
+        long minutes = Duration.between(overtimeRequest.getStartTime(), overtimeRequest.getEndTime()).toMinutes();
+        double durationInHours = minutes / 60.0;
+
+        if (durationInHours > MAX_DAILY_OT_HOURS) {
+            throw new IllegalArgumentException("Overtime duration (" + String.format("%.1f", durationInHours) + "h) exceeds the maximum allowed limit of " + MAX_DAILY_OT_HOURS + " hours per day.");
         }
 
         //default status is pending

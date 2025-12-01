@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from "react-router-dom";
-import { createOvertimeRequest } from '../../../services/moduleB/overtimeService';
-import { getAllDepartments, getLinesByDepartment } from "../../../services/departmentService";
-import { getCurrentUser } from "../../../services/authService";
+import React, {useState, useEffect} from 'react';
+import {useNavigate} from "react-router-dom";
+import {createOvertimeRequest} from '../../../services/moduleB/overtimeService';
+import {getAllDepartments, getLinesByDepartment} from "../../../services/departmentService";
+import {getCurrentUser} from "../../../services/authService";
 import ErrorPage from '../../ErrorPage';
 
 import {
@@ -25,6 +25,8 @@ import {
     Checkbox,
     Grid
 } from '@mui/material';
+
+const MAX_DAILY_OT_HOURS = 4.0;
 
 const filter = createFilterOptions({
     matchFrom: 'any',
@@ -57,6 +59,8 @@ function OvertimeRequestForm() {
     const [linesTableData, setLinesTableData] = useState([]);
     const [isSpecialDay, setIsSpecialDay] = useState(false);
 
+    const [timeError, setTimeError] = useState(null);
+
     // --- 2. DEFINE ALL EFFECTS NEXT ---
 
     // Effect 1: Load Departments
@@ -71,6 +75,7 @@ function OvertimeRequestForm() {
                 setError("Failed to fetch departments.");
             }
         }
+
         loadData();
     }, [isFactoryManager]);
 
@@ -97,6 +102,7 @@ function OvertimeRequestForm() {
                 setLinesTableData([]);
             }
         }
+
         fetchLines();
     }, [formData.departmentId, isFactoryManager]);
 
@@ -110,7 +116,7 @@ function OvertimeRequestForm() {
 
             // Reset to 17:00 if not special day
             if (!isSunday && formData.startTime !== '17:00') {
-                setFormData(prev => ({ ...prev, startTime: '17:00' }));
+                setFormData(prev => ({...prev, startTime: '17:00'}));
             }
         }
 
@@ -121,11 +127,20 @@ function OvertimeRequestForm() {
             const diffMs = end - start;
 
             if (diffMs <= 0) {
-                setFormData(prev => ({ ...prev, overtimeTime: 0 }));
+                setFormData(prev => ({...prev, overtimeTime: 0}));
+                setTimeError("End time must be after Start time.");
             } else {
                 const diffHours = diffMs / (1000 * 60 * 60);
                 const roundedHours = Math.round(diffHours * 100) / 100;
-                setFormData(prev => ({ ...prev, overtimeTime: roundedHours }));
+
+                setFormData(prev => ({...prev, overtimeTime: roundedHours}));
+
+                // --- CONSTRAINT CHECK ---
+                if (roundedHours > MAX_DAILY_OT_HOURS) {
+                    setTimeError(`Duration (${roundedHours}h) exceeds the maximum allowed limit of ${MAX_DAILY_OT_HOURS} hours.`);
+                } else {
+                    setTimeError(null);
+                }
             }
         }
     }, [formData.overtimeDate, formData.startTime, formData.endTime]);
@@ -134,8 +149,8 @@ function OvertimeRequestForm() {
     // --- 3. HANDLERS ---
 
     const handleMainChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        const {name, value} = e.target;
+        setFormData(prev => ({...prev, [name]: value}));
     };
 
     const handleLineCheckbox = (index) => {
@@ -154,7 +169,7 @@ function OvertimeRequestForm() {
 
     const handleSelectAll = (event) => {
         const isChecked = event.target.checked;
-        const newData = linesTableData.map(row => ({ ...row, isSelected: isChecked }));
+        const newData = linesTableData.map(row => ({...row, isSelected: isChecked}));
         setLinesTableData(newData);
     };
 
@@ -220,21 +235,22 @@ function OvertimeRequestForm() {
     // --- 5. MAIN RENDER ---
     return (
         <Container maxWidth="md">
-            <Paper elevation={3} sx={{ p: 4, mt: 4, borderRadius: 2 }}>
+            <Paper elevation={3} sx={{p: 4, mt: 4, borderRadius: 2}}>
                 <Typography variant="h5" component="h1" gutterBottom color="primary" fontWeight="bold">
                     Create Overtime Request
                 </Typography>
 
-                <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <Box component="form" onSubmit={handleSubmit}
+                     sx={{mt: 2, display: 'flex', flexDirection: 'column', gap: 3}}>
 
-                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                    <Box sx={{display: 'flex', gap: 2, flexWrap: 'wrap'}}>
                         <TextField
                             label="Factory Manager ID"
                             name="factoryManagerId"
                             value={formData.factoryManagerId}
                             disabled
-                            InputProps={{ readOnly: true }}
-                            sx={{ flex: 1, bgcolor: '#f5f5f5' }}
+                            InputProps={{readOnly: true}}
+                            sx={{flex: 1, bgcolor: '#f5f5f5'}}
                         />
                         <Autocomplete
                             id="department-select"
@@ -243,11 +259,11 @@ function OvertimeRequestForm() {
                             filterOptions={filter}
                             value={departments.find(dept => dept.id === formData.departmentId) || null}
                             onChange={(event, newValue) => {
-                                setFormData(prev => ({ ...prev, departmentId: newValue ? newValue.id : '' }));
+                                setFormData(prev => ({...prev, departmentId: newValue ? newValue.id : ''}));
                             }}
-                            sx={{ flex: 2 }}
+                            sx={{flex: 2}}
                             renderInput={(params) => (
-                                <TextField {...params} label="Department" required error={!departments.length} />
+                                <TextField {...params} label="Department" required error={!departments.length}/>
                             )}
                         />
                     </Box>
@@ -263,7 +279,7 @@ function OvertimeRequestForm() {
                                 onChange={handleMainChange}
                                 required
                                 fullWidth
-                                InputLabelProps={{ shrink: true }}
+                                InputLabelProps={{shrink: true}}
                             />
                         </Grid>
                         <Grid item xs={12} sm={3}>
@@ -276,7 +292,7 @@ function OvertimeRequestForm() {
                                 required
                                 fullWidth
                                 disabled={!isSpecialDay}
-                                InputLabelProps={{ shrink: true }}
+                                InputLabelProps={{shrink: true}}
                                 helperText={!isSpecialDay ? "Fixed (Mon-Sat)" : "Editable (Sunday)"}
                             />
                         </Grid>
@@ -289,7 +305,7 @@ function OvertimeRequestForm() {
                                 onChange={handleMainChange}
                                 required
                                 fullWidth
-                                InputLabelProps={{ shrink: true }}
+                                InputLabelProps={{shrink: true}}
                             />
                         </Grid>
                         <Grid item xs={12} sm={2}>
@@ -298,9 +314,10 @@ function OvertimeRequestForm() {
                                 value={formData.overtimeTime}
                                 fullWidth
                                 disabled
+                                error={!!timeError}
                                 sx={{
                                     "& .MuiInputBase-input.Mui-disabled": {
-                                        WebkitTextFillColor: "#000000",
+                                        WebkitTextFillColor: !!timeError ? "red" : "#000000",
                                         backgroundColor: "#f5f5f5"
                                     }
                                 }}
@@ -308,12 +325,19 @@ function OvertimeRequestForm() {
                         </Grid>
                     </Grid>
 
-                    <Typography variant="h6" sx={{ mt: 1 }}>
+                    {/* --- NEW WARNING ALERT --- */}
+                    {timeError && (
+                        <Alert severity="error" sx={{mt: -2}}>
+                            {timeError}
+                        </Alert>
+                    )}
+
+                    <Typography variant="h6" sx={{mt: 1}}>
                         Select Lines & Headcount
                     </Typography>
 
                     {linesTableData.length > 0 ? (
-                        <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 400 }}>
+                        <TableContainer component={Paper} variant="outlined" sx={{maxHeight: 400}}>
                             <Table stickyHeader size="small">
                                 <TableHead>
                                     <TableRow>
@@ -346,7 +370,7 @@ function OvertimeRequestForm() {
                                                     value={row.numEmployees}
                                                     onChange={(e) => handleLineQuantity(index, e.target.value)}
                                                     disabled={!row.isSelected}
-                                                    inputProps={{ min: "1" }}
+                                                    inputProps={{min: "1"}}
                                                     fullWidth
                                                     error={row.isSelected && (!row.numEmployees || row.numEmployees <= 0)}
                                                 />
@@ -383,10 +407,10 @@ function OvertimeRequestForm() {
                         type="submit"
                         variant="contained"
                         size="large"
-                        disabled={loading || totalEmployees === 0}
-                        sx={{ py: 1.5, fontWeight: 'bold' }}
+                        disabled={loading || totalEmployees === 0 || !!timeError}
+                        sx={{py: 1.5, fontWeight: 'bold'}}
                     >
-                        {loading ? <CircularProgress size={26} /> : 'Submit Overtime Request'}
+                        {loading ? <CircularProgress size={26}/> : 'Submit Overtime Request'}
                     </Button>
                 </Box>
             </Paper>

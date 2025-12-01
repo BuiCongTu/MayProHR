@@ -51,4 +51,15 @@ public interface OvertimeTicketRepository extends JpaRepository<TbOvertimeTicket
                                  @Param("date") LocalDate date,
                                  @Param("startTime") LocalTime startTime,
                                  @Param("endTime") LocalTime endTime);
+
+    @Query("SELECT COALESCE(SUM(r.overtimeTime), 0) FROM TbOvertimeTicketEmployee ote " +
+            "JOIN ote.overtimeTicket t " +
+            "JOIN t.overtimeRequest r " +
+            "WHERE ote.employee.id = :employeeId " +
+            "AND r.overtimeDate BETWEEN :startDate AND :endDate " +
+            "AND t.status != 'rejected' " +
+            "AND ote.status != 'rejected'")
+    Double getWeeklyOvertimeHours(@Param("employeeId") Integer employeeId,
+                                  @Param("startDate") LocalDate startDate,
+                                  @Param("endDate") LocalDate endDate);
 }

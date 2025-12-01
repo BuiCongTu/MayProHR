@@ -1,5 +1,6 @@
 package fpt.aptech.springbootapp.api.ModuleB;
 
+import fpt.aptech.springbootapp.dtos.ModuleB.AvailabilityCheckDTO;
 import fpt.aptech.springbootapp.dtos.ModuleB.OvertimeTicketCreateDTO;
 import fpt.aptech.springbootapp.dtos.ModuleB.OvertimeTicketDTO;
 import fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeTicket;
@@ -12,6 +13,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/overtime-ticket")
@@ -84,6 +87,16 @@ public class OvertimeTicketController {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body("Error: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/check-availability")
+    public ResponseEntity<List<AvailabilityCheckDTO.Response>> checkAvailability(@RequestBody AvailabilityCheckDTO.Request request) {
+        try {
+            List<AvailabilityCheckDTO.Response> results = overtimeTicketService.checkAvailability(request);
+            return ResponseEntity.ok(results);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
         }
     }
 }
