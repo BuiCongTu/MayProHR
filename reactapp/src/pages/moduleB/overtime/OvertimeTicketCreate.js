@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getFilteredOvertimeRequest, createOvertimeTicket } from '../../../services/moduleB/overtimeService';
+import { getFilteredOvertimeRequest, createOvertimeTicket, checkEmployeeAvailability } from '../../../services/moduleB/overtimeService'; // Import new service
 import { getUsersByDepartment } from '../../../services/userService';
 import { getLinesByDepartment } from '../../../services/departmentService';
 import { getCurrentUser } from '../../../services/authService';
@@ -34,9 +34,13 @@ export default function OvertimeTicketCreate() {
     const [lines, setLines] = useState([]);
     const [allocations, setAllocations] = useState({});
 
+    // New State for Backend Availability Check
+    const [backendConflicts, setBackendConflicts] = useState(new Map()); // Map<empId, reason>
+
     // UI States
     const [loading, setLoading] = useState(false);
     const [loadingReq, setLoadingReq] = useState(true);
+    const [checkingAvailability, setCheckingAvailability] = useState(false); // Loading state for modal
     const [modalOpen, setModalOpen] = useState(false);
     const [currentEditingLine, setCurrentEditingLine] = useState(null);
     const [error, setError] = useState(null);
@@ -80,19 +84,13 @@ export default function OvertimeTicketCreate() {
 
                 // C. Determine Owned Lines
                 const owned = new Set();
-
-                // 1. Check User Session Profile
                 if (user.lineId) {
                     owned.add(user.lineId);
-                }
-                // 2. Check User Entity from List
-                else if (fetchedUsers && fetchedUsers.length > 0) {
+                } else if (fetchedUsers && fetchedUsers.length > 0) {
                     const myProfile = fetchedUsers.find(u => String(u.id) === String(user.id));
                     if (myProfile?.lineId) owned.add(myProfile.lineId);
                     else if (myProfile?.line?.id) owned.add(myProfile.line.id);
                 }
-
-                // 3. Fallback: Check Line Manager ID (Entity structure)
                 if (fetchedLines && Array.isArray(fetchedLines)) {
                     fetchedLines.forEach(l => {
                         const lineManagerId = l.manager?.id || l.managerId;
@@ -101,7 +99,6 @@ export default function OvertimeTicketCreate() {
                         }
                     });
                 }
-
                 setManagedLineIds(owned);
 
                 // D. Handle Pre-selection
@@ -141,7 +138,6 @@ export default function OvertimeTicketCreate() {
         return count;
     };
 
-    // Helper: Setup Lines State
     const setupLinesForRequest = (req) => {
         if (req) {
             const initialLines = req.lineDetails.map(d => ({
@@ -152,24 +148,50 @@ export default function OvertimeTicketCreate() {
             }));
             setLines(initialLines);
             setAllocations({});
+            setBackendConflicts(new Map()); // Reset conflicts when req changes
         } else {
             setLines([]);
             setAllocations({});
         }
     };
 
-    // Filter Logic: Only show lines managed by this user
     const visibleLines = lines.filter(l => managedLineIds.has(l.lineId));
 
-    // Handlers
     const handleRequestChange = (event, newValue) => {
         setSelectedRequest(newValue);
         setError(null);
         setupLinesForRequest(newValue);
     };
 
-    const openEmployeePicker = (line) => {
+    // --- MODIFIED: OPEN EMPLOYEE PICKER ---
+    const openEmployeePicker = async (line) => {
         setCurrentEditingLine(line);
+        setCheckingAvailability(true);
+
+        // 1. Identify which employees we need to check
+        const employeeIdsToCheck = deptEmployees.map(u => u.id);
+
+        if (selectedRequest && employeeIdsToCheck.length > 0) {
+            try {
+                // 2. Call API
+                const results = await checkEmployeeAvailability(selectedRequest.id, employeeIdsToCheck);
+
+                // 3. Process results into a Map
+                const conflictMap = new Map();
+                results.forEach(res => {
+                    if (!res.available) {
+                        conflictMap.set(res.employeeId, res.reason);
+                    }
+                });
+                setBackendConflicts(conflictMap);
+
+            } catch (err) {
+                console.error("Availability check failed", err);
+                // alert("Could not verify real-time availability. Proceeding with caution.");
+            }
+        }
+
+        setCheckingAvailability(false);
         setModalOpen(true);
     };
 
@@ -186,23 +208,30 @@ export default function OvertimeTicketCreate() {
 
     const getUnavailableEmployeesMap = (targetLineId) => {
         const unavailable = new Map();
+
+        // 1. Add Backend Conflicts
+        backendConflicts.forEach((reason, id) => {
+            unavailable.set(id, reason);
+        });
+
+        // 2. Add Frontend Conflicts
         Object.keys(allocations).forEach(lId => {
             const lineIdInt = parseInt(lId);
             if (lineIdInt !== targetLineId) {
                 const lineObj = lines.find(l => l.lineId === lineIdInt);
                 const lineName = lineObj ? lineObj.lineName : 'Other Line';
                 allocations[lId].forEach(u => {
-                    unavailable.set(u.id, `Assigned to ${lineName} (Draft)`);
+                    unavailable.set(u.id, `Assigned to ${lineName} (Current Draft)`);
                 });
             }
         });
+
         return unavailable;
     };
 
     const handleSubmit = async () => {
         if (!selectedRequest) return;
 
-        // Find lines that have allocations
         const activeAllocations = visibleLines
             .map(l => ({
                 lineId: l.lineId,
@@ -239,15 +268,13 @@ export default function OvertimeTicketCreate() {
     return (
         <Container maxWidth="lg" sx={{ mt: 4, mb: 8 }}>
             <Paper elevation={0} sx={{ p: 0, bgcolor: 'transparent' }}>
-                {/* Header */}
                 <Stack direction="row" alignItems="center" spacing={2} mb={3}>
-                    <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/overtime-ticket')} sx={{ color: 'text.secondary' }}>
+                    <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ color: 'text.secondary' }}>
                         Back
                     </Button>
                     <Typography variant="h5" fontWeight="bold" color="text.primary">Create Overtime Ticket</Typography>
                 </Stack>
 
-                {/* Section 1: Request Selection */}
                 <Paper elevation={2} sx={{ p: 3, mb: 4, borderRadius: 2 }}>
                     <Typography variant="subtitle2" color="primary" fontWeight="bold" gutterBottom>
                         STEP 1: SELECT REQUEST
@@ -278,7 +305,6 @@ export default function OvertimeTicketCreate() {
                     />
                 </Paper>
 
-                {/* Section 2: Management Table */}
                 {selectedRequest && (
                     <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
                         <Typography variant="subtitle2" color="primary" fontWeight="bold" gutterBottom>
@@ -301,94 +327,53 @@ export default function OvertimeTicketCreate() {
                                             const draftCount = (allocations[line.lineId] || []).length;
                                             const serverCount = line.serverAssigned;
                                             const totalRequired = line.numEmployees;
-
-                                            // STATIC VALUE: How many are available before this ticket
                                             const availableSlots = Math.max(0, totalRequired - serverCount);
-
-                                            // Validation: Are we exceeding?
                                             const isOverLimit = draftCount > availableSlots;
                                             const isQuotaFull = availableSlots === 0;
 
                                             return (
                                                 <TableRow key={line.lineId} hover>
-                                                    {/* Column 1: Line Info */}
                                                     <TableCell>
                                                         <Typography variant="body1" fontWeight="bold">{line.lineName}</Typography>
                                                         <Typography variant="caption" color="text.secondary">ID: {line.lineId}</Typography>
                                                     </TableCell>
 
-                                                    {/* Column 2: Status Chip */}
                                                     <TableCell>
                                                         {isQuotaFull ? (
-                                                            <Chip
-                                                                icon={<CheckCircleIcon fontSize="small"/>}
-                                                                label="Quota Full"
-                                                                color="success"
-                                                                size="small"
-                                                                variant="outlined"
-                                                            />
+                                                            <Chip icon={<CheckCircleIcon fontSize="small"/>} label="Quota Full" color="success" size="small" variant="outlined" />
                                                         ) : (
-                                                            <Chip
-                                                                label="Open"
-                                                                color="primary"
-                                                                size="small"
-                                                                variant="outlined"
-                                                            />
+                                                            <Chip label="Open" color="primary" size="small" variant="outlined" />
                                                         )}
                                                     </TableCell>
 
-                                                    {/* Column 3: Stats Overview (Fixed Numbers) */}
                                                     <TableCell>
                                                         <Stack direction="row" spacing={3} alignItems="center" divider={<Divider orientation="vertical" flexItem />}>
-
-                                                            {/* 1. REQUESTED */}
                                                             <Box sx={{ minWidth: 80 }}>
-                                                                <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.7rem' }}>
-                                                                    REQUESTED
-                                                                </Typography>
-                                                                <Typography variant="h6" fontWeight="bold">
-                                                                    {totalRequired}
-                                                                </Typography>
+                                                                <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.7rem' }}>REQUESTED</Typography>
+                                                                <Typography variant="h6" fontWeight="bold">{totalRequired}</Typography>
                                                             </Box>
-
-                                                            {/* 2. AVAILABLE */}
                                                             <Box sx={{ minWidth: 80 }}>
-                                                                <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.7rem' }}>
-                                                                    AVAILABLE
-                                                                </Typography>
-                                                                <Typography
-                                                                    variant="h6"
-                                                                    fontWeight="bold"
-                                                                    color={isQuotaFull ? "text.disabled" : "success.main"}
-                                                                >
-                                                                    {availableSlots}
-                                                                </Typography>
+                                                                <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.7rem' }}>AVAILABLE</Typography>
+                                                                <Typography variant="h6" fontWeight="bold" color={isQuotaFull ? "text.disabled" : "success.main"}>{availableSlots}</Typography>
                                                             </Box>
-
-                                                            {/* 3. SELECTED */}
                                                             <Box sx={{ minWidth: 80 }}>
-                                                                <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.7rem' }}>
-                                                                    SELECTED
-                                                                </Typography>
-                                                                <Typography
-                                                                    variant="h6"
-                                                                    fontWeight="bold"
-                                                                    color={isOverLimit ? "error.main" : "primary.main"}
-                                                                >
-                                                                    {draftCount}
-                                                                </Typography>
+                                                                <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.7rem' }}>SELECTED</Typography>
+                                                                <Typography variant="h6" fontWeight="bold" color={isOverLimit ? "error.main" : "primary.main"}>{draftCount}</Typography>
                                                             </Box>
                                                         </Stack>
                                                     </TableCell>
 
-                                                    {/* Column 4: Actions */}
                                                     <TableCell align="right">
                                                         <Button
                                                             variant={draftCount > 0 ? "outlined" : "contained"}
                                                             size="small"
-                                                            startIcon={draftCount > 0 ? <EditIcon /> : <PersonAddIcon />}
+                                                            startIcon={
+                                                                checkingAvailability && currentEditingLine?.lineId === line.lineId
+                                                                    ? <CircularProgress size={20} color="inherit" />
+                                                                    : (draftCount > 0 ? <EditIcon /> : <PersonAddIcon />)
+                                                            }
                                                             onClick={() => openEmployeePicker(line)}
-                                                            disabled={isQuotaFull && draftCount === 0}
+                                                            disabled={(isQuotaFull && draftCount === 0) || checkingAvailability}
                                                             color={isOverLimit ? "error" : "primary"}
                                                         >
                                                             {draftCount > 0 ? "Edit List" : "Add Staff"}
@@ -408,10 +393,9 @@ export default function OvertimeTicketCreate() {
 
                         {error && <Alert severity="error" sx={{ mt: 3, whiteSpace: 'pre-wrap' }}>{error}</Alert>}
 
-                        {/* Footer */}
                         {visibleLines.some(l => (allocations[l.lineId] || []).length > 0) && (
                             <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-                                <Button variant="text" color="inherit" onClick={() => navigate('/overtime-ticket')}>
+                                <Button variant="text" color="inherit" onClick={() => navigate(-1)}>
                                     Cancel
                                 </Button>
                                 <Button
@@ -437,7 +421,6 @@ export default function OvertimeTicketCreate() {
                 allEmployees={deptEmployees}
                 initialSelected={currentEditingLine ? (allocations[currentEditingLine.lineId] || []) : []}
                 unavailableEmployees={currentEditingLine ? getUnavailableEmployeesMap(currentEditingLine.lineId) : new Map()}
-                // Pass static available count so modal knows the limit
                 requestedCount={currentEditingLine ? Math.max(0, currentEditingLine.numEmployees - currentEditingLine.serverAssigned) : 0}
                 onSave={handleSaveAllocation}
             />

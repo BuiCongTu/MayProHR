@@ -114,7 +114,8 @@ public class SecurityConfig {
                         "/api/face-scan/**",
                         "/api/face-training/**",
                         "/api/attendance/**",
-                        "/api/leave/**"
+                        "/api/leave/**",
+                        "/api/app/overtime/**"
                 )
                 .authenticated()
                 // All other requests
