@@ -164,3 +164,17 @@ export async function createOvertimeTicket(ticketData) {
         throw err.response?.data || new Error('Failed to create ticket');
     }
 }
+
+export async function checkEmployeeAvailability(requestId, employeeIds) {
+    const API_URL = `${BASE_API}${OVERTIME_TICKET_API}check-availability`;
+    try {
+        const response = await axios.post(API_URL, {
+            requestId: requestId,
+            employeeIds: employeeIds
+        });
+        return response.data;
+    } catch (err) {
+        console.error("Failed to check availability:", err);
+        throw err.response?.data || new Error('Failed to check availability');
+    }
+}

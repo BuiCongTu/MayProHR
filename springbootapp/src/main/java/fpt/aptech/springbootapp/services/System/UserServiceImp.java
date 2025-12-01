@@ -70,7 +70,22 @@ public class UserServiceImp implements UserService {
 
     @Override
     @Transactional
-    public String register(RegisterReq registerReq) {
+    public String register(RegisterReq registerReq, String currentUserEmail) {
+        if (currentUserEmail != null && !currentUserEmail.isEmpty()) {
+            Optional<TbUser> currentUserOpt = userRepo.findByEmail(currentUserEmail);
+            if (currentUserOpt.isPresent()) {
+                TbUser currentUser = currentUserOpt.get();
+                String currentUserRole = currentUser.getRole().getName();
+                String requestedRoleName = roleRepo.findById(registerReq.getRoleId())
+                        .map(TbRole::getName)
+                        .orElse("Unknown");
+
+                if (!hasPermissionToRegisterRole(currentUserRole, requestedRoleName)) {
+                    throw new RuntimeException("Permission denied: You cannot register a user with role '" + requestedRoleName + "'");
+                }
+            }
+        }
+
         if (userRepo.findByEmail(registerReq.getEmail()).isPresent()) {
             throw new RuntimeException("Email already exists");
         }
@@ -171,6 +186,25 @@ public class UserServiceImp implements UserService {
         // Return token
         System.out.println("User registered successfully: " + savedUser.getId());
         return token;
+    }
+
+    private boolean hasPermissionToRegisterRole(String currentUserRole, String targetRole) {
+        // Admin can register anyone except Admin
+        if ("Admin".equals(currentUserRole)) {
+            return !"Admin".equals(targetRole);
+        }
+
+        // HR can only register specific roles
+        if ("HR".equals(currentUserRole)) {
+            return targetRole.matches("Factory Manager|Manager|Leader|Assistant Leader|Worker");
+        }
+
+        // Admin can create Factory Director
+        if ("Factory Director".equals(currentUserRole)) {
+            return false;
+        }
+
+        return false;
     }
 
     @Override
@@ -329,7 +363,7 @@ public class UserServiceImp implements UserService {
 
     @Override
     @Transactional
-    public void forgotPassword(String emailOrPhone, String verificationMethod) {
+    public String forgotPassword(String emailOrPhone, String verificationMethod) {
         TbUser user = null;
         String contactValue = emailOrPhone;
 
@@ -371,6 +405,8 @@ public class UserServiceImp implements UserService {
         } catch (Exception e) {
             System.out.println("Failed to send OTP: " + e.getMessage());
         }
+
+        return newToken;
     }
 
     @Override
@@ -446,5 +482,88 @@ public class UserServiceImp implements UserService {
 
         TbUser savedUser = userRepo.save(user);
         return buildUserResponseDto(savedUser);
+    }
+
+    @Override
+    public UserResponseDto findDuplicateUser(Integer departmentId, Integer parentLineId, Integer lineId,
+            Integer subLineId, Integer roleId) {
+        TbRole role = roleRepo.findById(roleId).orElse(null);
+        if (role == null) {
+            System.out.println("DEBUG: Role not found for roleId=" + roleId);
+            return null;
+        }
+
+        String roleName = role.getName();
+        System.out.println("DEBUG: findDuplicateUser - roleName=" + roleName + ", departmentId=" + departmentId);
+        List<TbUser> usersWithRole;
+
+        // Factory Director
+        if ("Factory Director".equals(roleName)) {
+            System.out.println("DEBUG: Checking Factory Director");
+            usersWithRole = userRepo.findAll().stream()
+                    .filter(u -> u.getRole() != null && u.getRole().getId().equals(roleId))
+                    .collect(Collectors.toList());
+            System.out.println("DEBUG: Found " + usersWithRole.size() + " Factory Director users");
+            if (!usersWithRole.isEmpty()) {
+                System.out.println("DEBUG: Returning first Factory Director: " + usersWithRole.get(0).getFullName());
+                return buildUserResponseDto(usersWithRole.get(0));
+            }
+            return null;
+        }
+
+        // HR
+        if ("HR".equals(roleName)) {
+            System.out.println("DEBUG: Checking HR");
+            usersWithRole = userRepo.findAll().stream()
+                    .filter(u -> u.getRole() != null && u.getRole().getId().equals(roleId))
+                    .collect(Collectors.toList());
+            System.out.println("DEBUG: Found " + usersWithRole.size() + " HR users");
+            if (!usersWithRole.isEmpty()) {
+                System.out.println("DEBUG: Returning first HR: " + usersWithRole.get(0).getFullName());
+                return buildUserResponseDto(usersWithRole.get(0));
+            }
+            return null;
+        }
+
+        if ("Factory Manager".equals(roleName)) {
+            System.out.println("DEBUG: Checking Factory Manager with departmentId=" + departmentId);
+            usersWithRole = userRepo.findAll().stream()
+                    .filter(u -> u.getRole() != null && u.getRole().getId().equals(roleId)
+                            && u.getDepartment() != null && u.getDepartment().getId().equals(departmentId))
+                    .collect(Collectors.toList());
+            System.out.println("DEBUG: Found " + usersWithRole.size() + " Factory Manager users in this department");
+            if (!usersWithRole.isEmpty()) {
+                System.out.println("DEBUG: Returning first Factory Manager: " + usersWithRole.get(0).getFullName());
+                return buildUserResponseDto(usersWithRole.get(0));
+            }
+            return null;
+        }
+
+
+        // Các role khác
+        usersWithRole = userRepo.findAll().stream()
+                .filter(u -> u.getRole() != null && u.getRole().getId().equals(roleId)
+                && u.getDepartment() != null && u.getDepartment().getId().equals(departmentId))
+                .collect(Collectors.toList());
+
+        for (TbUser user : usersWithRole) {
+
+            if ("Manager".equals(roleName) && parentLineId != null) {
+                if (user.getLine() != null && user.getLine().getId().equals(parentLineId)) {
+                    return buildUserResponseDto(user);
+                }
+            } else if (("Leader".equals(roleName) || "Assistant Leader".equals(roleName)) && lineId != null) {
+                if (user.getLine() != null && user.getLine().getId().equals(lineId)) {
+                    return buildUserResponseDto(user);
+                }
+            } // Worker không kiểm tra duplicate
+            else if ("Worker".equals(roleName)) {
+                continue;
+            } else if ("Admin".equals(roleName)) {
+                return buildUserResponseDto(user);
+            }
+        }
+
+        return null;
     }
 }

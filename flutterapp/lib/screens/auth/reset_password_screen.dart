@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+
 import '../../services/auth_service.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   final String phone;
   final String otp;
 
-  ResetPasswordScreen({required this.phone, required this.otp});
+  const ResetPasswordScreen({
+    super.key,
+    required this.phone,
+    required this.otp,
+  });
 
   @override
   State<ResetPasswordScreen> createState() => _ResetPasswordState();

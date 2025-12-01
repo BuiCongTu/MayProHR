@@ -1,5 +1,6 @@
 package fpt.aptech.springbootapp.services.interfaces;
 
+import fpt.aptech.springbootapp.dtos.ModuleB.AvailabilityCheckDTO;
 import fpt.aptech.springbootapp.dtos.ModuleB.Mobile.OvertimeInviteDTO;
 import fpt.aptech.springbootapp.dtos.ModuleB.OvertimeTicketCreateDTO;
 import fpt.aptech.springbootapp.dtos.ModuleB.OvertimeTicketDTO;
@@ -26,4 +27,6 @@ public interface OvertimeTicketService {
 
     List<OvertimeInviteDTO> getMobileInvites(Integer userId);
     void respondToInvite(Integer userId, Integer ticketId, String status);
+
+    List<AvailabilityCheckDTO.Response> checkAvailability(AvailabilityCheckDTO.Request request);
 }

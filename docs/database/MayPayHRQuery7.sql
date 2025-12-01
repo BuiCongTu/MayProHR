@@ -1042,3 +1042,16 @@ SELECT * FROM tbPasswordResetToken--21
 SELECT * FROM tb_face_training--22
 SELECT * FROM tb_face_scan_log--23
 
+
+
+
+
+
+INSERT INTO tbUser 
+(full_name, email, password_hash, phone, gender, role_id, department_id, line_id, salary_type, base_salary, skill_level_id, hire_date)
+VALUES
+('Manager Operations 2', 'manager2.operations@maypro.com','$2a$10$jcw0c1yYkDzTO4XTg/kTmeD3UggCAaQwpw1v1R76VMupvQMwelxwq','09000000033', 0,
+ (SELECT role_id FROM tbRole WHERE name = 'Manager'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
+(SELECT line_id FROM tbLine WHERE name = 'Operations/ Vận hành'),
+'TimeBased', 25000000,(SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 4'), '2002-02-01')
+GO

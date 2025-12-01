@@ -1,3 +1,17 @@
+----29/11/2025
+
+sử dụng 2 API này đủ rồi
+
+OK -  GET http://localhost:9999/api/lines/root/1005 lấy theo department_id
+OK -  GET http://localhost:9999/api/lines/children/1002 -> Lấy theo parent_id
+khi cần lấy tất cả thì:
+OK -  GET http://localhost:9999/api/lines/department/1005 -> Lấy tất cả line_id của dept 1005
+--------------------------------------------------
+
+
+
+
+
 MayPayHR/
 │
 ├── .idea/                                  # IntelliJ IDEA config
@@ -553,15 +567,7 @@ GET http://localhost:9999/api/proposal/skill-level
 
 POST /api/face-training/train: Train gương mặt
 
-----28/11/2025
-GET /api/lines/department/1 -> Lấy tất cả lines của dept 1
-GET /api/lines/hierarchy/1 -> Lấy toàn bộ cấu trúc phân cấp dept 1 (theo level) |
-GET /api/lines/tree/1 -> Lấy cây phân cấp hoàn chỉnh (with children) |
-GET /api/lines/root/1 -> Lấy tất cả root lines (level 1) của dept 1 |
-GET /api/lines/children/5 -> Lấy các sub section/work unit của line 5 |
-GET /api/lines/path/12 -> Lấy đường dẫn từ root → line 12 |
-GET /api/lines/ancestors/12 -> Lấy tất cả parent của line 12 |
-GET /api/lines/by-level/1/2 -> Lấy tất cả Sub Sections (level 2) của dept 1 |
+
 
 
 ngày 28/11/2025:

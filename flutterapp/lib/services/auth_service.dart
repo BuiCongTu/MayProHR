@@ -7,25 +7,34 @@ class AuthService {
   static const tokenKey = "jwt_token";
   static const roleKey = "role";
 
-  /// Login
+  //// Login
   static Future<Map<String, dynamic>?> login(String phone, String password) async {
     final url = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.loginEndpoint}');
     try {
       final response = await http.post(url,
           headers: {"Content-Type": "application/json"},
-          body: jsonEncode({"phone": phone, "password": password}));
+          body: jsonEncode({"loginId": phone, "password": password}));
 
       if (response.statusCode == 200) {
-        final token = response.body; // backend trả token dạng string
-        final userResponse = await getCurrentUser(phone, token);
+        final responseData = jsonDecode(response.body);
 
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(tokenKey, token);
-        await prefs.setString(roleKey, userResponse["roleName"] ?? "User");
+        if (responseData['success'] == true && responseData['data'] != null) {
+          final token = responseData['data']['token'] as String;
+          final userData = responseData['data']['user'] as Map<String, dynamic>;
 
-        return {"token": token, "role": userResponse["roleName"]};
+          final roleName = userData["roleName"] as String? ?? "User";
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(tokenKey, token);
+          await prefs.setString(roleKey, roleName);
+
+          return {"token": token, "role": roleName};
+        } else {
+          return {"error": responseData["message"] ?? "Login failed due to server logic."};
+        }
       } else {
-        return {"error": response.body};
+        final errorData = jsonDecode(response.body);
+        return {"error": errorData["message"] ?? "Login failed with status code ${response.statusCode}"};
       }
     } catch (e) {
       return {"error": e.toString()};
@@ -33,19 +42,29 @@ class AuthService {
   }
 
   /// Get current user info
-  static Future<Map<String, dynamic>> getCurrentUser(String phone, String token) async {
-    final url = Uri.parse('${ApiConfig.baseUrl}/api/auth/getemp/$phone');
-    final response = await http.get(url, headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer $token",
-    });
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception("Failed to fetch user info");
-    }
-  }
+  // static Future<Map<String, dynamic>> getCurrentUser(String phone, String token) async {
+  //   final url = Uri.parse('${ApiConfig.baseUrl}/api/auth/getemp/$phone');
+  //   final response = await http.get(url, headers: {
+  //     "Content-Type": "application/json",
+  //     "Authorization": "Bearer $token",
+  //   });
+  //
+  //   if (response.statusCode == 200) {
+  //     final responseData = jsonDecode(response.body);
+  //     final token = responseData['data']['token'] as String;
+  //
+  //     // Now pass the CLEAN token to the getCurrentUser method
+  //     final userResponse = await getCurrentUser(phone, token);
+  //
+  //     final prefs = await SharedPreferences.getInstance();
+  //     await prefs.setString(tokenKey, token);
+  //     await prefs.setString(roleKey, userResponse["roleName"] ?? "User");
+  //
+  //     return {"token": token, "role": userResponse["roleName"]};
+  //   } else {
+  //     throw Exception("Failed to fetch user info");
+  //   }
+  // }
 
   /// Register
   static Future<bool> register(String phone, String password, String fullName) async {

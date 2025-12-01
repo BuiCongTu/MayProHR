@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+
 import '../../services/auth_service.dart';
 
 class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
+
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
@@ -41,25 +44,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
               onPressed: loading
                   ? null
                   : () async {
-                setState(() => loading = true);
-                bool ok = await AuthService.register(
-                  phoneCtrl.text.trim(),
-                  passCtrl.text.trim(),
-                  nameCtrl.text.trim(),
-                );
-                setState(() => loading = false);
+                      setState(() => loading = true);
+                      bool ok = await AuthService.register(
+                        phoneCtrl.text.trim(),
+                        passCtrl.text.trim(),
+                        nameCtrl.text.trim(),
+                      );
+                      setState(() => loading = false);
 
-                if (ok) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Register success!")),
-                  );
-                  Navigator.pop(context);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Register failed")),
-                  );
-                }
-              },
+                      if (ok) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Register success!")),
+                        );
+                        Navigator.pop(context);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Register failed")),
+                        );
+                      }
+                    },
               child: loading ? CircularProgressIndicator() : Text("Register"),
             ),
           ],

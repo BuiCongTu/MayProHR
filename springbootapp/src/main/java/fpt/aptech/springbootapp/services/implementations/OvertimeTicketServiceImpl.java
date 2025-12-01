@@ -1,5 +1,6 @@
 package fpt.aptech.springbootapp.services.implementations;
 
+import fpt.aptech.springbootapp.dtos.ModuleB.AvailabilityCheckDTO;
 import fpt.aptech.springbootapp.dtos.ModuleB.LineAllocationDTO;
 import fpt.aptech.springbootapp.dtos.ModuleB.Mobile.OvertimeInviteDTO;
 import fpt.aptech.springbootapp.dtos.ModuleB.OvertimeTicketCreateDTO;
@@ -28,7 +29,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.Time;
+import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -36,6 +41,9 @@ import java.util.stream.Collectors;
 
 @Service
 public class OvertimeTicketServiceImpl implements OvertimeTicketService {
+
+    //config
+    private static final double MAX_WEEKLY_OT_HOURS = 12.0;
 
     private final OvertimeTicketRepository overtimeTicketRepository;
     private final UserRepository userRepository;
@@ -147,6 +155,10 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
             throw new IllegalArgumentException("Cannot create ticket: The Request is not Open for submissions.");
         }
 
+        LocalDate requestDate = request.getOvertimeDate();
+        LocalDate startOfWeek = requestDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate endOfWeek = requestDate.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+
         // 3. Create Ticket Object
         TbOvertimeTicket ticket = new TbOvertimeTicket();
         ticket.setManager(manager);
@@ -219,6 +231,20 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                     throw new IllegalArgumentException(String.format(
                             "Conflict: %s is already scheduled for overtime during this time slot (%s - %s on %s).",
                             name, request.getStartTime(), request.getEndTime(), request.getOvertimeDate()
+                    ));
+                }
+
+                Double currentWeeklyHours = overtimeTicketRepository.getWeeklyOvertimeHours(empId, startOfWeek, endOfWeek);
+                if (currentWeeklyHours == null) currentWeeklyHours = 0.0;
+
+                double potentialTotalHours = currentWeeklyHours + request.getOvertimeTime();
+
+                if (potentialTotalHours > MAX_WEEKLY_OT_HOURS) {
+                    TbUser otUser = userRepository.findById(empId).orElse(null);
+                    String empName = otUser != null ? otUser.getFullName() : ("ID " + empId);
+                    throw new IllegalArgumentException(String.format(
+                            "Overtime Limit Exceeded: %s has already worked %.1f OT hours this week. Adding %.1f hours would exceed the limit of %.1f hours.",
+                            empName, currentWeeklyHours, request.getOvertimeTime(), MAX_WEEKLY_OT_HOURS
                     ));
                 }
 
@@ -305,5 +331,78 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid status. Use 'accepted' or 'rejected'.");
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AvailabilityCheckDTO.Response> checkAvailability(AvailabilityCheckDTO.Request requestDto) {
+        List<AvailabilityCheckDTO.Response> results = new ArrayList<>();
+
+        // 1. Fetch Request Details
+        TbOvertimeRequest request = overtimeRequestRepository.findById(requestDto.getRequestId())
+                .orElseThrow(() -> new IllegalArgumentException("Request not found"));
+
+        LocalDate requestDate = request.getOvertimeDate();
+        LocalDate startOfWeek = requestDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate endOfWeek = requestDate.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+
+        // 2. Loop through each employee to validate
+        for (Integer empId : requestDto.getEmployeeIds()) {
+            AvailabilityCheckDTO.Response response = new AvailabilityCheckDTO.Response();
+            response.setEmployeeId(empId);
+            response.setAvailable(true); // Default to true
+
+            try {
+                // CHECK A: Is already in this Request?
+                if (overtimeTicketRepository.isEmployeeAlreadyAssigned(request.getId(), empId)) {
+                    response.setAvailable(false);
+                    response.setReason("Already added to this request");
+                    results.add(response);
+                    continue;
+                }
+
+                // CHECK B: Global Time Conflict (Same time, different request)
+                if (overtimeTicketRepository.existsGlobalTimeConflict(
+                        empId, requestDate, request.getStartTime(), request.getEndTime()) > 0) {
+                    response.setAvailable(false);
+                    response.setReason("Time conflict with another ticket");
+                    results.add(response);
+                    continue;
+                }
+
+                // CHECK C: Weekly Hour Limit (12h)
+                Double currentWeeklyHours = overtimeTicketRepository.getWeeklyOvertimeHours(empId, startOfWeek, endOfWeek);
+                if (currentWeeklyHours == null) currentWeeklyHours = 0.0;
+
+                double potentialTotal = currentWeeklyHours + request.getOvertimeTime();
+
+                if (potentialTotal > MAX_WEEKLY_OT_HOURS) {
+                    response.setAvailable(false);
+                    String msg = String.format("Weekly limit: %.1f/%.0fh", currentWeeklyHours, MAX_WEEKLY_OT_HOURS);
+                    response.setReason(msg);
+                    results.add(response);
+                    continue;
+                }
+
+                //add this when leave request is ready
+//                if (leaveRequestRepository.hasApprovedLeaveOnDate(empId, requestDate)) {
+//                    response.setAvailable(false);
+//                    response.setReason("On Approved Leave");
+//                    results.add(response);
+//                    continue;
+//                }
+
+                // If all pass:
+                results.add(response);
+
+            } catch (Exception e) {
+                // Fallback for unexpected errors
+                response.setAvailable(false);
+                response.setReason("Check failed");
+                results.add(response);
+            }
+        }
+
+        return results;
     }
 }

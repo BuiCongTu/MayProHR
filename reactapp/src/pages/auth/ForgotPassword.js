@@ -26,14 +26,13 @@ const ForgotPassword = () =>
         verificationMethod: verificationMethod,
       });
 
-      if (response.data.status === "success")
+      if (response.status === 200 && response.data.data)
       {
         setMessage(`OTP sent to your ${verificationMethod.toLowerCase()}`);
-        // Store data for reset password page
         sessionStorage.setItem("resetEmailOrPhone", emailOrPhone);
         sessionStorage.setItem("resetVerificationMethod", verificationMethod);
+        sessionStorage.setItem("resetToken", response.data.data);
 
-        // Redirect to reset password page after 2 seconds
         setTimeout(() =>
         {
           navigate("/reset-password");
@@ -41,11 +40,20 @@ const ForgotPassword = () =>
       }
     } catch (err)
     {
-      setError(
-        err.response?.data?.message ||
-        err.message ||
-        "Failed to send OTP. Please try again."
-      );
+      let errorMessage = "Failed to send OTP. Please try again.";
+
+      if (err.response?.status === 504 || err.code === 'ECONNREFUSED')
+      {
+        errorMessage = "Backend server is not responding. Please ensure Spring Boot is running on port 9999.";
+      } else if (err.response?.data?.message)
+      {
+        errorMessage = err.response.data.message;
+      } else if (err.message)
+      {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
     } finally
     {
       setLoading(false);

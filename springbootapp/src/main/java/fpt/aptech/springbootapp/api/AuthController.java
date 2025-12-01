@@ -65,12 +65,16 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<Map<String, String>>> register(@Valid @RequestBody RegisterReq request) {
         try {
+            // check quyền
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String currentUserEmail = authentication != null ? authentication.getName() : null;
+
             if (request.getVerificationMethod() == null || request.getVerificationMethod().trim().isEmpty()) {
                 return ResponseEntity.badRequest()
                         .body(ApiResponse.error("Verification method (EMAIL or PHONE) is required"));
             }
 
-            String token = userService.register(request);
+            String token = userService.register(request, currentUserEmail);
             Map<String, String> response = new java.util.HashMap<>();
             response.put("token", token);
             response.put("message", "Registration initiated. Please verify your " + request.getVerificationMethod().toLowerCase());
@@ -239,9 +243,9 @@ public class AuthController {
                         .body(ApiResponse.error("Verification method (EMAIL or PHONE) is required"));
             }
 
-            userService.forgotPassword(request.getEmailOrPhone(), request.getVerificationMethod());
+            String token = userService.forgotPassword(request.getEmailOrPhone(), request.getVerificationMethod());
             return ResponseEntity.ok(
-                    ApiResponse.success("OTP sent to your " + request.getVerificationMethod().toLowerCase(), null));
+                    ApiResponse.success("OTP sent to your " + request.getVerificationMethod().toLowerCase(), token));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error(e.getMessage()));

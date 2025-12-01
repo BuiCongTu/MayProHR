@@ -18,7 +18,7 @@ const ResetPassword = () =>
 
   useEffect(() =>
   {
-    const sessionToken = "reset-" + Date.now();
+    const sessionToken = sessionStorage.getItem("resetToken") || "reset-" + Date.now();
     setToken(sessionToken);
   }, []);
 
@@ -77,9 +77,14 @@ const ResetPassword = () =>
         confirmPassword: confirmPassword,
       });
 
-      if (response.data.status === "success")
+      if (response.status === 200 || response.data)
       {
         setMessage("Password reset successfully! Redirecting to login...");
+        // Clear sessionStorage
+        sessionStorage.removeItem("resetToken");
+        sessionStorage.removeItem("resetEmailOrPhone");
+        sessionStorage.removeItem("resetVerificationMethod");
+
         setTimeout(() =>
         {
           navigate("/login");
@@ -87,11 +92,20 @@ const ResetPassword = () =>
       }
     } catch (err)
     {
-      setError(
-        err.response?.data?.message ||
-        err.message ||
-        "Failed to reset password. Please try again."
-      );
+      let errorMessage = "Failed to reset password. Please try again.";
+
+      if (err.response?.status === 504 || err.code === 'ECONNREFUSED')
+      {
+        errorMessage = "Backend server is not responding. Please ensure Spring Boot is running on port 9999.";
+      } else if (err.response?.data?.message)
+      {
+        errorMessage = err.response.data.message;
+      } else if (err.message)
+      {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
     } finally
     {
       setLoading(false);

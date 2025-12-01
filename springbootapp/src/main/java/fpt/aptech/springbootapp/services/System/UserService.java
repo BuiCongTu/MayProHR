@@ -16,7 +16,7 @@ public interface UserService {
     // Auth methods
     LoginResponse login(LoginReq loginReq);
 
-    String register(RegisterReq registerReq);
+    String register(RegisterReq registerReq, String currentUserEmail);
 
     void verifyRegistration(String token, String otp);
 
@@ -34,7 +34,7 @@ public interface UserService {
     // Password management
     void changePassword(String phone, ChangePassReq request);
 
-    void forgotPassword(String emailOrPhone, String verificationMethod);
+    String forgotPassword(String emailOrPhone, String verificationMethod);
 
     void resetPassword(String token, String otp, String newPassword);
 
@@ -44,4 +44,6 @@ public interface UserService {
     UserResponseDto getUserByLoginId(String loginId);
 
     UserResponseDto updateUserProfile(String loginId, UpdateProfileRequest request);
+
+    UserResponseDto findDuplicateUser(Integer departmentId, Integer parentLineId, Integer lineId, Integer subLineId, Integer roleId);
 }
