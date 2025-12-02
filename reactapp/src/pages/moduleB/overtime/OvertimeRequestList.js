@@ -323,10 +323,6 @@ export default function OvertimeRequestList() {
             const data = await getFilteredOvertimeRequest(filter, { page, size: 10, sort: `${orderBy},${order}` });
             let content = data?.content || [];
 
-            if (isLineManager) {
-                content = content.filter(req => req.status !== 'pending');
-            }
-
             setRequests(content);
         } catch (e) {
             console.error(e);
@@ -353,9 +349,8 @@ export default function OvertimeRequestList() {
                 const exists = prevRequests.find(r => r.id === updatedRequest.id);
 
                 // 2. Role Filtering for new items
-                // If Line Manager -> Don't show 'Pending' requests even if they are new
-                if (isLineManager && updatedRequest.status === 'pending') {
-                    // If it existed before (maybe it reverted to pending?), remove it
+                // If Line Manager -> Don't show 'Pending' requests and 'Rejected' requests
+                if (isLineManager && (updatedRequest.status === 'pending' || updatedRequest.status === 'rejected')) {
                     if (exists) return prevRequests.filter(r => r.id !== updatedRequest.id);
                     return prevRequests;
                 }
@@ -370,7 +365,6 @@ export default function OvertimeRequestList() {
                     // UPDATE: Replace the old object with the new one
                     return prevRequests.map(r => r.id === updatedRequest.id ? updatedRequest : r);
                 } else {
-                    // INSERT: Add to top (Only if we are on the first page to avoid confusion)
                     if (page === 0) {
                         return [updatedRequest, ...prevRequests];
                     }

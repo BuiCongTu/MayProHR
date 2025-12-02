@@ -98,11 +98,12 @@ public class SecurityConfig {
                         // Public Resources
                         .requestMatchers(
                                 "/", "/error", "/favicon.ico", "/logo192.png", "/logo512.png",
-                                "/manifest.json", "/robots.txt", "/attendance/**", "/socket/**"
+                                "/manifest.json", "/robots.txt", "/attendance/**"
                         ).permitAll()
                         // Public APIs
                         .requestMatchers(
                                 "/api/auth/**",
+                                "/socket/**",
                                 "/api/overtime/**",
                                 "/api/proposal/**",
                                 "/api/payroll/**",

@@ -38,6 +38,10 @@ public class OvertimeTicketSpecification {
                 predicates.add(cb.equal(root.get("status"), filter.getStatus()));
             }
 
+            if (filter.getAllowedStatuses() != null && !filter.getAllowedStatuses().isEmpty()) {
+                predicates.add(root.get("status").in(filter.getAllowedStatuses()));
+            }
+
             if (filter.getConfirmedById() != null) {
                 predicates.add(cb.equal(root.get("confirmedBy").get("id"), filter.getConfirmedById()));
             }

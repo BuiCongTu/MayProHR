@@ -50,6 +50,10 @@ public class OvertimeRequestSpecification {
                 predicates.add(cb.equal(root.get("status"), filter.getStatus()));
             }
 
+            if (filter.getAllowedStatuses() != null && !filter.getAllowedStatuses().isEmpty()) {
+                predicates.add(root.get("status").in(filter.getAllowedStatuses()));
+            }
+
             if (filter.getCreatedAfter() != null) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), filter.getCreatedAfter()));
             }

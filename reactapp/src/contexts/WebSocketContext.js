@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, {createContext, useContext, useEffect, useState, useRef, useCallback, useMemo} from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { getToken } from '../services/authService';
@@ -20,7 +20,7 @@ export const WebSocketProvider = ({ children }) => {
 
         console.log("Attempting WebSocket Connection with User Token...");
 
-        const socketFactory = () => new SockJS(window.location.origin + '/socket');
+        const socketFactory = () => new SockJS('http://localhost:9999/socket');
 
         const client = new Client({
             webSocketFactory: socketFactory,
@@ -52,7 +52,7 @@ export const WebSocketProvider = ({ children }) => {
         };
     }, [token]); // Re-run if token changes
 
-    const subscribe = (destination, callback) => {
+    const subscribe = useCallback((destination, callback) => {
         if (!clientRef.current || !connected) return null;
         return clientRef.current.subscribe(destination, (message) => {
             try {
@@ -62,10 +62,16 @@ export const WebSocketProvider = ({ children }) => {
                 callback(message.body);
             }
         });
-    };
+    }, [connected]);
+
+    const contextValue = useMemo(() => ({
+        client: clientRef.current,
+        connected,
+        subscribe
+    }), [connected, subscribe]);
 
     return (
-        <WebSocketContext.Provider value={{ client: clientRef.current, connected, subscribe }}>
+        <WebSocketContext.Provider value={contextValue}>
             {children}
         </WebSocketContext.Provider>
     );

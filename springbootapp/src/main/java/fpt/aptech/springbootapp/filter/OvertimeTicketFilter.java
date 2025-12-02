@@ -6,6 +6,7 @@ import lombok.Setter;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 
 @Getter
 @Setter
@@ -22,4 +23,5 @@ public class OvertimeTicketFilter {
     private String approvedByName;
     private Instant createdAfter;
     private Instant createdBefore;
+    private List<OvertimeTicketStatus> allowedStatuses;
 }

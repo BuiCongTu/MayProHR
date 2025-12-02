@@ -7,6 +7,7 @@ import {
 } from '../../../services/moduleB/overtimeService';
 import TicketStatusTracker from '../../../components/moduleB/TicketStatusTracker';
 import EmployeeListTable from './EmployeeList';
+import { useWebSocket } from '../../../contexts/WebSocketContext';
 
 import {
     Box, CircularProgress, Typography, Alert, Button, Container,
@@ -145,7 +146,7 @@ function LineRow({ row, isExpanded, onToggle }) {
 export default function OvertimeTicketDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
-
+    const { subscribe, connected } = useWebSocket();
     const [ticket, setTicket] = useState(null);
     const [lineRequirements, setLineRequirements] = useState({});
     const [loading, setLoading] = useState(true);
@@ -183,6 +184,19 @@ export default function OvertimeTicketDetail() {
     useEffect(() => {
         loadData();
     }, [id]);
+
+    useEffect(() => {
+        if (!connected) return;
+
+        const sub = subscribe('/topic/tickets', (dto) => {
+            if (dto.id === parseInt(id)) {
+                console.log("Current ticket updated:", dto);
+                loadData();
+            }
+        });
+
+        return () => { if (sub) sub.unsubscribe(); };
+    }, [connected, subscribe, id]);
 
     const handleSubmit = async () => {
         if(!window.confirm("Are you sure you want to submit this ticket?")) return;

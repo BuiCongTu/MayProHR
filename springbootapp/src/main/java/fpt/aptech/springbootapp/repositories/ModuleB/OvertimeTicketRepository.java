@@ -26,14 +26,15 @@ public interface OvertimeTicketRepository extends JpaRepository<TbOvertimeTicket
             "FROM TbOvertimeTicketEmployee ote " +
             "WHERE ote.overtimeTicket.overtimeRequest.id = :requestId " +
             "AND ote.employee.id = :employeeId " +
+            "AND ote.status = 'accepted' " +
             "AND ote.overtimeTicket.status != 'rejected'")
-    boolean isEmployeeAlreadyAssigned(@Param("requestId") Integer requestId, @Param("employeeId") Integer employeeId);
+    boolean isEmployeeWorkingInRequest(@Param("requestId") Integer requestId, @Param("employeeId") Integer employeeId);
 
     @Query("SELECT COUNT(ote) FROM TbOvertimeTicketEmployee ote " +
             "WHERE ote.overtimeTicket.overtimeRequest.id = :requestId " +
             "AND ote.line.id = :lineId " +
             "AND ote.overtimeTicket.status != 'rejected' " +
-            "AND ote.status != 'rejected'")
+            "AND ote.status = 'accepted'")
     long countAssignedEmployeesByLine(@Param("requestId") Integer requestId,
                                       @Param("lineId") Integer lineId);
 
@@ -44,7 +45,7 @@ public interface OvertimeTicketRepository extends JpaRepository<TbOvertimeTicket
             "WHERE ote.user_id = :employeeId " +
             "AND r.overtime_date = :date " +
             "AND t.status != 'rejected' " +
-            "AND ote.status != 'rejected' " +
+            "AND ote.status = 'accepted' " +
             "AND (r.start_time < CAST(:endTime AS TIME) AND r.end_time > CAST(:startTime AS TIME))",
             nativeQuery = true)
     int existsGlobalTimeConflict(@Param("employeeId") Integer employeeId,

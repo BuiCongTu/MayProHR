@@ -2,6 +2,7 @@ import React, {useState, useEffect} from 'react';
 import {getFilteredOvertimeTickets, submitOvertimeTicket} from "../../../services/moduleB/overtimeService";
 import {useNavigate} from "react-router-dom";
 import { getCurrentUser } from '../../../services/authService';
+import { useWebSocket } from '../../../contexts/WebSocketContext';
 
 import {
     Box,
@@ -108,6 +109,7 @@ function EnhancedTableHead(props) {
 export default function OvertimeTicketList() {
     const navigate = useNavigate();
     const currentUser = getCurrentUser();
+    const { subscribe, connected } = useWebSocket();
 
     const [tickets, setTickets] = useState([]);
     const [stats, setStats] = useState({ total: 0, pending: 0, rejected: 0 });
@@ -158,6 +160,19 @@ export default function OvertimeTicketList() {
     useEffect(() => {
         loadData();
     }, [page, statusFilter, debouncedSearch, order, orderBy, currentUser?.id]);
+
+    useEffect(() => {
+        if (!connected) return;
+
+        const sub = subscribe('/topic/tickets', (updatedTicket) => {
+            console.log("Ticket Update Received:", updatedTicket);
+            loadData();
+        });
+
+        return () => {
+            if (sub) sub.unsubscribe();
+        };
+    }, [connected, subscribe, page, statusFilter, order, orderBy, debouncedSearch]);
 
     const handleSortRequest = (event, property) => {
         const isAsc = orderBy === property && order === 'asc';

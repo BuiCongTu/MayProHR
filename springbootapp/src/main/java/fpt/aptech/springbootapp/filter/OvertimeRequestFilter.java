@@ -6,6 +6,7 @@ import lombok.Setter;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 
 @Setter
 @Getter
@@ -21,4 +22,5 @@ public class OvertimeRequestFilter {
     private OvertimeRequestStatus status;
     private Instant createdAfter;
     private Instant createdBefore;
+    private List<OvertimeRequestStatus> allowedStatuses;
 }
