@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { getFilteredOvertimeRequest } from "../../../services/moduleB/overtimeService";
 import { useNavigate } from "react-router-dom";
 import { getCurrentUser } from "../../../services/authService";
+import { useWebSocket } from '../../../contexts/WebSocketContext';
 import {
     Box, Typography, Button, Paper, TextField, InputAdornment, ToggleButton, ToggleButtonGroup,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel,
@@ -235,15 +236,12 @@ function RequestRow({ request, isExpanded, onToggle, navigate, isLineManager }) 
                             </IconButton>
                         </Tooltip>
 
-                        {/* LINE MANAGER ACTION: Create Ticket */}
-                        {/* Only visible if user is a Line Manager AND request status is 'open' */}
                         {isLineManager && request.status === 'open' && (
                             <Tooltip title="Create Ticket for this Request">
                                 <IconButton
                                     color="secondary"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        // Navigate to create ticket, passing this request ID to pre-select it
                                         navigate(`/overtime-ticket/create`, { state: { preselectedRequestId: request.id } });
                                     }}
                                 >
@@ -299,51 +297,93 @@ export default function OvertimeRequestList() {
     const [order, setOrder] = useState('desc');
     const [orderBy, setOrderBy] = useState('id');
 
-    // Get Real User
     const user = getCurrentUser();
-
-    // Determine Roles
     const isFactoryManager = user?.roleName === 'Factory Manager' || user?.roleName === 'FManager';
     const isLineManager = user?.roleName === 'Manager';
+
+    // --- 2. GET WEBSOCKET ---
+    const { subscribe, connected } = useWebSocket();
 
     useEffect(() => {
         const t = setTimeout(() => setDebouncedSearch(departmentSearch), 500);
         return () => clearTimeout(t);
     }, [departmentSearch]);
 
-    useEffect(() => {
-        async function load() {
-            try {
-                // Construct filter object
-                const filter = {
-                    status: statusFilter || null,
-                    departmentName: debouncedSearch || null
-                };
+    async function loadData() {
+        try {
+            const filter = {
+                status: statusFilter || null,
+                departmentName: debouncedSearch || null
+            };
 
-                // [LOGIC] Department Filter for Line Manager
-                // Line managers can ONLY see requests for their own department.
-                if (isLineManager && user?.departmentId) {
-                    filter.departmentId = user.departmentId;
-                }
-
-                // Fetch data
-                const data = await getFilteredOvertimeRequest(filter, { page, size: 10, sort: `${orderBy},${order}` });
-                let content = data?.content || [];
-
-                // [LOGIC] Status Filter for Line Manager
-                // Line managers should NOT see 'pending' requests (they are waiting for FD approval).
-                // They should only see 'open' (actionable) or 'processed' (history).
-                if (isLineManager) {
-                    content = content.filter(req => req.status !== 'pending');
-                }
-
-                setRequests(content);
-            } catch (e) {
-                console.error(e);
+            if (isLineManager && user?.departmentId) {
+                filter.departmentId = user.departmentId;
             }
+
+            const data = await getFilteredOvertimeRequest(filter, { page, size: 10, sort: `${orderBy},${order}` });
+            let content = data?.content || [];
+
+            if (isLineManager) {
+                content = content.filter(req => req.status !== 'pending');
+            }
+
+            setRequests(content);
+        } catch (e) {
+            console.error(e);
         }
-        load();
+    }
+
+    // Initial Load
+    useEffect(() => {
+        loadData();
     }, [statusFilter, debouncedSearch, order, orderBy, page, isLineManager, user?.departmentId]);
+
+
+    // --- 3. REAL-TIME UPDATE LOGIC ---
+    useEffect(() => {
+        if (!connected) return;
+
+        console.log("Subscribing to Overtime Updates...");
+
+        const sub = subscribe('/topic/requests', (updatedRequest) => {
+            console.log("Update Received:", updatedRequest);
+
+            setRequests(prevRequests => {
+                // 1. Check if this request is already in our list
+                const exists = prevRequests.find(r => r.id === updatedRequest.id);
+
+                // 2. Role Filtering for new items
+                // If Line Manager -> Don't show 'Pending' requests even if they are new
+                if (isLineManager && updatedRequest.status === 'pending') {
+                    // If it existed before (maybe it reverted to pending?), remove it
+                    if (exists) return prevRequests.filter(r => r.id !== updatedRequest.id);
+                    return prevRequests;
+                }
+
+                // 3. Department Filtering for Line Managers
+                // If it's a new request for a different dept, ignore it
+                if (isLineManager && user?.departmentId && updatedRequest.departmentId !== user.departmentId) {
+                    return prevRequests;
+                }
+
+                if (exists) {
+                    // UPDATE: Replace the old object with the new one
+                    return prevRequests.map(r => r.id === updatedRequest.id ? updatedRequest : r);
+                } else {
+                    // INSERT: Add to top (Only if we are on the first page to avoid confusion)
+                    if (page === 0) {
+                        return [updatedRequest, ...prevRequests];
+                    }
+                    return prevRequests;
+                }
+            });
+        });
+
+        return () => {
+            if (sub) sub.unsubscribe();
+        };
+    }, [connected, subscribe, isLineManager, user?.departmentId, page]);
+
 
     const handleMainSort = (event, property) => {
         const isAsc = orderBy === property && order === 'asc';
@@ -353,7 +393,6 @@ export default function OvertimeRequestList() {
 
     return (
         <Box>
-            {/* TOOLBAR */}
             <Paper elevation={0} sx={{
                 p: 2, mb: 2, bgcolor: 'white', border: '1px solid #eee',
                 display: 'flex', gap: 2, alignItems: 'center',
@@ -362,7 +401,6 @@ export default function OvertimeRequestList() {
             }}>
                 <Typography variant="h6" sx={{ fontWeight: 'bold', mr: 2, whiteSpace: 'nowrap' }}>Overtime Overview</Typography>
 
-                {/* Hide Department search for Line Managers since they are locked to their own Dept */}
                 {!isLineManager && (
                     <TextField
                         size="small"
@@ -382,7 +420,6 @@ export default function OvertimeRequestList() {
                     sx={{ whiteSpace: 'nowrap' }}
                 >
                     <ToggleButton value="">All</ToggleButton>
-                    {/* Hide 'Pending' filter for Line Managers */}
                     {!isLineManager && <ToggleButton value="pending" color="warning">Pending</ToggleButton>}
                     <ToggleButton value="open" color="info">Open</ToggleButton>
                     <ToggleButton value="processed" color="success">Processed</ToggleButton>
@@ -390,10 +427,7 @@ export default function OvertimeRequestList() {
 
                 <Box flexGrow={1} />
 
-                {/* ACTIONS GROUP */}
                 <Stack direction="row" spacing={2} alignItems="center" sx={{ whiteSpace: 'nowrap' }}>
-
-                    {/* Only Factory Manager can create new Requests */}
                     {isFactoryManager && (
                         <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate("/overtime-request/create")}>
                             New Request

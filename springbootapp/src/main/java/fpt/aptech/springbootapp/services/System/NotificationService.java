@@ -29,9 +29,6 @@ public class NotificationService {
         this.userRepository = userRepository;
     }
 
-    /**
-     * CORE METHOD: Saves to DB AND Broadcasts to WebSocket
-     */
     @Transactional
     public void sendNotification(TbUser recipient, String message, TbNotification.NotificationType type) {
         if (recipient == null) return;
@@ -64,11 +61,14 @@ public class NotificationService {
         sendNotification(recipient, message, TbNotification.NotificationType.other);
     }
 
+    @Transactional(readOnly = true)
     public Page<NotificationDTO> getMyNotifications(String userEmail, Pageable pageable) {
         TbUser user = userRepository.findByEmail(userEmail).orElse(null);
-        if (user == null) return Page.empty();
-
-        return notificationRepository.findByRecipientIdOrderBySentDateDesc(user.getId(), pageable)
+        if (user == null) {
+            System.out.println("DEBUG: User not found for email: " + userEmail);
+            return Page.empty();
+        }
+        return notificationRepository.findByRecipientId(user.getId(), pageable)
                 .map(this::convertToDTO);
     }
 
@@ -82,8 +82,8 @@ public class NotificationService {
     }
 
     @Transactional
-    public void markAllAsRead(String userPhone) {
-        TbUser user = userRepository.findByPhone(userPhone).orElse(null);
+    public void markAllAsRead(String userEmail) {
+        TbUser user = userRepository.findByEmail(userEmail).orElse(null);
         if (user != null) {
             notificationRepository.markAllAsRead(user.getId());
         }

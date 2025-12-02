@@ -1,23 +1,31 @@
 import axios from 'axios';
 import BASE_API from './api';
-import { getCurrentUser } from './authService';
+import { getToken } from './authService';
 
 const NOTIFICATION_API = BASE_API + '/notifications';
 
 // Helper function to get the token headers
 const getAuthHeaders = () => {
-    const user = getCurrentUser();
-    if (user && user.token) {
-        return { Authorization: `Bearer ${user.token}` };
+    const token = getToken();
+    if (token) {
+        return { Authorization: `Bearer ${token}` };
     }
-    return {};
+    return null;
 };
 
 export const getMyNotifications = async (page = 0, size = 10) => {
+    const headers = getAuthHeaders();
+
+    // Safety check
+    if (!headers) {
+        console.warn("Skipping notification fetch: No token found.");
+        return { content: [] };
+    }
+
     try {
         const response = await axios.get(`${NOTIFICATION_API}/my`, {
             params: { page, size, sort: 'sentDate,desc' },
-            headers: getAuthHeaders()
+            headers: headers
         });
         return response.data;
     } catch (error) {
@@ -27,21 +35,17 @@ export const getMyNotifications = async (page = 0, size = 10) => {
 };
 
 export const markAsRead = async (id) => {
+    const headers = getAuthHeaders();
+    if (!headers) return;
     try {
-        await axios.put(`${NOTIFICATION_API}/${id}/read`, {}, {
-            headers: getAuthHeaders()
-        });
-    } catch (error) {
-        console.error("Failed to mark as read", error);
-    }
+        await axios.put(`${NOTIFICATION_API}/${id}/read`, {}, { headers });
+    } catch (error) { console.error(error); }
 };
 
 export const markAllAsRead = async () => {
+    const headers = getAuthHeaders();
+    if (!headers) return;
     try {
-        await axios.put(`${NOTIFICATION_API}/read-all`, {}, {
-            headers: getAuthHeaders()
-        });
-    } catch (error) {
-        console.error("Failed to mark all as read", error);
-    }
+        await axios.put(`${NOTIFICATION_API}/read-all`, {}, { headers });
+    } catch (error) { console.error(error); }
 };
