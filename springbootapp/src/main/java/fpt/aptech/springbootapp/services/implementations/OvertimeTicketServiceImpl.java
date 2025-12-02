@@ -12,6 +12,7 @@ import fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeRequestDetail;
 import fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeTicket;
 import fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeTicket.OvertimeTicketStatus;
 import fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeTicketEmployee;
+import fpt.aptech.springbootapp.entities.System.TbNotification;
 import fpt.aptech.springbootapp.filter.OvertimeTicketFilter;
 import fpt.aptech.springbootapp.mappers.ModuleB.OvertimeTicketMapper;
 import fpt.aptech.springbootapp.repositories.LineRepository;
@@ -19,6 +20,8 @@ import fpt.aptech.springbootapp.repositories.ModuleB.OvertimeRequestRepository;
 import fpt.aptech.springbootapp.repositories.ModuleB.OvertimeTicketEmployeeRepository;
 import fpt.aptech.springbootapp.repositories.ModuleB.OvertimeTicketRepository;
 import fpt.aptech.springbootapp.repositories.UserRepository;
+import fpt.aptech.springbootapp.services.System.NotificationService;
+import fpt.aptech.springbootapp.services.System.WebSocketService;
 import fpt.aptech.springbootapp.services.interfaces.OvertimeTicketService;
 import fpt.aptech.springbootapp.specifications.OvertimeTicketSpecification;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +31,6 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.Time;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -51,6 +53,8 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
     private final LineRepository lineRepository;
     private final OvertimeTicketMapper overtimeTicketMapper;
     private final OvertimeTicketEmployeeRepository overtimeTicketEmployeeRepository;
+    private final WebSocketService webSocketService;
+    private final NotificationService notificationService;
 
     @Autowired
     public OvertimeTicketServiceImpl(OvertimeTicketRepository overtimeTicketRepository,
@@ -58,13 +62,17 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                                      OvertimeRequestRepository overtimeRequestRepository,
                                      LineRepository lineRepository,
                                      OvertimeTicketMapper overtimeTicketMapper,
-                                     OvertimeTicketEmployeeRepository overtimeTicketEmployeeRepository) {
+                                     OvertimeTicketEmployeeRepository overtimeTicketEmployeeRepository,
+                                     WebSocketService webSocketService,
+                                     NotificationService notificationService) {
         this.overtimeTicketRepository = overtimeTicketRepository;
         this.userRepository = userRepository;
         this.overtimeRequestRepository = overtimeRequestRepository;
         this.lineRepository = lineRepository;
         this.overtimeTicketMapper = overtimeTicketMapper;
         this.overtimeTicketEmployeeRepository = overtimeTicketEmployeeRepository;
+        this.webSocketService = webSocketService;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -78,11 +86,30 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
         TbOvertimeTicket overtimeTicket = overtimeTicketRepository.findById(id).orElse(null);
         if (overtimeTicket != null) {
             overtimeTicket.setStatus(OvertimeTicketStatus.submitted);
-            return overtimeTicketMapper.toDTO(overtimeTicketRepository.save(overtimeTicket));
+            TbOvertimeTicket saved = overtimeTicketRepository.save(overtimeTicket);
+            OvertimeTicketDTO dto = overtimeTicketMapper.toDTO(saved);
+
+            // A. Global Update (Refresh Lists)
+            webSocketService.sendGlobalUpdate("/topic/tickets", dto);
+
+            // B. Notify Factory Manager
+            if (saved.getOvertimeRequest() != null && saved.getOvertimeRequest().getFactoryManager() != null) {
+                String lmName = saved.getManager().getFullName();
+
+                String message = String.format(
+                        "Ticket #%d submitted by %s for Request #%d.",
+                        saved.getId(), lmName, saved.getOvertimeRequest().getId()
+                );
+
+                notificationService.sendNotification(saved.getOvertimeRequest().getFactoryManager(), message, TbNotification.NotificationType.other);
+            }
+
+            return dto;
         }
         throw new IllegalArgumentException("Overtime ticket not found");
     }
 
+    //deprecated
     @Override
     public OvertimeTicketDTO confirmTicket(Integer id) {
         TbOvertimeTicket overtimeTicket = overtimeTicketRepository.findById(id).orElse(null);
@@ -99,7 +126,20 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
         if (overtimeTicket != null) {
             overtimeTicket.setStatus(OvertimeTicketStatus.rejected);
             overtimeTicket.setReason(reason);
-            return overtimeTicketMapper.toDTO(overtimeTicketRepository.save(overtimeTicket));
+            TbOvertimeTicket saved = overtimeTicketRepository.save(overtimeTicket);
+            OvertimeTicketDTO dto = overtimeTicketMapper.toDTO(saved);
+
+            // A. Global Update
+            webSocketService.sendGlobalUpdate("/topic/tickets", dto);
+
+            // B. Notify Line Manager
+            if (saved.getManager() != null) {
+                String lmPhone = saved.getManager().getPhone();
+                String message = "Your Ticket #" + saved.getId() + " was Rejected by Factory Manager. Reason: " + reason;
+                notificationService.sendNotification(saved.getManager(), message, TbNotification.NotificationType.rejection);
+            }
+
+            return dto;
         }
         throw new IllegalArgumentException("Overtime ticket not found");
     }
@@ -110,7 +150,20 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
         if (overtimeTicket != null) {
             overtimeTicket.setStatus(OvertimeTicketStatus.approved);
             overtimeTicket.setReason(reason);
-            return overtimeTicketMapper.toDTO(overtimeTicketRepository.save(overtimeTicket));
+            TbOvertimeTicket saved = overtimeTicketRepository.save(overtimeTicket);
+            OvertimeTicketDTO dto = overtimeTicketMapper.toDTO(saved);
+
+            // A. Global Update
+            webSocketService.sendGlobalUpdate("/topic/tickets", dto);
+
+            // B. Notify Line Manager
+            if (saved.getManager() != null) {
+                String lmPhone = saved.getManager().getPhone();
+                String message = "Your Ticket #" + saved.getId() + " has been Approved by Factory Manager.";
+                notificationService.sendNotification(saved.getManager(), message, TbNotification.NotificationType.approval);
+            }
+
+            return dto;
         }
         throw new IllegalArgumentException("Overtime ticket not found");
     }
