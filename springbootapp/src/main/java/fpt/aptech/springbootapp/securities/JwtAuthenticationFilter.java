@@ -3,22 +3,22 @@ package fpt.aptech.springbootapp.securities;
 import java.io.*;
 import java.util.*;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 
-@Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    @Autowired
-    private JwtUtils jwtUtils;
+    private final JwtUtils jwtUtils;
+
+    public JwtAuthenticationFilter(JwtUtils jwtUtils) {
+        this.jwtUtils = jwtUtils;
+    }
 
     @Override
     protected void doFilterInternal(
@@ -38,10 +38,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 || path.contains("/api/auth/forgot-password")
                 || path.contains("/api/auth/reset-password")
                 || path.contains("/api/payroll/")
-                || path.contains("/api/overtime-request/")
-                || path.contains("/api/overtime-ticket/")
-                || path.contains("/api/overtime/")
-                || path.contains("/api/proposal/")
                 || path.contains("/api/face-scan/attendance")) {
             filterChain.doFilter(request, response);
             return;

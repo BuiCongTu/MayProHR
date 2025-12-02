@@ -1,9 +1,14 @@
 package fpt.aptech.springbootapp.configs;
 
 import java.util.Arrays;
+import java.util.Collections; // Added this import
 
+import fpt.aptech.springbootapp.securities.JwtUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered; // Added this import
+import org.springframework.core.annotation.Order; // Added this import
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -11,13 +16,14 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter; // Added this import
 
 import fpt.aptech.springbootapp.securities.JwtAuthenticationFilter;
 import fpt.aptech.springbootapp.services.implementations.CustomUserDetailsService;
@@ -27,12 +33,19 @@ import fpt.aptech.springbootapp.services.implementations.CustomUserDetailsServic
 @EnableGlobalMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomUserDetailsService userDetailsService;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, CustomUserDetailsService userDetailsService) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    @Autowired
+    private JwtUtils jwtUtils;
+
+    public SecurityConfig(CustomUserDetailsService userDetailsService) {
         this.userDetailsService = userDetailsService;
+    }
+
+    // --- FIX 1: REMOVED @Bean ANNOTATION HERE ---
+    // This ensures the filter is NOT registered globally
+    public JwtAuthenticationFilter jwtAuthenticationFilter() {
+        return new JwtAuthenticationFilter(jwtUtils);
     }
 
     @Bean
@@ -53,79 +66,71 @@ public class SecurityConfig {
         return configuration.getAuthenticationManager();
     }
 
+    // --- FIX 2: HIGH PRIORITY CORS FILTER ---
+    // This runs BEFORE everything else to ensure the browser gets the correct headers
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
-        configuration.setAllowedHeaders(Arrays.asList("*"));
-        configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L);
-
+    @Order(Ordered.HIGHEST_PRECEDENCE)
+    public CorsFilter corsFilter() {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
+        CorsConfiguration config = new CorsConfiguration();
+
+        config.setAllowCredentials(true);
+        config.setAllowedOriginPatterns(Collections.singletonList("*"));
+        // Allow all headers/methods
+        config.setAllowedHeaders(Arrays.asList("Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With", "Access-Control-Request-Method", "Access-Control-Request-Headers"));
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+
+        source.registerCorsConfiguration("/**", config);
+        return new CorsFilter(source);
     }
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
         System.out.println("Loading Security Configuration...");
 
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // .cors(...) is removed because we injected the CorsFilter bean above
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                // Public static resources (without double wildcard in extension)
-                .requestMatchers(
-                        "/",
-                        "/error",
-                        "/favicon.ico",
-                        "/logo192.png",
-                        "/logo512.png",
-                        "/manifest.json",
-                        "/robots.txt",
-                        "/attendance/**",
-                        "/overtime-request/**",
-                        "/overtime-ticket/**",
-                        "/ws/**"
-                )
-                .permitAll()
-                // Public API endpoints
-                .requestMatchers(
-                        "/api/auth/**",
-                        "/api/overtime-request/**",
-                        "/api/overtime-ticket/**",
-                        "/api/overtime/**",
-                        "/api/proposal/**",
-                        "/api/payroll/**",
-                        "/api/department/**",
-                        "/api/face-scan/attendance",
-                        "/actuator/health",
-                        "/api/lines/**",
-                        "/api/line/**",
-                        "/api/user/**",
-                        "/api/form-data/**"
-                )
-                .permitAll()
-                // Protected endpoints
-                .requestMatchers(
-                        "/api/face-scan/**",
-                        "/api/face-training/**",
-                        "/api/attendance/**",
-                        "/api/leave/**",
-                        "/api/app/overtime/**"
-                )
-                .authenticated()
-                // All other requests
-                .anyRequest()
-                .authenticated()
+                        // Public Resources
+                        .requestMatchers(
+                                "/", "/error", "/favicon.ico", "/logo192.png", "/logo512.png",
+                                "/manifest.json", "/robots.txt", "/attendance/**", "/socket/**"
+                        ).permitAll()
+                        // Public APIs
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/api/overtime/**",
+                                "/api/proposal/**",
+                                "/api/payroll/**",
+                                "/api/department/**",
+                                "/api/face-scan/attendance",
+                                "/actuator/health",
+                                "/api/lines/**",
+                                "/api/line/**",
+                                "/api/user/**",
+                                "/api/form-data/**"
+                        ).permitAll()
+                        // Protected APIs
+                        .requestMatchers(
+                                "/api/face-scan/**",
+                                "/api/face-training/**",
+                                "/api/attendance/**",
+                                "/api/leave/**",
+                                "/api/app/overtime/**",
+                                "/api/overtime-request/**",
+                                "/api/overtime-ticket/**",
+                                "/api/notifications/**"
+                        ).authenticated()
+                        .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
                 .userDetailsService(userDetailsService)
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                // Add the manual filter instance
+                .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }

@@ -131,7 +131,7 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
             // C. Send Private Notification to each Director
             for (TbUser director : directors) {
                 String message = "New Overtime Request #" + savedRequest.getId() +
-                        " from " + savedRequest.getFactoryManager().getFullName() +
+                        " from " + factoryManager.getFullName() +
                         " is pending your approval.";
 
                 notificationService.sendNotification(director, message, TbNotification.NotificationType.other);
@@ -194,16 +194,16 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
             TbOvertimeRequest saved = overtimeRequestRepository.save(overtimeRequest);
             OvertimeRequestDTO dto = overtimeRequestMapper.toDTO(saved);
 
-            // 2. GLOBAL UPDATE (Refresh Lists for everyone)
+            // 2. GLOBAL UPDATE
             webSocketService.sendGlobalUpdate("/topic/requests", dto);
 
-            // 3. NOTIFY FACTORY MANAGER (The Creator)
+            // 3. NOTIFY FACTORY MANAGER
             if (saved.getFactoryManager() != null) {
                 String fmMessage = "Your Request #" + saved.getId() + " has been Approved.";
                 notificationService.sendNotification(saved.getFactoryManager(), fmMessage, TbNotification.NotificationType.approval);
             }
 
-            // 4. NOTIFY RELEVANT LINE MANAGERS (The Assigners)
+            // 4. NOTIFY RELEVANT LINE MANAGERS
             if (saved.getLineDetails() != null) {
                 for (TbOvertimeRequestDetail detail : saved.getLineDetails()) {
                     if (detail.getLine() != null) {
@@ -244,7 +244,6 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
 
             // 2. PRIVATE NOTIFICATION
             if (saved.getFactoryManager() != null) {
-                String fmUsername = saved.getFactoryManager().getPhone();
                 String message = "Your Request #" + saved.getId() + " was Rejected.";
                 notificationService.sendNotification(
                         saved.getFactoryManager(),

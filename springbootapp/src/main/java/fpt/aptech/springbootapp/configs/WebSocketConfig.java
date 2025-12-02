@@ -8,6 +8,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -36,14 +37,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic", "/queue", "/user");
+        config.enableSimpleBroker("/topic", "/queue");
         config.setApplicationDestinationPrefixes("/app");
         config.setUserDestinationPrefix("/user");
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws")
+        registry.addEndpoint("/socket")
                 .setAllowedOriginPatterns("*")
                 .withSockJS();
     }
@@ -58,19 +59,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
                 if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
 
-                    // 1. Get Token from Header
+                    // 1. Get Token
                     String authHeader = accessor.getFirstNativeHeader("Authorization");
 
                     if (authHeader != null && authHeader.startsWith("Bearer ")) {
                         String token = authHeader.substring(7);
 
                         try {
-                            // 2. Validate and Extract Email
                             String email = jwtUtils.getEmailFromJwt(token);
 
                             if (email != null && jwtUtils.validateToken(token, email)) {
-
-                                // 3. Extract Role
                                 Claims claims = jwtUtils.extractAllClaims(token);
                                 String role = (String) claims.get("role");
                                 if (role == null) role = "USER";
@@ -78,18 +76,21 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                                 List<SimpleGrantedAuthority> authorities = List
                                         .of(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()));
 
-                                // 4. Create Auth Token
                                 UsernamePasswordAuthenticationToken auth =
                                         new UsernamePasswordAuthenticationToken(email, null, authorities);
 
-                                // 5. Set User for the WebSocket Session
                                 accessor.setUser(auth);
 
-                                System.out.println("WebSocket Authenticated: " + email);
+                                System.out.println("WebSocket Authenticated User: " + email);
+                            } else {
+                                System.out.println("WebSocket Token Validated Failed for: " + email);
                             }
                         } catch (Exception e) {
-                            System.err.println("WebSocket Auth Failed: " + e.getMessage());
+                            System.err.println("WebSocket Auth Exception: " + e.getMessage());
+                            throw new MessagingException("Authentication failed");
                         }
+                    } else {
+                        System.out.println("WebSocket Connect: No Authorization Header found");
                     }
                 }
                 return message;

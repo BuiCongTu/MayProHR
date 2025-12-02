@@ -9,4 +9,14 @@ module.exports = function(app) {
             secure: false,
         })
     );
+
+    app.use(
+        '/socket',
+        createProxyMiddleware({
+            target: 'http://localhost:9999',
+            ws: true,
+            changeOrigin: true,
+            secure: false,
+        })
+    );
 };
