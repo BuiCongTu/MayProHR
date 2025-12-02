@@ -13,6 +13,8 @@ import
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getCurrentUser, isAuthenticated } from '../../services/authService';
+import { useWebSocket } from '../../contexts/WebSocketContext';
+import { toast } from 'react-toastify';
 
 const getNavLinks = (roleName) =>
 {
@@ -99,6 +101,9 @@ const Navbar = () =>
     // State cho dropdown menus
     const [anchorEl, setAnchorEl] = useState(null);
     const [notificationAnchor, setNotificationAnchor] = useState(null);
+
+    const { subscribe, connected } = useWebSocket();
+    const [realtimeNotifs, setRealtimeNotifs] = useState([]);
 
     // Lưu chiều cao navbar vào localStorage khi component mount hoặc thay đổi
     useEffect(() =>

@@ -89,7 +89,8 @@ public class SecurityConfig {
                         "/robots.txt",
                         "/attendance/**",
                         "/overtime-request/**",
-                        "/overtime-ticket/**"
+                        "/overtime-ticket/**",
+                        "/ws/**"
                 )
                 .permitAll()
                 // Public API endpoints

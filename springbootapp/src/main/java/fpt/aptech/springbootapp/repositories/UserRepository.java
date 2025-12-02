@@ -19,4 +19,8 @@ public interface UserRepository extends JpaRepository<TbUser, Integer> {
     List<TbUser> findByDepartmentId(Integer departmentId);
 
     List<TbUser> findByDepartmentIdAndRoleName(Integer departmentId, String roleName);
+
+    List<TbUser> findByRole_Name(String roleName);
+
+    List<TbUser> findByRole_NameAndLine_Id(String roleName, Integer lineId);
 }
