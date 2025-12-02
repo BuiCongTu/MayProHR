@@ -126,7 +126,7 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
             OvertimeRequestDTO dto = overtimeRequestMapper.toDTO(savedRequest);
 
             // B. Find Factory Directors
-            List<TbUser> directors = userRepository.findByRole_Name("Factory Director");
+            List<TbUser> directors = userRepository.findByRoleName("Factory Director");
 
             // C. Send Private Notification to each Director
             for (TbUser director : directors) {
@@ -209,7 +209,7 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
                     if (detail.getLine() != null) {
                         Integer lineId = detail.getLine().getId();
 
-                        List<TbUser> lineManagers = userRepository.findByRole_NameAndLine_Id("Manager", lineId);
+                        List<TbUser> lineManagers = userRepository.findByRoleNameAndLineId("Manager", lineId);
 
                         for (TbUser lm : lineManagers) {
                             String lmMessage = String.format(
@@ -246,7 +246,11 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
             if (saved.getFactoryManager() != null) {
                 String fmUsername = saved.getFactoryManager().getPhone();
                 String message = "Your Request #" + saved.getId() + " was Rejected.";
-                webSocketService.sendPrivateNotification(fmUsername, message);
+                notificationService.sendNotification(
+                        saved.getFactoryManager(),
+                        message,
+                        TbNotification.NotificationType.rejection
+                );
             }
 
             return dto;

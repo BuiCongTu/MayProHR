@@ -20,7 +20,7 @@ public interface UserRepository extends JpaRepository<TbUser, Integer> {
 
     List<TbUser> findByDepartmentIdAndRoleName(Integer departmentId, String roleName);
 
-    List<TbUser> findByRole_Name(String roleName);
+    List<TbUser> findByRoleName(String roleName);
 
-    List<TbUser> findByRole_NameAndLine_Id(String roleName, Integer lineId);
+    List<TbUser> findByRoleNameAndLineId(String roleName, Integer lineId);
 }
