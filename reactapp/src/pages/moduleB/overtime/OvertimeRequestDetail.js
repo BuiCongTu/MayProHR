@@ -13,6 +13,7 @@ import RequestStatusTracker from '../../../components/moduleB/RequestStatusTrack
 import EmployeeListTable from './EmployeeList';
 import ActionReasonModal from './ActionReasonModal';
 import RequestTicketList from './RequestTicketList';
+import { useWebSocket } from '../../../contexts/WebSocketContext';
 
 import {
     Box, CircularProgress, Typography, Alert, Button, Container,
@@ -43,8 +44,8 @@ import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import TaskIcon from '@mui/icons-material/Task';
+import PostAddIcon from '@mui/icons-material/PostAdd';
 
-// --- HELPER FUNCTIONS ---
 function processStaffingData(request) {
     if (!request || !request.lineDetails) return {stats: {}, lines: []};
 
@@ -150,6 +151,7 @@ export default function OvertimeRequestDetail() {
     const {id} = useParams();
     const navigate = useNavigate();
     const user = getCurrentUser();
+    const { subscribe, connected } = useWebSocket();
 
     const [request, setRequest] = useState(null);
     const [processedData, setProcessedData] = useState({stats: {}, lines: []});
@@ -164,12 +166,8 @@ export default function OvertimeRequestDetail() {
     // Modals
     const [employeeModalOpen, setEmployeeModalOpen] = useState(false);
     const [selectedEmployeeList, setSelectedEmployeeList] = useState([]);
-
-    // Reject Modal State
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
     const [rejectTarget, setRejectTarget] = useState({type: null, id: null});
-
-    // Approve Modal State
     const [approveModalOpen, setApproveModalOpen] = useState(false);
     const [ticketToApprove, setTicketToApprove] = useState(null);
 
@@ -189,11 +187,32 @@ export default function OvertimeRequestDetail() {
         loadData();
     }, [id]);
 
+    useEffect(() => {
+        if (!connected) return;
+
+        const requestSub = subscribe('/topic/requests', (dto) => {
+            if (dto.id === parseInt(id)) loadData();
+        });
+
+        const ticketSub = subscribe('/topic/tickets', (dto) => {
+            if (dto.requestId === parseInt(id)) {
+                console.log("Child ticket updated, refreshing request detail...");
+                loadData();
+            }
+        });
+
+        return () => {
+            if (requestSub) requestSub.unsubscribe();
+            if (ticketSub) ticketSub.unsubscribe();
+        };
+    }, [id, connected, subscribe]);
+
+
     const handleAccordionChange = (panelId) => (event, isExpanded) => {
         setExpandedAccordion(isExpanded ? panelId : false);
     };
 
-    // --- ACTIONS: REQUEST LEVEL ---
+    // --- ACTIONS ---
     const handleApproveRequest = async () => {
         if (!window.confirm("Approve this request?")) return;
         try {
@@ -219,7 +238,6 @@ export default function OvertimeRequestDetail() {
         setRejectModalOpen(true);
     }
 
-    // --- ACTIONS: TICKET LEVEL (Parent/Accordion View) ---
     const handleApproveClick = (ticketId) => {
         setTicketToApprove(ticketId);
         setApproveModalOpen(true);
@@ -230,7 +248,7 @@ export default function OvertimeRequestDetail() {
             await approveOvertimeTicket(ticketToApprove, reason);
             setApproveModalOpen(false);
             setTicketToApprove(null);
-            loadData(); // Refresh data
+            loadData();
         } catch (err) {
             alert("Failed to approve ticket: " + err.message);
         }
@@ -250,7 +268,7 @@ export default function OvertimeRequestDetail() {
             }
             setRejectModalOpen(false);
             setRejectTarget({type: null, id: null});
-            loadData(); // Refresh data
+            loadData();
         } catch (err) {
             alert("Failed to reject.");
         }
@@ -267,9 +285,9 @@ export default function OvertimeRequestDetail() {
 
     // --- RENDERERS ---
     const renderActionButtons = () => {
-        // Check user roles based on string names used in Navbar
         const isManager = user?.roleName === 'Factory Manager' || user?.roleName === 'FManager';
         const isDirector = user?.roleName === 'Factory Director' || user?.roleName === 'FDirector';
+        const isLineManager = user?.roleName === 'Manager';
 
         const status = request.status?.toLowerCase();
 
@@ -284,6 +302,19 @@ export default function OvertimeRequestDetail() {
                 >
                     History
                 </Button>
+
+                {/* --- LINE MANAGER ACTION --- */}
+                {status === 'open' && isLineManager && (
+                    <Button
+                        variant="contained"
+                        color="secondary"
+                        startIcon={<PostAddIcon />}
+                        onClick={() => navigate('/overtime-ticket/create', { state: { preselectedRequestId: request.id } })}
+                        sx={{ fontWeight: 'bold' }}
+                    >
+                        Create Ticket
+                    </Button>
+                )}
 
                 {status === 'pending' && (
                     <>
@@ -337,21 +368,11 @@ export default function OvertimeRequestDetail() {
         let label = status?.toUpperCase() || 'UNKNOWN';
 
         switch (status?.toLowerCase()) {
-            case 'pending':
-                color = 'warning';
-                break;
-            case 'open':
-                color = 'info';
-                break;
-            case 'processed':
-                color = 'success';
-                break;
-            case 'rejected':
-                color = 'error';
-                break;
-            case 'expired':
-                color = 'default';
-                break;
+            case 'pending': color = 'warning'; break;
+            case 'open': color = 'info'; break;
+            case 'processed': color = 'success'; break;
+            case 'rejected': color = 'error'; break;
+            case 'expired': color = 'default'; break;
         }
 
         return (

@@ -18,12 +18,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -121,16 +123,20 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
         overtimeRequest.setCreatedAt(Instant.now());
         TbOvertimeRequest savedRequest = overtimeRequestRepository.save(overtimeRequest);
 
+        //re-fetch for full data
+        TbOvertimeRequest fullRequest = overtimeRequestRepository.findById(savedRequest.getId())
+                .orElse(savedRequest);
+
         try {
             // A. Prepare the Data for the Frontend
-            OvertimeRequestDTO dto = overtimeRequestMapper.toDTO(savedRequest);
+            OvertimeRequestDTO dto = overtimeRequestMapper.toDTO(fullRequest);
 
             // B. Find Factory Directors
             List<TbUser> directors = userRepository.findByRoleName("Factory Director");
 
             // C. Send Private Notification to each Director
             for (TbUser director : directors) {
-                String message = "New Overtime Request #" + savedRequest.getId() +
+                String message = "New Overtime Request #" + fullRequest.getId() +
                         " from " + factoryManager.getFullName() +
                         " is pending your approval.";
 
@@ -147,13 +153,13 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
 
     @Override
     public OvertimeRequestDTO read(int id) {
-        try{
+        try {
             TbOvertimeRequest overtimeRequest = overtimeRequestRepository.findById(id).orElse(null);
             if (overtimeRequest == null) {
                 throw new IllegalArgumentException("Overtime request not found");
             }
             return overtimeRequestMapper.toDTO(overtimeRequest);
-        }catch (Exception e){
+        } catch (Exception e) {
             throw new IllegalArgumentException("Overtime request not found");
         }
     }
@@ -180,32 +186,54 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
 
     @Override
     public Page<OvertimeRequestDTO> getFilteredRequests(OvertimeRequestFilter filter, Pageable pageable) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        TbUser currentUser = userRepository.findByEmail(email).orElse(null);
+
+        if (currentUser != null && currentUser.getRole() != null) {
+            String role = currentUser.getRole().getName();
+
+            if ("Manager".equalsIgnoreCase(role)) {
+                if (currentUser.getDepartment() != null) {
+                    filter.setDepartmentId(currentUser.getDepartment().getId());
+                }
+
+                filter.setAllowedStatuses(Arrays.asList(
+                        TbOvertimeRequest.OvertimeRequestStatus.open,
+                        TbOvertimeRequest.OvertimeRequestStatus.processed
+                ));
+            }
+        }
         Specification<TbOvertimeRequest> spec = OvertimeRequestSpecification.build(filter);
         return overtimeRequestRepository.findAll(spec, pageable)
                 .map(overtimeRequestMapper::toDTO);
     }
 
     @Override
+    @Transactional
     public OvertimeRequestDTO approveRequest(Integer id) {
         TbOvertimeRequest overtimeRequest = overtimeRequestRepository.findById(id).orElse(null);
-        if(overtimeRequest != null){
+        if (overtimeRequest != null) {
             // 1. Update Status & Save
             overtimeRequest.setStatus(TbOvertimeRequest.OvertimeRequestStatus.open);
             TbOvertimeRequest saved = overtimeRequestRepository.save(overtimeRequest);
-            OvertimeRequestDTO dto = overtimeRequestMapper.toDTO(saved);
+
+            TbOvertimeRequest fullRequest = overtimeRequestRepository.findById(saved.getId())
+                    .orElse(saved);
+
+            OvertimeRequestDTO dto = overtimeRequestMapper.toDTO(fullRequest);
 
             // 2. GLOBAL UPDATE
             webSocketService.sendGlobalUpdate("/topic/requests", dto);
 
             // 3. NOTIFY FACTORY MANAGER
-            if (saved.getFactoryManager() != null) {
-                String fmMessage = "Your Request #" + saved.getId() + " has been Approved.";
-                notificationService.sendNotification(saved.getFactoryManager(), fmMessage, TbNotification.NotificationType.approval);
+            if (fullRequest.getFactoryManager() != null) {
+                String fmMessage = "Your Request #" + fullRequest.getId() + " has been Approved.";
+                notificationService.sendNotification(fullRequest.getFactoryManager(), fmMessage, TbNotification.NotificationType.approval);
             }
 
             // 4. NOTIFY RELEVANT LINE MANAGERS
-            if (saved.getLineDetails() != null) {
-                for (TbOvertimeRequestDetail detail : saved.getLineDetails()) {
+            if (fullRequest.getLineDetails() != null) {
+                for (TbOvertimeRequestDetail detail : fullRequest.getLineDetails()) {
                     if (detail.getLine() != null) {
                         Integer lineId = detail.getLine().getId();
 
@@ -214,7 +242,7 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
                         for (TbUser lm : lineManagers) {
                             String lmMessage = String.format(
                                     "Action Required: Request #%d Approved. Please staff %s (%d employees).",
-                                    saved.getId(),
+                                    fullRequest.getId(),
                                     detail.getLine().getName(),
                                     detail.getNumEmployees()
                             );
@@ -232,21 +260,26 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
     }
 
     @Override
+    @Transactional
     public OvertimeRequestDTO rejectRequest(Integer id) {
         TbOvertimeRequest overtimeRequest = overtimeRequestRepository.findById(id).orElse(null);
-        if(overtimeRequest != null){
+        if (overtimeRequest != null) {
             overtimeRequest.setStatus(TbOvertimeRequest.OvertimeRequestStatus.rejected);
             TbOvertimeRequest saved = overtimeRequestRepository.save(overtimeRequest);
-            OvertimeRequestDTO dto = overtimeRequestMapper.toDTO(saved);
+
+            TbOvertimeRequest fullRequest = overtimeRequestRepository.findById(saved.getId())
+                    .orElse(saved);
+
+            OvertimeRequestDTO dto = overtimeRequestMapper.toDTO(fullRequest);
 
             // 1. GLOBAL UPDATE
             webSocketService.sendGlobalUpdate("/topic/requests", dto);
 
             // 2. PRIVATE NOTIFICATION
-            if (saved.getFactoryManager() != null) {
-                String message = "Your Request #" + saved.getId() + " was Rejected.";
+            if (fullRequest.getFactoryManager() != null) {
+                String message = "Your Request #" + fullRequest.getId() + " was Rejected.";
                 notificationService.sendNotification(
-                        saved.getFactoryManager(),
+                        fullRequest.getFactoryManager(),
                         message,
                         TbNotification.NotificationType.rejection
                 );
@@ -258,12 +291,15 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
     }
 
     @Override
+    @Transactional
     public OvertimeRequestDTO processRequest(Integer id) {
         TbOvertimeRequest overtimeRequest = overtimeRequestRepository.findById(id).orElse(null);
-        if(overtimeRequest != null){
+        if (overtimeRequest != null) {
             overtimeRequest.setStatus(TbOvertimeRequest.OvertimeRequestStatus.processed);
             TbOvertimeRequest saved = overtimeRequestRepository.save(overtimeRequest);
-            OvertimeRequestDTO dto = overtimeRequestMapper.toDTO(saved);
+            TbOvertimeRequest fullRequest = overtimeRequestRepository.findById(saved.getId())
+                    .orElse(saved);
+            OvertimeRequestDTO dto = overtimeRequestMapper.toDTO(fullRequest);
 
             // 1. GLOBAL UPDATE
             webSocketService.sendGlobalUpdate("/topic/requests", dto);
