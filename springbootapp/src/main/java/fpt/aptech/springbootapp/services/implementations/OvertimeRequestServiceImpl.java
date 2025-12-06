@@ -1,6 +1,7 @@
 package fpt.aptech.springbootapp.services.implementations;
 
 import fpt.aptech.springbootapp.dtos.ModuleB.OvertimeRequestDTO;
+import fpt.aptech.springbootapp.entities.Core.TbLine;
 import fpt.aptech.springbootapp.entities.Core.TbUser;
 import fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeRequest;
 import fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeRequestDetail;
@@ -8,6 +9,7 @@ import fpt.aptech.springbootapp.entities.System.TbNotification;
 import fpt.aptech.springbootapp.filter.OvertimeRequestFilter;
 import fpt.aptech.springbootapp.mappers.ModuleB.OvertimeRequestMapper;
 import fpt.aptech.springbootapp.repositories.DepartmentRepository;
+import fpt.aptech.springbootapp.repositories.LineRepository;
 import fpt.aptech.springbootapp.repositories.ModuleB.OvertimeRequestRepository;
 import fpt.aptech.springbootapp.repositories.UserRepository;
 import fpt.aptech.springbootapp.services.System.NotificationService;
@@ -25,8 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 @Service
 public class OvertimeRequestServiceImpl implements OvertimeRequestService {
@@ -40,6 +41,8 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
     private final OvertimeRequestMapper overtimeRequestMapper;
     private final WebSocketService webSocketService;
     private final NotificationService notificationService;
+    //private final LineService lineService;
+    private final LineRepository lineRepository;
 
     @Autowired
     public OvertimeRequestServiceImpl(
@@ -48,13 +51,17 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
             UserRepository userRepository,
             OvertimeRequestMapper overtimeRequestMapper,
             WebSocketService webSocketService,
-            NotificationService notificationService) {
+            NotificationService notificationService,
+            //LineService lineService,
+            LineRepository lineRepository) {
         this.overtimeRequestRepository = overtimeRequestRepository;
         this.departmentRepository = departmentRepository;
         this.userRepository = userRepository;
         this.overtimeRequestMapper = overtimeRequestMapper;
         this.webSocketService = webSocketService;
         this.notificationService = notificationService;
+        //this.lineService = lineService;
+        this.lineRepository = lineRepository;
     }
 
     @Override
@@ -231,26 +238,44 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
                 notificationService.sendNotification(fullRequest.getFactoryManager(), fmMessage, TbNotification.NotificationType.approval);
             }
 
-            // 4. NOTIFY RELEVANT LINE MANAGERS
+            // 4. NOTIFY RELEVANT LINE MANAGERS (WITH HIERARCHY SUPPORT)
             if (fullRequest.getLineDetails() != null) {
+                // Use a Set to avoid sending duplicate notifications to the same manager
+                Set<TbUser> managersToNotify = new HashSet<>();
+
                 for (TbOvertimeRequestDetail detail : fullRequest.getLineDetails()) {
                     if (detail.getLine() != null) {
-                        Integer lineId = detail.getLine().getId();
+                        Integer currentLineId = detail.getLine().getId();
 
-                        List<TbUser> lineManagers = userRepository.findByRoleNameAndLineId("Manager", lineId);
+                        // HIERARCHY LOGIC: Walk up the tree until we find a line with a Manager
+                        List<TbUser> foundManagers = new ArrayList<>();
+                        TbLine currentLine = lineRepository.findById(currentLineId).orElse(null);
 
-                        for (TbUser lm : lineManagers) {
-                            String lmMessage = String.format(
-                                    "Action Required: Request #%d Approved. Please staff %s (%d employees).",
-                                    fullRequest.getId(),
-                                    detail.getLine().getName(),
-                                    detail.getNumEmployees()
-                            );
+                        while (currentLine != null && foundManagers.isEmpty()) {
+                            foundManagers = userRepository.findByRoleNameAndLineId("Manager", currentLine.getId());
 
-                            // Send to each Manager found for this line
-                            notificationService.sendNotification(lm, lmMessage, TbNotification.NotificationType.approval);
+                            if (foundManagers.isEmpty()) {
+                                // No manager here, try the parent
+                                if (currentLine.getParent() != null) {
+                                    currentLine = lineRepository.findById(currentLine.getParent().getId()).orElse(null);
+                                } else {
+                                    // Reached root with no manager
+                                    currentLine = null;
+                                }
+                            }
                         }
+
+                        managersToNotify.addAll(foundManagers);
                     }
+                }
+
+                // Send the actual notifications
+                for (TbUser lm : managersToNotify) {
+                    String lmMessage = String.format(
+                            "Action Required: Request #%d Approved. You have lines under your management that require staffing.",
+                            fullRequest.getId()
+                    );
+                    notificationService.sendNotification(lm, lmMessage, TbNotification.NotificationType.approval);
                 }
             }
 

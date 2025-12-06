@@ -12,6 +12,7 @@ public class AvailabilityCheckDTO {
     @AllArgsConstructor
     public static class Request {
         private Integer requestId;
+        private Integer targetLineId;
         private List<Integer> employeeIds;
     }
 
