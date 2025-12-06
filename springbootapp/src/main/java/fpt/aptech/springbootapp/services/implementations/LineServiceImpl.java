@@ -48,6 +48,63 @@ public class LineServiceImpl implements LineService {
         return lineRepository.findByDepartmentIdAndParentIsNull(departmentId);
     }
 
+    @Override
+    public boolean isAncestor(Integer ancestorId, Integer childId) {
+        if (ancestorId == null || childId == null) {
+            return false;
+        }
+
+        if (ancestorId.equals(childId)) {
+            return true;
+        }
+
+        TbLine currentLine = lineRepository.findById(childId).orElse(null);
+
+        while (currentLine != null && currentLine.getParent() != null) {
+            TbLine parent = currentLine.getParent();
+
+            if (parent.getId().equals(ancestorId)) {
+                return true;
+            }
+
+            currentLine = parent;
+        }
+
+        return false;
+    }
+
+    @Override
+    public Integer getParentId(Integer lineId) {
+        if (lineId == null) return null;
+
+        TbLine line = lineRepository.findById(lineId).orElse(null);
+        if (line != null && line.getParent() != null) {
+            return line.getParent().getId();
+        }
+        return null;
+    }
+
+    @Override
+    public List<Integer> getAllDescendantIds(Integer parentLineId) {
+        List<Integer> descendantIds = new ArrayList<>();
+        TbLine parent = lineRepository.findById(parentLineId).orElse(null);
+
+        if (parent != null) {
+            collectDescendantIdsRecursively(parent, descendantIds);
+        }
+        return descendantIds;
+    }
+
+    private void collectDescendantIdsRecursively(TbLine current, List<Integer> ids) {
+        ids.add(current.getId());
+
+        if (current.getChildren() != null && !current.getChildren().isEmpty()) {
+            for (TbLine child : current.getChildren()) {
+                collectDescendantIdsRecursively(child, ids);
+            }
+        }
+    }
+
     // lấy toàn bộ lines theo thứ tự phân cấp
     // @Override
     // public List<TbLine> getLineHierarchyByDepartment(Integer departmentId) {

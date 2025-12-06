@@ -15,14 +15,9 @@ public interface LineService {
     //llaasy rôt lines của 1 dept
     List<TbLine> getRootLines(Integer departmentId);
 
-    //lấy toàn bộ ccaaus trúc phan cap cua 1 dept
-    // List<TbLine> getLineHierarchyByDepartment(Integer departmentId);
-    //lấy path đầy đủ từ rôt đến 1 line
-    // List<TbLine> getLinePathToRoot(Integer lineId);
-    //lấy tát cả parent
-    // List<TbLine> getLineAncestors(Integer lineId);
-    //lấy line theo level
-    // List<TbLine> getLineByLevel(Integer departmentId, Integer level);
-    //lấy toàn bộ Lines của dept
-    // TbLine getLineTreeByDepartment(Integer departmentId);
+    boolean isAncestor(Integer ancestorId, Integer childId);
+
+    Integer getParentId(Integer lineId);
+
+    List<Integer> getAllDescendantIds(Integer parentLineId);
 }

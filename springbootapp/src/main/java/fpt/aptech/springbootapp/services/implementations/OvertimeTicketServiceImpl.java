@@ -22,6 +22,7 @@ import fpt.aptech.springbootapp.repositories.ModuleB.OvertimeTicketRepository;
 import fpt.aptech.springbootapp.repositories.UserRepository;
 import fpt.aptech.springbootapp.services.System.NotificationService;
 import fpt.aptech.springbootapp.services.System.WebSocketService;
+import fpt.aptech.springbootapp.services.interfaces.LineService;
 import fpt.aptech.springbootapp.services.interfaces.OvertimeTicketService;
 import fpt.aptech.springbootapp.specifications.OvertimeTicketSpecification;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +54,7 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
     private final OvertimeTicketEmployeeRepository overtimeTicketEmployeeRepository;
     private final WebSocketService webSocketService;
     private final NotificationService notificationService;
+    private final LineService lineService;
 
     @Autowired
     public OvertimeTicketServiceImpl(OvertimeTicketRepository overtimeTicketRepository,
@@ -62,7 +64,8 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                                      OvertimeTicketMapper overtimeTicketMapper,
                                      OvertimeTicketEmployeeRepository overtimeTicketEmployeeRepository,
                                      WebSocketService webSocketService,
-                                     NotificationService notificationService) {
+                                     NotificationService notificationService,
+                                     LineService lineService) {
         this.overtimeTicketRepository = overtimeTicketRepository;
         this.userRepository = userRepository;
         this.overtimeRequestRepository = overtimeRequestRepository;
@@ -71,6 +74,7 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
         this.overtimeTicketEmployeeRepository = overtimeTicketEmployeeRepository;
         this.webSocketService = webSocketService;
         this.notificationService = notificationService;
+        this.lineService = lineService;
     }
 
     @Override
@@ -226,6 +230,10 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
             throw new IllegalArgumentException("User is not a manager");
         }
 
+        if (manager.getLine() == null) {
+            throw new IllegalArgumentException("Manager is not assigned to any line.");
+        }
+
         // 2. Validate Request
         TbOvertimeRequest request = overtimeRequestRepository.findById(dto.getRequestId())
                 .orElseThrow(() -> new IllegalArgumentException("Overtime Request not found"));
@@ -237,6 +245,12 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
             throw new IllegalArgumentException("Cannot create ticket: The Request is not Open for submissions.");
         }
 
+        // Create a Set of allowed line IDs from the Request (for Scope Check)
+        Set<Integer> allowedLineIds = request.getLineDetails().stream()
+                .map(detail -> detail.getLine().getId())
+                .collect(Collectors.toSet());
+
+        // Calculate Week Boundaries for [RESTORED] Weekly Limit Check
         LocalDate requestDate = request.getOvertimeDate();
         LocalDate startOfWeek = requestDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         LocalDate endOfWeek = requestDate.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
@@ -245,7 +259,7 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
         TbOvertimeTicket ticket = new TbOvertimeTicket();
         ticket.setManager(manager);
         ticket.setOvertimeRequest(request);
-        ticket.setStatus(OvertimeTicketStatus.submitted); //submit by default //pending is deprecated
+        ticket.setStatus(OvertimeTicketStatus.submitted);
         ticket.setCreatedAt(Instant.now());
 
         Set<TbOvertimeTicketEmployee> ticketEmployees = new HashSet<>();
@@ -253,70 +267,53 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
 
         // 4. Process Allocations
         for (LineAllocationDTO allocation : dto.getAllocations()) {
-            TbLine line = lineRepository.findById(allocation.getLineId())
-                    .orElseThrow(() -> new IllegalArgumentException("Line not found: " + allocation.getLineId()));
+            TbLine targetLine = lineRepository.findById(allocation.getLineId())
+                    .orElseThrow(() -> new IllegalArgumentException("Target line not found: " + allocation.getLineId()));
 
-            // --- CONSTRAINT: Line Ownership ---
-            // We check if the Manager belongs to this Line (instead of checking if the Line points to the Manager)
-            if (manager.getLine() == null || !manager.getLine().getId().equals(line.getId())) {
-                throw new IllegalArgumentException("Unauthorized: You (" + manager.getFullName() +
-                        ") belong to Line '" + (manager.getLine() != null ? manager.getLine().getName() : "None") +
-                        "', but are trying to create a ticket for Line '" + line.getName() + "'.");
+            // --- HIERARCHY CHECK 1: POWER RULE (Manager Authority) ---
+            if (!lineService.isAncestor(manager.getLine().getId(), targetLine.getId())) {
+                throw new IllegalArgumentException("Unauthorized: You (" + manager.getLine().getName() +
+                        ") cannot create tickets for line " + targetLine.getName() + " because it is not under your hierarchy.");
             }
 
-            // --- LOGIC: Check Quantity Quota (Refill allowed if employees rejected) ---
+            // --- HIERARCHY CHECK 2: SCOPE RULE (Request Validity) ---
+            if (!allowedLineIds.contains(targetLine.getId())) {
+                throw new IllegalArgumentException("Line " + targetLine.getName() + " is not included in this Overtime Request.");
+            }
 
-            // A. Get limit from Request
+            // Quota Check
             TbOvertimeRequestDetail lineDetail = request.getLineDetails().stream()
-                    .filter(d -> d.getLine().getId().equals(line.getId()))
+                    .filter(d -> d.getLine().getId().equals(targetLine.getId()))
                     .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("Line " + line.getName() + " is not part of this Overtime Request"));
+                    .orElseThrow(() -> new RuntimeException("Logic Error: Detail not found after scope check"));
 
-            // B. Count ACTIVE assignments (Ignore rejected)
-            long currentAssignedCount = overtimeTicketRepository.countAssignedEmployeesByLine(request.getId(), line.getId());
+            long currentAssignedCount = overtimeTicketRepository.countAssignedEmployeesByLine(request.getId(), targetLine.getId());
             int newAllocationCount = allocation.getEmployeeIds().size();
-
-            // C. Validate against 2x Limit
             int maxAllowed = lineDetail.getNumEmployees() * 2;
 
             if (currentAssignedCount + newAllocationCount > maxAllowed) {
                 long remainingSlots = maxAllowed - currentAssignedCount;
-                throw new IllegalArgumentException(String.format(
-                        "Invitation limit exceeded for %s. Target: %d. Max Allowed (2x): %d. Active: %d. Remaining invites: %d. You tried to add: %d.",
-                        line.getName(), lineDetail.getNumEmployees(), maxAllowed, currentAssignedCount, remainingSlots, newAllocationCount
-                ));
+                throw new IllegalArgumentException("Invitation limit exceeded for " + targetLine.getName() + ". Remaining: " + remainingSlots);
             }
 
             // D. Process Employees
             for (Integer empId : allocation.getEmployeeIds()) {
-                // Check Duplicate in Payload
                 if (processedEmployeeIds.contains(empId)) {
                     throw new IllegalArgumentException("Employee ID " + empId + " is assigned multiple times.");
                 }
 
-                // CHECK 1: Is employee already working (ACCEPTED) in this request?
+                // Already in this request?
                 if (overtimeTicketRepository.isEmployeeWorkingInRequest(request.getId(), empId)) {
                     throw new IllegalArgumentException("Employee ID " + empId + " is already assigned to another ticket in this request.");
                 }
 
-
-                // CHECK 2: Global Conflict (Are they working in ANOTHER request?)
+                // Global Conflict?
                 if (overtimeTicketRepository.existsGlobalTimeConflict(
-                        empId,
-                        request.getOvertimeDate(),
-                        request.getStartTime(),
-                        request.getEndTime()) > 0) {
-
-                    // Fetch user name for a helpful error message
-                    TbUser conflictUser = userRepository.findById(empId).orElse(null);
-                    String name = conflictUser != null ? conflictUser.getFullName() : ("ID " + empId);
-
-                    throw new IllegalArgumentException(String.format(
-                            "Conflict: %s is already scheduled for overtime during this time slot (%s - %s on %s).",
-                            name, request.getStartTime(), request.getEndTime(), request.getOvertimeDate()
-                    ));
+                        empId, request.getOvertimeDate(), request.getStartTime(), request.getEndTime()) > 0) {
+                    throw new IllegalArgumentException("Conflict: Employee " + empId + " is already scheduled elsewhere.");
                 }
 
+                // WEEKLY LIMIT CHECK
                 Double currentWeeklyHours = overtimeTicketRepository.getWeeklyOvertimeHours(empId, startOfWeek, endOfWeek);
                 if (currentWeeklyHours == null) currentWeeklyHours = 0.0;
 
@@ -331,23 +328,38 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                     ));
                 }
 
-                processedEmployeeIds.add(empId);
-
+                // --- HIERARCHY CHECK 3: TRAFFIC LIGHT (Native / Sibling / Active Cousin) ---
                 TbUser employee = userRepository.findById(empId)
                         .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + empId));
 
-                // --- CONSTRAINT: Department Flexibility ---
-                // Employee must belong to the same department as the request/manager
-                if (!employee.getDepartment().getId().equals(request.getDepartment().getId())) {
-                    throw new IllegalArgumentException(String.format(
-                            "Employee %s does not belong to the Request's Department (%s).",
-                            employee.getFullName(), request.getDepartment().getName()
-                    ));
+                TbLine workerLine = employee.getLine();
+                if (workerLine == null) throw new IllegalArgumentException("Employee has no line assigned.");
+
+                // Get Parents
+                Integer targetParentId = lineService.getParentId(targetLine.getId());
+                Integer workerParentId = lineService.getParentId(workerLine.getId());
+
+                boolean isNative = workerLine.getId().equals(targetLine.getId());
+                boolean isSameFamily = Objects.equals(targetParentId, workerParentId);
+
+                if (isSameFamily) {
+                    if (!isNative) {
+                        throw new IllegalArgumentException("Sibling Block: Worker " + employee.getFullName() +
+                                " (Line " + workerLine.getName() + ") cannot work for Sibling Line " + targetLine.getName() + ".");
+                    }
+                } else {
+                    boolean isWorkerLineActive = allowedLineIds.contains(workerLine.getId());
+                    if (isWorkerLineActive) {
+                        throw new IllegalArgumentException("Active Lock: Worker " + employee.getFullName() +
+                                " belongs to " + workerLine.getName() + " which is ALSO active in this request. They must stay there.");
+                    }
                 }
+
+                processedEmployeeIds.add(empId);
 
                 TbOvertimeTicketEmployee association = new TbOvertimeTicketEmployee();
                 association.setOvertimeTicket(ticket);
-                association.setLine(line);
+                association.setLine(targetLine);
                 association.setEmployee(employee);
                 association.setStatus(TbOvertimeTicketEmployee.EmployeeOvertimeStatus.pending);
 
@@ -362,7 +374,6 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
         ticket.setOvertimeEmployees(ticketEmployees);
         TbOvertimeTicket saved = overtimeTicketRepository.save(ticket);
 
-        //re-use submit ticket to send notification to factory manager
         submitTicket(saved.getId());
     }
 
@@ -453,71 +464,123 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
     public List<AvailabilityCheckDTO.Response> checkAvailability(AvailabilityCheckDTO.Request requestDto) {
         List<AvailabilityCheckDTO.Response> results = new ArrayList<>();
 
-        // 1. Fetch Request Details
+        // 1. Fetch Request
         TbOvertimeRequest request = overtimeRequestRepository.findById(requestDto.getRequestId())
                 .orElseThrow(() -> new IllegalArgumentException("Request not found"));
 
+        // 2. Identify Context (Manager & Target Line)
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        TbUser manager = userRepository.findByEmail(email).orElse(null);
+
+        boolean performHierarchyChecks = (manager != null && "Manager".equalsIgnoreCase(manager.getRole().getName()) && manager.getLine() != null);
+
+        TbLine targetLine = null;
+        if (requestDto.getTargetLineId() != null) {
+            targetLine = lineRepository.findById(requestDto.getTargetLineId()).orElse(null);
+        }
+
+        // Pre-calculate Scope (Allowed Lines)
+        Set<Integer> allowedLineIds = request.getLineDetails().stream()
+                .map(detail -> detail.getLine().getId())
+                .collect(Collectors.toSet());
+
+        // Pre-calculate Time vars
         LocalDate requestDate = request.getOvertimeDate();
         LocalDate startOfWeek = requestDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         LocalDate endOfWeek = requestDate.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
 
-        // 2. Loop through each employee to validate
         for (Integer empId : requestDto.getEmployeeIds()) {
             AvailabilityCheckDTO.Response response = new AvailabilityCheckDTO.Response();
             response.setEmployeeId(empId);
-            response.setAvailable(true); // Default to true
+            response.setAvailable(true);
 
             try {
-                // CHECK A: Is already accepted in this Request?
+                // --- A. STANDARD CHECKS (Time & Usage) ---
+
+                // 1. Already in Request?
                 if (overtimeTicketRepository.isEmployeeWorkingInRequest(request.getId(), empId)) {
                     response.setAvailable(false);
-                    response.setReason("Already accepted this request");
+                    response.setReason("Already Assigned");
                     results.add(response);
                     continue;
                 }
 
-                // CHECK B: Global Time Conflict (Same time, different request)
+                // 2. Global Conflict?
                 if (overtimeTicketRepository.existsGlobalTimeConflict(
                         empId, requestDate, request.getStartTime(), request.getEndTime()) > 0) {
                     response.setAvailable(false);
-                    response.setReason("Time conflict with another ticket");
+                    response.setReason("Time Conflict");
                     results.add(response);
                     continue;
                 }
 
-                // CHECK C: Weekly Hour Limit (12h)
+                // 3. Weekly Limit?
                 Double currentWeeklyHours = overtimeTicketRepository.getWeeklyOvertimeHours(empId, startOfWeek, endOfWeek);
                 if (currentWeeklyHours == null) currentWeeklyHours = 0.0;
-
-                double potentialTotal = currentWeeklyHours + request.getOvertimeTime();
-
-                if (potentialTotal > MAX_WEEKLY_OT_HOURS) {
+                if (currentWeeklyHours + request.getOvertimeTime() > MAX_WEEKLY_OT_HOURS) {
                     response.setAvailable(false);
-                    String msg = String.format("Weekly limit: %.1f/%.0fh", currentWeeklyHours, MAX_WEEKLY_OT_HOURS);
-                    response.setReason(msg);
+                    response.setReason("Weekly Limit Exceeded");
                     results.add(response);
                     continue;
                 }
 
-                //add this when leave request is ready
-//                if (leaveRequestRepository.hasApprovedLeaveOnDate(empId, requestDate)) {
-//                    response.setAvailable(false);
-//                    response.setReason("On Approved Leave");
-//                    results.add(response);
-//                    continue;
-//                }
+                // --- B. HIERARCHY CHECKS (If context is valid) ---
+                if (performHierarchyChecks && targetLine != null) {
 
-                // If all pass:
+                    // 4. Power Check: Does Manager own Target Line?
+                    if (!lineService.isAncestor(manager.getLine().getId(), targetLine.getId())) {
+                        response.setAvailable(false);
+                        response.setReason("Unauthorized (Not your line)");
+                        results.add(response);
+                        continue;
+                    }
+
+                    // 5. Scope Check: Is Target Line in Request?
+                    if (!allowedLineIds.contains(targetLine.getId())) {
+                        response.setAvailable(false);
+                        response.setReason("Line Not In Request");
+                        results.add(response);
+                        continue;
+                    }
+
+                    // 6. Traffic Light Check (Native / Sibling / Active Cousin)
+                    TbUser employee = userRepository.findById(empId).orElse(null);
+                    if (employee != null && employee.getLine() != null) {
+                        TbLine workerLine = employee.getLine();
+                        Integer targetParentId = lineService.getParentId(targetLine.getId());
+                        Integer workerParentId = lineService.getParentId(workerLine.getId());
+
+                        boolean isNative = workerLine.getId().equals(targetLine.getId());
+                        boolean isSameFamily = Objects.equals(targetParentId, workerParentId);
+
+                        if (isSameFamily) {
+                            // Sibling Block
+                            if (!isNative) {
+                                response.setAvailable(false);
+                                response.setReason("Sibling Block");
+                                results.add(response);
+                                continue;
+                            }
+                        } else {
+                            // Cousin Check: Active Lock
+                            if (allowedLineIds.contains(workerLine.getId())) {
+                                response.setAvailable(false);
+                                response.setReason("Active Lock (Home Line Running)");
+                                results.add(response);
+                                continue;
+                            }
+                        }
+                    }
+                }
+
                 results.add(response);
 
             } catch (Exception e) {
-                // Fallback for unexpected errors
                 response.setAvailable(false);
-                response.setReason("Check failed");
+                response.setReason("Check Error");
                 results.add(response);
             }
         }
-
         return results;
     }
 }
