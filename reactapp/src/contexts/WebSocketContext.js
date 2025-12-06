@@ -2,12 +2,14 @@ import React, {createContext, useContext, useEffect, useState, useRef, useCallba
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { getToken } from '../services/authService';
+import {useNavigate} from "react-router-dom";
 
 const WebSocketContext = createContext(null);
 
 export const WebSocketProvider = ({ children }) => {
     const [connected, setConnected] = useState(false);
     const clientRef = useRef(null);
+    const navigate = useNavigate();
 
     // Store token in state to force re-evaluation
     const [token, setToken] = useState(getToken());
@@ -38,6 +40,7 @@ export const WebSocketProvider = ({ children }) => {
                 console.error('Broker reported error: ' + frame.headers['message']);
                 if (message && message.includes("Authentication failed")) {
                     console.log("Authentication failed. Forcing refresh/re-login.");
+                    navigate("/logout", { replace: true });
                     window.location.reload();
                 }
             },
