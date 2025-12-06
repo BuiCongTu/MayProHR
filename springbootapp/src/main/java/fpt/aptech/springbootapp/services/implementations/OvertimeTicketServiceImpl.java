@@ -276,12 +276,14 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
             long currentAssignedCount = overtimeTicketRepository.countAssignedEmployeesByLine(request.getId(), line.getId());
             int newAllocationCount = allocation.getEmployeeIds().size();
 
-            // C. Validate Quota
-            if (currentAssignedCount + newAllocationCount > lineDetail.getNumEmployees()) {
-                long remainingSlots = lineDetail.getNumEmployees() - currentAssignedCount;
+            // C. Validate against 2x Limit
+            int maxAllowed = lineDetail.getNumEmployees() * 2;
+
+            if (currentAssignedCount + newAllocationCount > maxAllowed) {
+                long remainingSlots = maxAllowed - currentAssignedCount;
                 throw new IllegalArgumentException(String.format(
-                        "Quota exceeded for %s. Limit: %d. Active: %d. Remaining: %d. You tried to add: %d.",
-                        line.getName(), lineDetail.getNumEmployees(), currentAssignedCount, remainingSlots, newAllocationCount
+                        "Invitation limit exceeded for %s. Target: %d. Max Allowed (2x): %d. Active: %d. Remaining invites: %d. You tried to add: %d.",
+                        line.getName(), lineDetail.getNumEmployees(), maxAllowed, currentAssignedCount, remainingSlots, newAllocationCount
                 ));
             }
 
@@ -358,7 +360,10 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
         }
 
         ticket.setOvertimeEmployees(ticketEmployees);
-        overtimeTicketRepository.save(ticket);
+        TbOvertimeTicket saved = overtimeTicketRepository.save(ticket);
+
+        //re-use submit ticket to send notification to factory manager
+        submitTicket(saved.getId());
     }
 
     @Override

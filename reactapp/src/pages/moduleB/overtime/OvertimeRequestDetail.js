@@ -4,11 +4,11 @@ import {
     approveOvertimeRequest,
     getOvertimeRequestById
 } from '../../../services/moduleB/overtimeService';
-import { getCurrentUser } from '../../../services/authService';
+import {getCurrentUser} from '../../../services/authService';
 import RequestStatusTracker from '../../../components/moduleB/RequestStatusTracker';
 import EmployeeListTable from './EmployeeList';
 import RequestTicketList from './RequestTicketList';
-import { useWebSocket } from '../../../contexts/WebSocketContext';
+import {useWebSocket} from '../../../contexts/WebSocketContext';
 
 import {
     Box, CircularProgress, Typography, Alert, Button, Container,
@@ -144,7 +144,7 @@ export default function OvertimeRequestDetail() {
     const {id} = useParams();
     const navigate = useNavigate();
     const user = getCurrentUser();
-    const { subscribe, connected } = useWebSocket();
+    const {subscribe, connected} = useWebSocket();
 
     const [request, setRequest] = useState(null);
     const [processedData, setProcessedData] = useState({stats: {}, lines: []});
@@ -249,9 +249,9 @@ export default function OvertimeRequestDetail() {
                     <Button
                         variant="contained"
                         color="secondary"
-                        startIcon={<PostAddIcon />}
-                        onClick={() => navigate('/overtime-ticket/create', { state: { preselectedRequestId: request.id } })}
-                        sx={{ fontWeight: 'bold' }}
+                        startIcon={<PostAddIcon/>}
+                        onClick={() => navigate('/overtime-ticket/create', {state: {preselectedRequestId: request.id}})}
+                        sx={{fontWeight: 'bold'}}
                     >
                         Create Ticket
                     </Button>
@@ -297,11 +297,21 @@ export default function OvertimeRequestDetail() {
         let label = status?.toUpperCase() || 'UNKNOWN';
 
         switch (status?.toLowerCase()) {
-            case 'pending': color = 'warning'; break;
-            case 'open': color = 'info'; break;
-            case 'processed': color = 'success'; break;
-            case 'rejected': color = 'error'; break;
-            case 'expired': color = 'default'; break;
+            case 'pending':
+                color = 'warning';
+                break;
+            case 'open':
+                color = 'info';
+                break;
+            case 'processed':
+                color = 'success';
+                break;
+            case 'rejected':
+                color = 'error';
+                break;
+            case 'expired':
+                color = 'default';
+                break;
         }
 
         return (
@@ -401,9 +411,9 @@ export default function OvertimeRequestDetail() {
             {request.status === 'open' && (
                 <Alert
                     severity="info"
-                    icon={<AutoModeIcon />}
+                    icon={<AutoModeIcon/>}
                     variant="filled"
-                    sx={{ mb: 3, boxShadow: 2 }}
+                    sx={{mb: 3, boxShadow: 2}}
                 >
                     <Typography variant="subtitle2" fontWeight="bold">
                         Auto-Processing Active
@@ -422,7 +432,8 @@ export default function OvertimeRequestDetail() {
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard title="Current Supply" value={stats.totalSupply}
-                              subtitle={<Typography variant="body2" color="textSecondary">Accepted Employees</Typography>}
+                              subtitle={<Typography variant="body2" color="textSecondary">Accepted
+                                  Employees</Typography>}
                               icon={<AssignmentTurnedInIcon/>}
                               color={stats.totalSupply >= stats.totalDemand ? "#2e7d32" : "#ed6c02"}/>
                 </Grid>
@@ -449,9 +460,6 @@ export default function OvertimeRequestDetail() {
 
                 {tabValue === 0 && (
                     <Box>
-                        <Typography variant="body2" color="textSecondary" sx={{mb: 2}}>
-                            Drill down by line to see coverage gaps. Submitted tickets are counted as tentative coverage.
-                        </Typography>
                         {lines.map((line) => {
                             const isFull = line.staffed >= line.required;
                             const statusColor = isFull ? 'success.main' : (line.staffed === 0 ? 'error.main' : 'warning.main');
@@ -488,7 +496,8 @@ export default function OvertimeRequestDetail() {
                                                         <TableCell><strong>Ticket Source</strong></TableCell>
                                                         <TableCell><strong>Manager</strong></TableCell>
                                                         <TableCell><strong>Status</strong></TableCell>
-                                                        <TableCell align="right"><strong>Contribution</strong></TableCell>
+                                                        <TableCell
+                                                            align="right"><strong>Contribution</strong></TableCell>
                                                         <TableCell align="right"><strong>View</strong></TableCell>
                                                     </TableRow>
                                                 </TableHead>
@@ -496,14 +505,17 @@ export default function OvertimeRequestDetail() {
                                                     {line.tickets.length === 0 ? (
                                                         <TableRow><TableCell colSpan={5} align="center"
                                                                              sx={{py: 3, color: 'text.secondary'}}>No
-                                                            tickets submitted for this line yet.</TableCell></TableRow>
+                                                            contribution yet.</TableCell></TableRow>
                                                     ) : (
                                                         line.tickets.map((ticket) => (
                                                             <TableRow key={ticket.ticketId}>
                                                                 <TableCell>Ticket #{ticket.ticketId}</TableCell>
                                                                 <TableCell>{ticket.managerName}</TableCell>
-                                                                <TableCell><TicketStatusChip status={ticket.status}/></TableCell>
-                                                                <TableCell align="right"><Chip label={`+${ticket.contribution}`} size="small" variant="outlined"/></TableCell>
+                                                                <TableCell><TicketStatusChip
+                                                                    status={ticket.status}/></TableCell>
+                                                                <TableCell align="right"><Chip
+                                                                    label={`+${ticket.contribution}`} size="small"
+                                                                    variant="outlined"/></TableCell>
                                                                 <TableCell align="right">
                                                                     <Tooltip title="View List">
                                                                         <IconButton
