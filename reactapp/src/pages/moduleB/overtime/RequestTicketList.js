@@ -1,8 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import {
-    getFilteredOvertimeTickets,
-    approveOvertimeTicket,
-    rejectOvertimeTicket
+    getFilteredOvertimeTickets
 } from "../../../services/moduleB/overtimeService";
 
 import {
@@ -14,19 +12,17 @@ import {
 
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
-import VerifiedIcon from '@mui/icons-material/Verified';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 
 import {visuallyHidden} from '@mui/utils';
 import EmployeeListTable from './EmployeeList';
-import ActionReasonModal from './ActionReasonModal';
 
 const headCells = [
     {id: 'id', label: 'ID', numeric: false, width: '10%'},
-    {id: 'manager.fullName', label: 'Manager', numeric: false, width: '20%'},
-    {id: 'employeeList', label: 'Empl #', numeric: false, width: '15%'},
-    {id: 'status', label: 'Status', numeric: false, width: '15%'},
-    {id: 'actions', label: 'Actions', numeric: false, width: '15%'},
+    {id: 'manager.fullName', label: 'Manager', numeric: false, width: '30%'},
+    {id: 'employeeList', label: 'Empl #', numeric: false, width: '20%'},
+    {id: 'status', label: 'Status', numeric: false, width: '20%'},
+    {id: 'view', label: 'View', numeric: false, width: '10%'},
 ];
 
 function EnhancedTableHead(props) {
@@ -49,7 +45,7 @@ function EnhancedTableHead(props) {
                             active={orderBy === headCell.id}
                             direction={orderBy === headCell.id ? order : 'asc'}
                             onClick={createSortHandler(headCell.id)}
-                            disabled={headCell.id === 'actions' || headCell.id === 'employeeList' || headCell.id === 'status'}
+                            disabled={headCell.id === 'view' || headCell.id === 'employeeList' || headCell.id === 'status'}
                         >
                             {headCell.label}
                             {orderBy === headCell.id ? (
@@ -65,8 +61,7 @@ function EnhancedTableHead(props) {
     );
 }
 
-// Updated Prop definition: added 'onRefresh'
-function RequestTicketList({request, onRefresh}) {
+function RequestTicketList({request}) {
     const [tickets, setTickets] = useState([]);
     const [order, setOrder] = useState('desc');
     const [orderBy, setOrderBy] = useState('id');
@@ -78,14 +73,6 @@ function RequestTicketList({request, onRefresh}) {
     // Modals
     const [employeeModalOpen, setEmployeeModalOpen] = useState(false);
     const [selectedEmployees, setSelectedEmployees] = useState([]);
-
-    // Reject Modal
-    const [rejectModalOpen, setRejectModalOpen] = useState(false);
-    const [ticketToReject, setTicketToReject] = useState(null);
-
-    // Approve Modal (NEW)
-    const [approveModalOpen, setApproveModalOpen] = useState(false);
-    const [ticketToApprove, setTicketToApprove] = useState(null);
 
     const requestId = request?.id;
 
@@ -132,51 +119,15 @@ function RequestTicketList({request, onRefresh}) {
         setOrderBy(property);
     };
 
-    // --- Actions ---
     const handleOpenEmployeeModal = (employees) => {
         setSelectedEmployees(employees || []);
         setEmployeeModalOpen(true);
-    };
-
-    // Open Approve Modal
-    const handleApproveClick = (ticket) => {
-        setTicketToApprove(ticket);
-        setApproveModalOpen(true);
-    };
-
-    // Submit Approve
-    const handleApproveSubmit = async (reason) => {
-        if (!ticketToApprove) return;
-        try {
-            await approveOvertimeTicket(ticketToApprove.id, reason);
-            setTickets(prev => prev.map(t => t.id === ticketToApprove.id ? {...t, status: 'approved'} : t));
-            setApproveModalOpen(false);
-            setTicketToApprove(null);
-            if (onRefresh) onRefresh();
-        } catch (err) {
-            console.error(err);
-        }
-    };
-
-    const handleSubmitRejection = async (reason) => {
-        if (!ticketToReject) return;
-        try {
-            await rejectOvertimeTicket(ticketToReject.id, reason);
-            setTickets(prev => prev.map(t => t.id === ticketToReject.id ? {...t, status: 'rejected', reason} : t));
-            setRejectModalOpen(false);
-            if (onRefresh) onRefresh();
-        } catch (err) {
-            console.error(err);
-        }
     };
 
     const getStatusChip = (status) => {
         let color;
         let label = status ? status.toUpperCase() : 'UNKNOWN';
         switch (status?.toLowerCase()) {
-            case 'pending':
-                color = 'warning';
-                break;
             case 'submitted':
                 color = 'info';
                 break;
@@ -228,8 +179,6 @@ function RequestTicketList({request, onRefresh}) {
                                 <TableRow><TableCell colSpan={headCells.length} align="center" sx={{py: 4}}>No tickets found.</TableCell></TableRow>
                             ) : (
                                 tickets.map((ticket) => {
-                                    const isActionable = ticket.status === 'submitted';
-
                                     return (
                                         <TableRow hover key={ticket.id}>
                                             <TableCell>#{ticket.id}</TableCell>
@@ -237,31 +186,11 @@ function RequestTicketList({request, onRefresh}) {
                                             <TableCell>{getScopeText(ticket.employeeList)}</TableCell>
                                             <TableCell>{getStatusChip(ticket.status)}</TableCell>
                                             <TableCell>
-                                                <Stack direction="row" spacing={1}>
-                                                    <Tooltip title="View List">
-                                                        <IconButton size="small" onClick={() => handleOpenEmployeeModal(ticket.employeeList)}>
-                                                            <VisibilityIcon fontSize="small"/>
-                                                        </IconButton>
-                                                    </Tooltip>
-
-                                                    {isActionable && (
-                                                        <>
-                                                            <Tooltip title="Approve">
-                                                                <IconButton color="success" onClick={() => handleApproveClick(ticket)} size="small">
-                                                                    <VerifiedIcon fontSize="small"/>
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                            <Tooltip title="Reject">
-                                                                <IconButton color="error" onClick={() => {
-                                                                    setTicketToReject(ticket);
-                                                                    setRejectModalOpen(true);
-                                                                }} size="small">
-                                                                    <CloseIcon fontSize="small"/>
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        </>
-                                                    )}
-                                                </Stack>
+                                                <Tooltip title="View List">
+                                                    <IconButton size="small" onClick={() => handleOpenEmployeeModal(ticket.employeeList)}>
+                                                        <VisibilityIcon fontSize="small"/>
+                                                    </IconButton>
+                                                </Tooltip>
                                             </TableCell>
                                         </TableRow>
                                     );
@@ -272,7 +201,6 @@ function RequestTicketList({request, onRefresh}) {
                 </TableContainer>
             </Paper>
 
-            {/* EMPLOYEES MODAL */}
             <Dialog open={employeeModalOpen} onClose={() => setEmployeeModalOpen(false)} maxWidth="md" fullWidth>
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     Ticket Employees
@@ -284,28 +212,6 @@ function RequestTicketList({request, onRefresh}) {
                     <EmployeeListTable employees={selectedEmployees} />
                 </DialogContent>
             </Dialog>
-
-            {/* REJECT MODAL */}
-            <ActionReasonModal
-                open={rejectModalOpen}
-                onClose={() => setRejectModalOpen(false)}
-                onSubmit={handleSubmitRejection}
-                title="Reject Ticket"
-                label="Reason for Rejection"
-                submitText="Reject Ticket"
-                submitColor="error"
-            />
-
-            {/* APPROVE MODAL */}
-            <ActionReasonModal
-                open={approveModalOpen}
-                onClose={() => setApproveModalOpen(false)}
-                onSubmit={handleApproveSubmit}
-                title="Approve Ticket"
-                label="Reason or Approval Note"
-                submitText="Approve"
-                submitColor="success"
-            />
         </Box>
     );
 }

@@ -1,17 +1,12 @@
 import React, {useState, useEffect} from 'react';
 import {useParams, useNavigate} from 'react-router-dom';
 import {
-    getOvertimeRequestById,
-    approveOvertimeTicket,
-    rejectOvertimeTicket,
     approveOvertimeRequest,
-    rejectOvertimeRequest,
-    processOvertimeRequest
+    getOvertimeRequestById
 } from '../../../services/moduleB/overtimeService';
 import { getCurrentUser } from '../../../services/authService';
 import RequestStatusTracker from '../../../components/moduleB/RequestStatusTracker';
 import EmployeeListTable from './EmployeeList';
-import ActionReasonModal from './ActionReasonModal';
 import RequestTicketList from './RequestTicketList';
 import { useWebSocket } from '../../../contexts/WebSocketContext';
 
@@ -32,8 +27,6 @@ import GroupIcon from '@mui/icons-material/Group';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import VerifiedIcon from '@mui/icons-material/Verified';
-import CancelIcon from '@mui/icons-material/Cancel';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CloseIcon from '@mui/icons-material/Close';
 import ViewListIcon from '@mui/icons-material/ViewList';
@@ -43,8 +36,8 @@ import HistoryIcon from '@mui/icons-material/History';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
-import TaskIcon from '@mui/icons-material/Task';
 import PostAddIcon from '@mui/icons-material/PostAdd';
+import AutoModeIcon from "@mui/icons-material/AutoMode";
 
 function processStaffingData(request) {
     if (!request || !request.lineDetails) return {stats: {}, lines: []};
@@ -162,14 +155,10 @@ export default function OvertimeRequestDetail() {
     const [tabValue, setTabValue] = useState(0);
     const [expandedAccordion, setExpandedAccordion] = useState(false);
     const [drawerOpen, setDrawerOpen] = useState(false);
-
-    // Modals
     const [employeeModalOpen, setEmployeeModalOpen] = useState(false);
     const [selectedEmployeeList, setSelectedEmployeeList] = useState([]);
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
     const [rejectTarget, setRejectTarget] = useState({type: null, id: null});
-    const [approveModalOpen, setApproveModalOpen] = useState(false);
-    const [ticketToApprove, setTicketToApprove] = useState(null);
 
     const loadData = async () => {
         try {
@@ -223,56 +212,10 @@ export default function OvertimeRequestDetail() {
         }
     }
 
-    const handleProcessRequest = async () => {
-        if (!window.confirm("Process this request? This will finalize the data for Payroll.")) return;
-        try {
-            await processOvertimeRequest(request.id);
-            loadData();
-        } catch (err) {
-            alert("Error processing request: " + (err.message || err));
-        }
-    }
-
     const handleRejectRequestClick = () => {
         setRejectTarget({type: 'request', id: request.id});
         setRejectModalOpen(true);
     }
-
-    const handleApproveClick = (ticketId) => {
-        setTicketToApprove(ticketId);
-        setApproveModalOpen(true);
-    };
-
-    const handleApproveSubmit = async (reason) => {
-        try {
-            await approveOvertimeTicket(ticketToApprove, reason);
-            setApproveModalOpen(false);
-            setTicketToApprove(null);
-            loadData();
-        } catch (err) {
-            alert("Failed to approve ticket: " + err.message);
-        }
-    };
-
-    const handleRejectTicketClick = (ticketId) => {
-        setRejectTarget({type: 'ticket', id: ticketId});
-        setRejectModalOpen(true);
-    };
-
-    const handleRejectSubmit = async (reason) => {
-        try {
-            if (rejectTarget.type === 'request') {
-                await rejectOvertimeRequest(rejectTarget.id, reason);
-            } else if (rejectTarget.type === 'ticket') {
-                await rejectOvertimeTicket(rejectTarget.id, reason);
-            }
-            setRejectModalOpen(false);
-            setRejectTarget({type: null, id: null});
-            loadData();
-        } catch (err) {
-            alert("Failed to reject.");
-        }
-    };
 
     const handleViewEmployees = (list) => {
         setSelectedEmployeeList(list || []);
@@ -288,12 +231,10 @@ export default function OvertimeRequestDetail() {
         const isManager = user?.roleName === 'Factory Manager' || user?.roleName === 'FManager';
         const isDirector = user?.roleName === 'Factory Director' || user?.roleName === 'FDirector';
         const isLineManager = user?.roleName === 'Manager';
-
         const status = request.status?.toLowerCase();
 
         return (
             <Stack direction="row" spacing={1} alignItems="center">
-
                 <Button
                     variant="outlined"
                     startIcon={<HistoryIcon/>}
@@ -340,17 +281,6 @@ export default function OvertimeRequestDetail() {
                         )}
                     </>
                 )}
-
-                {status === 'open' && isManager && (
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={<TaskIcon/>}
-                        onClick={handleProcessRequest}
-                    >
-                        Process Request
-                    </Button>
-                )}
                 {status === 'open' && isDirector && (
                     <Chip label="Approved & Open" color="success" variant="outlined"/>
                 )}
@@ -358,7 +288,6 @@ export default function OvertimeRequestDetail() {
                 {status === 'processed' && (
                     <Chip label="Processed for Payroll" color="success"/>
                 )}
-
             </Stack>
         );
     };
@@ -468,6 +397,22 @@ export default function OvertimeRequestDetail() {
                 </Paper>
             </Box>
 
+            {/* AUTOMATION BANNER */}
+            {request.status === 'open' && (
+                <Alert
+                    severity="info"
+                    icon={<AutoModeIcon />}
+                    variant="filled"
+                    sx={{ mb: 3, boxShadow: 2 }}
+                >
+                    <Typography variant="subtitle2" fontWeight="bold">
+                        Auto-Processing Active
+                    </Typography>
+                    This request will be processed automatically 4 hours before the start time.
+                    Valid tickets will be approved; invalid or empty tickets will be rejected.
+                </Alert>
+            )}
+
             {/* ZONE B: HEALTH CHECK */}
             <Grid container spacing={3} sx={{mb: 4}}>
                 <Grid item xs={12} sm={6} md={4}>
@@ -477,17 +422,17 @@ export default function OvertimeRequestDetail() {
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard title="Current Supply" value={stats.totalSupply}
-                              subtitle={<Typography variant="body2" color="textSecondary">Accepted
-                                  Employees</Typography>} icon={<AssignmentTurnedInIcon/>}
+                              subtitle={<Typography variant="body2" color="textSecondary">Accepted Employees</Typography>}
+                              icon={<AssignmentTurnedInIcon/>}
                               color={stats.totalSupply >= stats.totalDemand ? "#2e7d32" : "#ed6c02"}/>
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
-                        title="Pending Review"
+                        title="In Queue"
                         value={stats.pendingTickets}
-                        subtitle={<Typography variant="body2" color="textSecondary">Tickets waiting action</Typography>}
+                        subtitle={<Typography variant="body2" color="textSecondary">Submitted Tickets</Typography>}
                         icon={<PendingActionsIcon/>}
-                        color={stats.pendingTickets > 0 ? "#d32f2f" : "#9e9e9e"}
+                        color={stats.pendingTickets > 0 ? "#1976d2" : "#9e9e9e"}
                         onClick={stats.pendingTickets > 0 ? handlePendingCardClick : undefined}
                     />
                 </Grid>
@@ -498,15 +443,14 @@ export default function OvertimeRequestDetail() {
                 <Box sx={{borderBottom: 1, borderColor: 'divider', mb: 2}}>
                     <Tabs value={tabValue} onChange={(e, val) => setTabValue(val)}>
                         <Tab icon={<ViewListIcon/>} label="Line Coverage" iconPosition="start"/>
-                        <Tab icon={<TableChartIcon/>} label="Ticket Management" iconPosition="start"/>
+                        <Tab icon={<TableChartIcon/>} label="Ticket List" iconPosition="start"/>
                     </Tabs>
                 </Box>
 
                 {tabValue === 0 && (
                     <Box>
                         <Typography variant="body2" color="textSecondary" sx={{mb: 2}}>
-                            Drill down by line to see coverage gaps. <strong>Only valid tickets count towards the
-                            total.</strong>
+                            Drill down by line to see coverage gaps. Submitted tickets are counted as tentative coverage.
                         </Typography>
                         {lines.map((line) => {
                             const isFull = line.staffed >= line.required;
@@ -544,9 +488,8 @@ export default function OvertimeRequestDetail() {
                                                         <TableCell><strong>Ticket Source</strong></TableCell>
                                                         <TableCell><strong>Manager</strong></TableCell>
                                                         <TableCell><strong>Status</strong></TableCell>
-                                                        <TableCell
-                                                            align="right"><strong>Contribution</strong></TableCell>
-                                                        <TableCell align="right"><strong>Actions</strong></TableCell>
+                                                        <TableCell align="right"><strong>Contribution</strong></TableCell>
+                                                        <TableCell align="right"><strong>View</strong></TableCell>
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
@@ -559,37 +502,17 @@ export default function OvertimeRequestDetail() {
                                                             <TableRow key={ticket.ticketId}>
                                                                 <TableCell>Ticket #{ticket.ticketId}</TableCell>
                                                                 <TableCell>{ticket.managerName}</TableCell>
-                                                                <TableCell><TicketStatusChip
-                                                                    status={ticket.status}/></TableCell>
-                                                                <TableCell align="right"><Chip
-                                                                    label={`+${ticket.contribution}`} size="small"
-                                                                    variant="outlined"/></TableCell>
+                                                                <TableCell><TicketStatusChip status={ticket.status}/></TableCell>
+                                                                <TableCell align="right"><Chip label={`+${ticket.contribution}`} size="small" variant="outlined"/></TableCell>
                                                                 <TableCell align="right">
-                                                                    <Stack direction="row" spacing={1}
-                                                                           justifyContent="flex-end">
-                                                                        <Tooltip title="View List"><IconButton
+                                                                    <Tooltip title="View List">
+                                                                        <IconButton
                                                                             size="small"
-                                                                            onClick={() => handleViewEmployees(ticket.employees)}><VisibilityIcon
-                                                                            fontSize="small"/></IconButton></Tooltip>
-                                                                        {ticket.status === 'submitted' && (
-                                                                            <>
-                                                                                <Tooltip title="Approve">
-                                                                                    <IconButton color="success"
-                                                                                                size="small"
-                                                                                                onClick={() => handleApproveClick(ticket.ticketId)}>
-                                                                                        <VerifiedIcon fontSize="small"/>
-                                                                                    </IconButton>
-                                                                                </Tooltip>
-                                                                                <Tooltip title="Reject">
-                                                                                    <IconButton color="error"
-                                                                                                size="small"
-                                                                                                onClick={() => handleRejectTicketClick(ticket.ticketId)}>
-                                                                                        <CancelIcon fontSize="small"/>
-                                                                                    </IconButton>
-                                                                                </Tooltip>
-                                                                            </>
-                                                                        )}
-                                                                    </Stack>
+                                                                            onClick={() => handleViewEmployees(ticket.employees)}
+                                                                        >
+                                                                            <VisibilityIcon fontSize="small"/>
+                                                                        </IconButton>
+                                                                    </Tooltip>
                                                                 </TableCell>
                                                             </TableRow>
                                                         ))
@@ -606,9 +529,6 @@ export default function OvertimeRequestDetail() {
 
                 {tabValue === 1 && (
                     <Box>
-                        <Typography variant="body2" color="textSecondary" sx={{mb: 2}}>
-                            Manage all submitted tickets in a single list.
-                        </Typography>
                         <RequestTicketList request={request} onRefresh={loadData}/>
                     </Box>
                 )}
@@ -632,8 +552,6 @@ export default function OvertimeRequestDetail() {
                         <Typography variant="caption" color="textSecondary" display="block" gutterBottom>
                             METADATA
                         </Typography>
-                        <Typography variant="body2"><strong>Created:</strong> {new Date().toLocaleDateString()}
-                        </Typography>
                         <Typography variant="body2"><strong>Last Updated:</strong> {new Date().toLocaleDateString()}
                         </Typography>
                     </Box>
@@ -648,26 +566,6 @@ export default function OvertimeRequestDetail() {
                     <EmployeeListTable employees={selectedEmployeeList}/>
                 </DialogContent>
             </Dialog>
-
-            <ActionReasonModal
-                open={rejectModalOpen}
-                onClose={() => setRejectModalOpen(false)}
-                onSubmit={handleRejectSubmit}
-                title={`Reject ${rejectTarget.type === 'request' ? 'Request' : 'Ticket'}`}
-                label="Reason for Rejection"
-                submitText="Reject"
-                submitColor="error"
-            />
-
-            <ActionReasonModal
-                open={approveModalOpen}
-                onClose={() => setApproveModalOpen(false)}
-                onSubmit={handleApproveSubmit}
-                title="Approve Ticket"
-                label="Reason or Approval Note"
-                submitText="Approve"
-                submitColor="success"
-            />
         </Container>
     );
 }

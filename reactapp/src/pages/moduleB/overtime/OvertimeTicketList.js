@@ -1,33 +1,14 @@
 import React, {useState, useEffect} from 'react';
-import {getFilteredOvertimeTickets, submitOvertimeTicket} from "../../../services/moduleB/overtimeService";
+import {getFilteredOvertimeTickets} from "../../../services/moduleB/overtimeService";
 import {useNavigate} from "react-router-dom";
 import { getCurrentUser } from '../../../services/authService';
 import { useWebSocket } from '../../../contexts/WebSocketContext';
 
 import {
-    Box,
-    Typography,
-    Button,
-    Paper,
-    TextField,
-    InputAdornment,
-    ToggleButton,
-    ToggleButtonGroup,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    TableSortLabel,
-    Chip,
-    colors,
-    Grid,
-    Card,
-    CardContent,
-    Stack,
-    Tooltip,
-    IconButton
+    Box, Typography, Button, Paper, TextField, InputAdornment,
+    ToggleButton, ToggleButtonGroup, Table, TableBody, TableCell,
+    TableContainer, TableHead, TableRow, TableSortLabel, Chip,
+    colors, Grid, Card, CardContent, Stack, Tooltip, IconButton
 } from '@mui/material';
 
 import SearchIcon from '@mui/icons-material/Search';
@@ -36,7 +17,6 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import CancelIcon from '@mui/icons-material/Cancel';
-import SendIcon from '@mui/icons-material/Send';
 import {visuallyHidden} from '@mui/utils';
 
 // --- Components ---
@@ -64,11 +44,11 @@ function StatCard({ title, value, icon, color }) {
 
 const headCells = [
     {id: 'id', label: 'Ticket ID', width: '10%'},
-    {id: 'overtimeRequest.overtimeDate', label: 'Date', width: '15%'},
+    {id: 'overtimeRequest.overtimeDate', label: 'Date', width: '20%'},
     {id: 'overtimeRequest.startTime', label: 'Time', width: '20%'},
     {id: 'requestId', label: 'Request Ref', width: '15%'},
     {id: 'status', label: 'Status', width: '15%'},
-    {id: 'action', label: 'Action', width: '15%'}
+    {id: 'view', label: 'View', width: '10%'}
 ];
 
 function EnhancedTableHead(props) {
@@ -91,6 +71,7 @@ function EnhancedTableHead(props) {
                             active={orderBy === headCell.id}
                             direction={orderBy === headCell.id ? order : 'asc'}
                             onClick={createSortHandler(headCell.id)}
+                            disabled={headCell.id === 'view'}
                         >
                             {headCell.label}
                             {orderBy === headCell.id ? (
@@ -118,7 +99,7 @@ export default function OvertimeTicketList() {
     // Filters
     const [order, setOrder] = useState('desc');
     const [orderBy, setOrderBy] = useState('id');
-    const [statusFilter, setStatusFilter] = useState('all'); // Default 'all' for toggle group
+    const [statusFilter, setStatusFilter] = useState('all');
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
 
@@ -130,9 +111,7 @@ export default function OvertimeTicketList() {
     const loadData = async () => {
         if (!currentUser?.id) return;
 
-        // Backend uses "null" for all
         const apiStatus = statusFilter === 'all' ? null : statusFilter;
-
         const filter = {
             managerId: currentUser.id,
             status: apiStatus,
@@ -144,7 +123,7 @@ export default function OvertimeTicketList() {
             const data = await getFilteredOvertimeTickets(filter, pageable);
             setTickets(data?.content || []);
 
-            // Stats logic (simplified)
+            // Stats logic
             if (statusFilter === 'all') {
                 setStats({
                     total: data.totalElements,
@@ -163,15 +142,8 @@ export default function OvertimeTicketList() {
 
     useEffect(() => {
         if (!connected) return;
-
-        const sub = subscribe('/topic/tickets', (updatedTicket) => {
-            console.log("Ticket Update Received:", updatedTicket);
-            loadData();
-        });
-
-        return () => {
-            if (sub) sub.unsubscribe();
-        };
+        const sub = subscribe('/topic/tickets', () => loadData());
+        return () => { if (sub) sub.unsubscribe(); };
     }, [connected, subscribe, page, statusFilter, order, orderBy, debouncedSearch]);
 
     const handleSortRequest = (event, property) => {
@@ -180,24 +152,11 @@ export default function OvertimeTicketList() {
         setOrderBy(property);
     };
 
-    const handleSubmitTicket = async (e, ticketId) => {
-        e.stopPropagation();
-        if (!window.confirm("Submit this ticket for approval?")) return;
-        try {
-            await submitOvertimeTicket(ticketId);
-            loadData();
-        } catch (err) {
-            alert("Failed to submit ticket: " + err.message);
-        }
-    };
-
     const getStatusChip = (status) => {
         let color = 'default';
         if (status === 'submitted') color = 'info';
         if (status === 'approved') color = 'success';
         if (status === 'rejected') color = 'error';
-        if (status === 'pending') color = 'warning';
-
         return <Chip label={status?.toUpperCase()} color={color} size="small" sx={{ fontWeight: 'bold', minWidth: 80 }} />;
     };
 
@@ -211,14 +170,14 @@ export default function OvertimeTicketList() {
                     <StatCard title="My Tickets" value={stats.total} icon={<AssignmentIcon />} color="#1976d2" />
                 </Grid>
                 <Grid item xs={12} sm={4}>
-                    <StatCard title="Pending Approval" value={stats.pending} icon={<PendingActionsIcon />} color="#ed6c02" />
+                    <StatCard title="Queued (Submitted)" value={stats.pending} icon={<PendingActionsIcon />} color="#1976d2" />
                 </Grid>
                 <Grid item xs={12} sm={4}>
                     <StatCard title="Rejected" value={stats.rejected} icon={<CancelIcon />} color="#d32f2f" />
                 </Grid>
             </Grid>
 
-            {/* ZONE B: ACTIONS (Request List Style) */}
+            {/* ZONE B: ACTIONS */}
             <Paper elevation={0} sx={{
                 p: 2, mb: 2, bgcolor: 'white', border: '1px solid #eee',
                 display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center'
@@ -241,7 +200,6 @@ export default function OvertimeTicketList() {
                     size="small"
                 >
                     <ToggleButton value="all">All</ToggleButton>
-                    <ToggleButton value="pending" color="warning">Pending</ToggleButton>
                     <ToggleButton value="submitted" color="info">Submitted</ToggleButton>
                     <ToggleButton value="approved" color="success">Approved</ToggleButton>
                     <ToggleButton value="rejected" color="error">Rejected</ToggleButton>
@@ -281,25 +239,11 @@ export default function OvertimeTicketList() {
                                         </TableCell>
                                         <TableCell>{getStatusChip(ticket.status)}</TableCell>
                                         <TableCell>
-                                            <Stack direction="row" spacing={1}>
-                                                <Tooltip title="View Detail">
-                                                    <IconButton size="small" onClick={() => navigate(`/overtime-ticket/${ticket.id}`)}>
-                                                        <VisibilityIcon fontSize="small" />
-                                                    </IconButton>
-                                                </Tooltip>
-                                                {/* ACTION BUTTON IN LIST */}
-                                                {ticket.status === 'pending' && (
-                                                    <Tooltip title="Submit for Approval">
-                                                        <IconButton
-                                                            size="small"
-                                                            color="primary"
-                                                            onClick={(e) => handleSubmitTicket(e, ticket.id)}
-                                                        >
-                                                            <SendIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                )}
-                                            </Stack>
+                                            <Tooltip title="View Detail">
+                                                <IconButton size="small" onClick={() => navigate(`/overtime-ticket/${ticket.id}`)}>
+                                                    <VisibilityIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
                                         </TableCell>
                                     </TableRow>
                                 ))

@@ -245,7 +245,7 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
         TbOvertimeTicket ticket = new TbOvertimeTicket();
         ticket.setManager(manager);
         ticket.setOvertimeRequest(request);
-        ticket.setStatus(OvertimeTicketStatus.pending);
+        ticket.setStatus(OvertimeTicketStatus.submitted); //submit by default //pending is deprecated
         ticket.setCreatedAt(Instant.now());
 
         Set<TbOvertimeTicketEmployee> ticketEmployees = new HashSet<>();
