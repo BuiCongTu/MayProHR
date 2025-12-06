@@ -316,7 +316,7 @@ const Navbar = () =>
                                         <Typography variant="body2" sx={{ lineHeight: 1, display: { xs: 'none', md: 'block' } }}>
                                             Welcome,
                                         </Typography>
-                                        <Typography variant="body2" fontWeight="bold" sx={{ lineHeight: 1, whiteSpace: 'nowrap' }}>
+                                        <Typography variant="body2" sx={{ lineHeight: 1, whiteSpace: 'nowrap' }}>
                                             {user?.fullName || 'User'}
                                         </Typography>
                                     </Box>
