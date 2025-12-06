@@ -34,7 +34,12 @@ export const WebSocketProvider = ({ children }) => {
                 setConnected(true);
             },
             onStompError: (frame) => {
+                const message = frame.headers['message'];
                 console.error('Broker reported error: ' + frame.headers['message']);
+                if (message && message.includes("Authentication failed")) {
+                    console.log("Authentication failed. Forcing refresh/re-login.");
+                    window.location.reload();
+                }
             },
             onWebSocketClose: () => {
                 console.log('WebSocket connection closed');
