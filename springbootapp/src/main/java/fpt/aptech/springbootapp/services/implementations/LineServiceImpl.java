@@ -2,7 +2,12 @@ package fpt.aptech.springbootapp.services.implementations;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+import fpt.aptech.springbootapp.dtos.response.LineDto;
+import fpt.aptech.springbootapp.entities.Core.TbUser;
+import fpt.aptech.springbootapp.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,15 +23,46 @@ import lombok.extern.slf4j.Slf4j;
 public class LineServiceImpl implements LineService {
 
     private final LineRepository lineRepository;
+    private final UserRepository userRepository;
 
     @Autowired
-    public LineServiceImpl(LineRepository lineRepository) {
+    public LineServiceImpl(LineRepository lineRepository, UserRepository userRepository) {
         this.lineRepository = lineRepository;
+        this.userRepository = userRepository;
     }
 
     @Override
-    public List<TbLine> getLinesByDepartment(Integer departmentId) {
-        return lineRepository.findByDepartmentId(departmentId);
+    public List<LineDto> getLinesByDepartment(Integer departmentId) {
+        List<TbLine> lines = lineRepository.findByDepartmentId(departmentId);
+
+        List<TbUser> allDeptUsers = userRepository.findByDepartmentId(departmentId);
+
+        // Filter for managers only
+        Map<Integer, TbUser> managerMap = allDeptUsers.stream()
+                .filter(u -> u.getRole() != null && "Manager".equalsIgnoreCase(u.getRole().getName()))
+                .filter(u -> u.getLine() != null)
+                .collect(Collectors.toMap(
+                        u -> u.getLine().getId(),
+                        u -> u,
+                        (existing, replacement) -> existing
+                ));
+
+        // 3. Map Entity -> DTO
+        return lines.stream().map(line -> {
+            TbUser manager = managerMap.get(line.getId());
+
+            return LineDto.builder()
+                    .id(line.getId())
+                    .name(line.getName())
+                    .level(line.getLevel())
+                    .description(line.getDescription())
+                    .departmentId(line.getDepartment().getId())
+                    .departmentName(line.getDepartment().getName())
+                    .parentId(line.getParent() != null ? line.getParent().getId() : null)
+                    .managerName(manager != null ? manager.getFullName() : "Not Assigned")
+                    .managerId(manager != null ? manager.getId() : null)
+                    .build();
+        }).collect(Collectors.toList());
     }
 
     //lấy line con

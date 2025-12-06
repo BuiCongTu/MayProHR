@@ -2,6 +2,7 @@ package fpt.aptech.springbootapp.api;
 
 import java.util.List;
 
+import fpt.aptech.springbootapp.dtos.response.LineDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,9 +30,9 @@ public class LineController {
 
     //lấy tất cả section, subsection, ... của 1 department
     @GetMapping("/department/{deptId}")
-    public ResponseEntity<List<TbLine>> getLinesByDepartment(@PathVariable Integer deptId) {
+    public ResponseEntity<List<LineDto>> getLinesByDepartment(@PathVariable Integer deptId) {
         try {
-            List<TbLine> lines = lineService.getLinesByDepartment(deptId);
+            List<LineDto> lines = lineService.getLinesByDepartment(deptId);
             return ResponseEntity.ok(lines);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
