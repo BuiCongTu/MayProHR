@@ -422,6 +422,7 @@ export default function OvertimeTicketCreate() {
                 initialSelected={currentEditingLine ? (allocations[currentEditingLine.lineId] || []) : []}
                 unavailableEmployees={currentEditingLine ? getUnavailableEmployeesMap(currentEditingLine.lineId) : new Map()}
                 requestedCount={currentEditingLine ? Math.max(0, currentEditingLine.numEmployees - currentEditingLine.serverAssigned) : 0}
+                targetLineId={currentEditingLine ? currentEditingLine.lineId : null}
                 onSave={handleSaveAllocation}
             />
         </Container>

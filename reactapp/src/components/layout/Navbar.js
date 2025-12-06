@@ -1,6 +1,7 @@
-import { Logout as LogoutIcon, Notifications, Person, CheckCircle, Error as ErrorIcon, Info } from '@mui/icons-material';
+import { Logout as LogoutIcon, Notifications, Person, CheckCircle, Error as ErrorIcon, Info, Menu as MenuIcon } from '@mui/icons-material';
 import {
-    AppBar, Avatar, Badge, Box, Button, Divider, IconButton, Menu, MenuItem, Toolbar, Typography, ListItemIcon, ListItemText
+    AppBar, Avatar, Badge, Box, Button, Divider, IconButton, Menu, MenuItem, Toolbar, Typography, ListItemIcon,
+    Drawer, List, ListItem, ListItemButton, ListItemText
 } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -9,6 +10,8 @@ import { useWebSocket } from '../../contexts/WebSocketContext';
 import { getMyNotifications, markAsRead, markAllAsRead } from '../../services/notificationService';
 import { toast } from 'react-toastify';
 
+const drawerWidth = 240;
+
 const getNavLinks = (roleName) =>
 {
     let links = [];
@@ -16,22 +19,8 @@ const getNavLinks = (roleName) =>
     switch (roleName)
     {
         case 'Admin':
-            links = [
-                { title: 'Dashboard', path: '/dashboard' },
-                { title: 'Users', path: '/users' },
-                { title: 'Departments', path: '/departments' },
-                { title: 'Reports', path: '/reports' },
-            ];
-            break;
-
         case 'HR':
-            links = [
-                { title: 'Dashboard', path: '/dashboard' },
-                { title: 'Employees', path: '/users' },
-                { title: 'Attendance', path: '/attendance' },
-                { title: 'Leave Requests', path: '/leave-requests' },
-                { title: 'Overtime Requests', path: '/overtime-request' },
-            ];
+            links = [];
             break;
 
         case 'Manager':
@@ -97,6 +86,9 @@ const Navbar = () =>
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
 
+    // Responsive Drawer State
+    const [mobileOpen, setMobileOpen] = useState(false);
+
     const { subscribe, connected } = useWebSocket();
 
     // --- 1. INITIAL LOAD ---
@@ -129,23 +121,18 @@ const Navbar = () =>
     useEffect(() => {
         if (!connected || !isLoggedIn) return;
 
-        // Subscribe to private queue
         const sub = subscribe('/user/queue/notifications', (payload) => {
             console.log("🔔 WebSocket Notification:", payload);
-
-            // Handle different payload formats (String vs JSON DTO)
             let notifObj = typeof payload === 'string' ? { message: payload } : payload;
 
-            // Ensure DTO structure match
             const newNotif = {
                 id: notifObj.id || Date.now(),
                 message: notifObj.message,
                 type: notifObj.type || 'info',
                 sentDate: notifObj.sentDate || new Date().toISOString(),
-                status: 'sent' // It's new, so it's unread
+                status: 'sent'
             };
 
-            // Show Toast
             toast.info(newNotif.message, {
                 position: "bottom-right",
                 autoClose: 5000,
@@ -155,7 +142,6 @@ const Navbar = () =>
                 draggable: true,
             });
 
-            // Update List (Prepend new item)
             setNotifications(prev => [newNotif, ...prev]);
             setUnreadCount(prev => prev + 1);
         });
@@ -169,6 +155,7 @@ const Navbar = () =>
     const handleMenuClose = () => setAnchorEl(null);
     const handleNotificationClick = (event) => setNotificationAnchor(event.currentTarget);
     const handleNotificationClose = () => setNotificationAnchor(null);
+    const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
 
     const handleProfile = () => { handleMenuClose(); navigate('/profile'); };
     const handleLogout = () => { handleMenuClose(); navigate('/logout'); };
@@ -181,17 +168,13 @@ const Navbar = () =>
 
     const handleNotifItemClick = async (notif) => {
         handleNotificationClose();
-
-        // 1. Mark as read
         if (notif.status === 'sent') {
             await markAsRead(notif.id);
             setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: 'read' } : n));
             setUnreadCount(prev => Math.max(0, prev - 1));
         }
 
-        // 2. Navigation Logic (Regex Parsing)
         const msg = notif.message;
-
         if (msg.includes("Request #")) {
             const match = msg.match(/Request #(\d+)/);
             if (match) navigate(`/overtime-request/${match[1]}`);
@@ -226,136 +209,213 @@ const Navbar = () =>
         return <Info fontSize="small" color="info"/>;
     };
 
+    // --- MOBILE DRAWER CONTENT ---
+    const drawer = (
+        <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
+            <Box sx={{ py: 2, backgroundColor: '#1976d2', color: 'white' }}>
+                <Typography variant="h6" fontWeight="bold">MayPayHR</Typography>
+                <Typography variant="caption">{user?.roleName}</Typography>
+            </Box>
+            <Divider />
+            <List>
+                {navLinks.map((link) => (
+                    <ListItem key={link.title} disablePadding>
+                        <ListItemButton
+                            component={Link}
+                            to={link.path}
+                            selected={location.pathname === link.path}
+                            sx={{ textAlign: 'left', pl: 4 }}
+                        >
+                            <ListItemText primary={link.title} />
+                        </ListItemButton>
+                    </ListItem>
+                ))}
+            </List>
+        </Box>
+    );
+
     return (
-        <AppBar ref={navbarRef} position="static" sx={{ backgroundColor: '#4b90f9ff', color: '#ffffffff' }}>
-            <Toolbar variant="dense" sx={{ justifyContent: 'space-between' }}>
-                {/* Logo + Title */}
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Box
-                        component="img"
-                        src={`${process.env.PUBLIC_URL}/images/logosg3.png`}
-                        alt="MayPayHR Logo"
-                        sx={{ height: 50, marginRight: 2, cursor: 'pointer' }}
-                        onClick={() => navigate('/')}
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                    />
+        <>
+            <AppBar ref={navbarRef} position="static" sx={{ backgroundColor: '#4b90f9ff', color: '#ffffffff' }}>
+                <Toolbar variant="dense" sx={{ justifyContent: 'space-between' }}>
 
-                    {isLoggedIn && navLinks.length > 0 && user?.roleName !== 'Admin' && user?.roleName !== 'HR' && (
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            {navLinks.map((link) => {
-                                const isActive = location.pathname === link.path;
-                                return (
-                                    <Button
-                                        key={link.title}
-                                        color="inherit"
-                                        component={Link}
-                                        to={link.path}
-                                        sx={{
-                                            textDecoration: 'none', margin: '0 4px', fontSize: '13px',
-                                            ...(isActive && { backgroundColor: 'rgba(255, 255, 255, 0.2)', fontWeight: 'bold' }),
-                                        }}
-                                    >
-                                        {link.title}
-                                    </Button>
-                                );
-                            })}
-                        </Box>
-                    )}
-                </Box>
+                    {/* --- LEFT SECTION: Logo & Nav --- */}
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
 
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    {isLoggedIn ? (
-                        <>
-                            {/* Notification Icon */}
-                            <IconButton color="inherit" onClick={handleNotificationClick} sx={{ mr: 1 }}>
-                                <Badge badgeContent={unreadCount} color="error">
-                                    <Notifications />
-                                </Badge>
+                        {/* Hamburger Icon (Visible on small screens only) */}
+                        {isLoggedIn && navLinks.length > 0 && (
+                            <IconButton
+                                color="inherit"
+                                aria-label="open drawer"
+                                edge="start"
+                                onClick={handleDrawerToggle}
+                                sx={{ mr: 2, display: { md: 'none' } }} // Show on < md (Tablet/Mobile)
+                            >
+                                <MenuIcon />
                             </IconButton>
+                        )}
 
-                            {/* Welcome User + Avatar */}
-                            <Box
-                                sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '4px 8px', borderRadius: '4px', '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)', fontWeight: 'bold' } }}
-                                onClick={handleMenuClick}
-                            >
-                                <Typography variant="body2" sx={{ mr: 1 }}>Welcome, {user?.fullName || 'User'}</Typography>
-                                <Avatar src={avatarImage} sx={{ bgcolor: avatarImage ? 'transparent' : '#f50057', width: 32, height: 32, fontSize: '0.9rem' }}>
-                                    {!avatarImage && (user?.fullName?.charAt(0) || 'U')}
-                                </Avatar>
-                            </Box>
+                        {/* Logo */}
+                        <Box
+                            component="img"
+                            src={`${process.env.PUBLIC_URL}/images/logosg3.png`}
+                            alt="MayPayHR Logo"
+                            sx={{ height: 40, marginRight: 2, cursor: 'pointer' }}
+                            onClick={() => navigate('/')}
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                        />
 
-                            {/* User Menu Dropdown */}
-                            <Menu
-                                anchorEl={anchorEl}
-                                open={Boolean(anchorEl)}
-                                onClose={handleMenuClose}
-                                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-                                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-                            >
-                                <Box sx={{ px: 2, py: 1, minWidth: 200 }}>
-                                    <Typography variant="subtitle1" fontWeight="bold">{user?.fullName || 'User'}</Typography>
-                                    <Typography variant="body2" color="text.secondary">{user?.email || ''}</Typography>
-                                    <Typography variant="caption" color="text.secondary">Role: {user?.roleName || 'N/A'}</Typography>
-                                </Box>
-                                <Divider />
-                                <MenuItem onClick={handleProfile}><Person sx={{ mr: 1 }} fontSize="small" /> View Profile</MenuItem>
-                                <MenuItem onClick={handleLogout}><LogoutIcon sx={{ mr: 1 }} fontSize="small" /> Logout</MenuItem>
-                            </Menu>
-
-                            {/* Notification Menu */}
-                            <Menu
-                                anchorEl={notificationAnchor}
-                                open={Boolean(notificationAnchor)}
-                                onClose={handleNotificationClose}
-                                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-                                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-                                PaperProps={{ sx: { width: 360, maxHeight: 400 } }}
-                            >
-                                <Box sx={{ px: 2, py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Typography variant="h6" fontSize="1rem">Notifications</Typography>
-                                    {unreadCount > 0 && (
-                                        <Button size="small" onClick={handleMarkAllRead}>Mark all read</Button>
-                                    )}
-                                </Box>
-                                <Divider />
-                                {notifications.length === 0 ? (
-                                    <Box sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
-                                        <Typography variant="body2">No notifications yet</Typography>
-                                    </Box>
-                                ) : (
-                                    notifications.map((notif) => (
-                                        <MenuItem
-                                            key={notif.id}
-                                            onClick={() => handleNotifItemClick(notif)}
+                        {/* Desktop Navigation (Visible on md and up) */}
+                        {isLoggedIn && navLinks.length > 0 && (
+                            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}>
+                                {navLinks.map((link) => {
+                                    const isActive = location.pathname === link.path;
+                                    return (
+                                        <Button
+                                            key={link.title}
+                                            color="inherit"
+                                            component={Link}
+                                            to={link.path}
                                             sx={{
-                                                py: 1.5,
-                                                whiteSpace: 'normal',
-                                                bgcolor: notif.status === 'sent' ? 'action.hover' : 'inherit',
-                                                borderLeft: notif.status === 'sent' ? '4px solid #1976d2' : 'none'
+                                                textDecoration: 'none', margin: '0 4px', fontSize: '13px',
+                                                ...(isActive && { backgroundColor: 'rgba(255, 255, 255, 0.2)', fontWeight: 'bold' }),
+                                                whiteSpace: 'nowrap'
                                             }}
                                         >
-                                            <ListItemIcon sx={{ minWidth: 36, mt: 0.5, alignSelf: 'flex-start' }}>
-                                                {getNotifIcon(notif.message, notif.type)}
-                                            </ListItemIcon>
-                                            <Box>
-                                                <Typography variant="body2" fontWeight={notif.status === 'sent' ? 'bold' : 'normal'} sx={{ lineHeight: 1.3 }}>
-                                                    {notif.message}
-                                                </Typography>
-                                                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                                                    {new Date(notif.sentDate).toLocaleString()}
-                                                </Typography>
-                                            </Box>
-                                        </MenuItem>
-                                    ))
-                                )}
-                            </Menu>
-                        </>
-                    ) : (
-                        <Button color="inherit" component={Link} to="/login">Login</Button>
-                    )}
-                </Box>
-            </Toolbar>
-        </AppBar>
+                                            {link.title}
+                                        </Button>
+                                    );
+                                })}
+                            </Box>
+                        )}
+                    </Box>
+
+                    {/* --- RIGHT SECTION: User Profile --- */}
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        {isLoggedIn ? (
+                            <>
+                                <IconButton color="inherit" onClick={handleNotificationClick} sx={{ mr: 0.5 }}>
+                                    <Badge badgeContent={unreadCount} color="error">
+                                        <Notifications fontSize="small"/>
+                                    </Badge>
+                                </IconButton>
+
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        cursor: 'pointer',
+                                        padding: '4px',
+                                        borderRadius: '4px',
+                                        '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' }
+                                    }}
+                                    onClick={handleMenuClick}
+                                >
+                                    {/* Responsive Text: Hide "Welcome" on mobile, ALWAYS SHOW Full Name */}
+                                    <Box sx={{ mr: 1, textAlign: 'right' }}>
+                                        <Typography variant="body2" sx={{ lineHeight: 1, display: { xs: 'none', md: 'block' } }}>
+                                            Welcome,
+                                        </Typography>
+                                        <Typography variant="body2" fontWeight="bold" sx={{ lineHeight: 1, whiteSpace: 'nowrap' }}>
+                                            {user?.fullName || 'User'}
+                                        </Typography>
+                                    </Box>
+
+                                    <Avatar src={avatarImage} sx={{ bgcolor: avatarImage ? 'transparent' : '#f50057', width: 32, height: 32, fontSize: '0.9rem' }}>
+                                        {!avatarImage && (user?.fullName?.charAt(0) || 'U')}
+                                    </Avatar>
+                                </Box>
+
+                                {/* ... Menus ... */}
+                                <Menu
+                                    anchorEl={anchorEl}
+                                    open={Boolean(anchorEl)}
+                                    onClose={handleMenuClose}
+                                    transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                                    anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                                >
+                                    <Box sx={{ px: 2, py: 1, minWidth: 200 }}>
+                                        <Typography variant="subtitle1" fontWeight="bold">{user?.fullName || 'User'}</Typography>
+                                        <Typography variant="body2" color="text.secondary">{user?.email || ''}</Typography>
+                                        <Typography variant="caption" color="text.secondary">Role: {user?.roleName || 'N/A'}</Typography>
+                                    </Box>
+                                    <Divider />
+                                    <MenuItem onClick={handleProfile}><Person sx={{ mr: 1 }} fontSize="small" /> View Profile</MenuItem>
+                                    <MenuItem onClick={handleLogout}><LogoutIcon sx={{ mr: 1 }} fontSize="small" /> Logout</MenuItem>
+                                </Menu>
+
+                                <Menu
+                                    anchorEl={notificationAnchor}
+                                    open={Boolean(notificationAnchor)}
+                                    onClose={handleNotificationClose}
+                                    transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                                    anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                                    PaperProps={{ sx: { width: 360, maxHeight: 400 } }}
+                                >
+                                    <Box sx={{ px: 2, py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography variant="h6" fontSize="1rem">Notifications</Typography>
+                                        {unreadCount > 0 && (
+                                            <Button size="small" onClick={handleMarkAllRead}>Mark all read</Button>
+                                        )}
+                                    </Box>
+                                    <Divider />
+                                    {notifications.length === 0 ? (
+                                        <Box sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
+                                            <Typography variant="body2">No notifications yet</Typography>
+                                        </Box>
+                                    ) : (
+                                        notifications.map((notif) => (
+                                            <MenuItem
+                                                key={notif.id}
+                                                onClick={() => handleNotifItemClick(notif)}
+                                                sx={{
+                                                    py: 1.5,
+                                                    whiteSpace: 'normal',
+                                                    bgcolor: notif.status === 'sent' ? 'action.hover' : 'inherit',
+                                                    borderLeft: notif.status === 'sent' ? '4px solid #1976d2' : 'none'
+                                                }}
+                                            >
+                                                <ListItemIcon sx={{ minWidth: 36, mt: 0.5, alignSelf: 'flex-start' }}>
+                                                    {getNotifIcon(notif.message, notif.type)}
+                                                </ListItemIcon>
+                                                <Box>
+                                                    <Typography variant="body2" fontWeight={notif.status === 'sent' ? 'bold' : 'normal'} sx={{ lineHeight: 1.3 }}>
+                                                        {notif.message}
+                                                    </Typography>
+                                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                                        {new Date(notif.sentDate).toLocaleString()}
+                                                    </Typography>
+                                                </Box>
+                                            </MenuItem>
+                                        ))
+                                    )}
+                                </Menu>
+                            </>
+                        ) : (
+                            <Button color="inherit" component={Link} to="/login">Login</Button>
+                        )}
+                    </Box>
+                </Toolbar>
+            </AppBar>
+
+            {/* --- MOBILE DRAWER COMPONENT --- */}
+            <Box component="nav">
+                <Drawer
+                    variant="temporary"
+                    open={mobileOpen}
+                    onClose={handleDrawerToggle}
+                    ModalProps={{
+                        keepMounted: true,
+                    }}
+                    sx={{
+                        display: { xs: 'block', md: 'none' },
+                        '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+                    }}
+                >
+                    {drawer}
+                </Drawer>
+            </Box>
+        </>
     );
 };
 

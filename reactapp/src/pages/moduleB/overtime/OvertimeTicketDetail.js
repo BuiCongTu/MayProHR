@@ -10,9 +10,8 @@ import {useWebSocket} from '../../../contexts/WebSocketContext';
 
 import {
     Box, CircularProgress, Typography, Alert, Button, Container,
-    Paper, Grid, Chip, Stack, Divider, Tabs, Tab, Drawer, IconButton,
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    TableSortLabel, LinearProgress, Collapse
+    Paper, Grid, Chip, Stack, Divider, Drawer, IconButton,
+    LinearProgress, Card, CardContent
 } from '@mui/material';
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -20,110 +19,9 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CloseIcon from '@mui/icons-material/Close';
 import HistoryIcon from '@mui/icons-material/History';
-import ViewListIcon from '@mui/icons-material/ViewList';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import {visuallyHidden} from '@mui/utils';
-
-// --- TABLE HEADERS ---
-const headCells = [
-    {id: 'name', label: 'Line Name', width: '25%'},
-    {id: 'required', label: 'Required', numeric: true, width: '10%'},
-    {id: 'assigned', label: 'Assigned', numeric: true, width: '10%'},
-    {id: 'accepted', label: 'Accepted', numeric: true, width: '10%', disableSorting: true},
-    {id: 'progress', label: 'Fulfillment Progress', width: '25%', disableSorting: true},
-    {id: 'expand', label: '', width: '5%', disableSorting: true},
-];
-
-function EnhancedTableHead(props) {
-    const {order, orderBy, onRequestSort} = props;
-    const createSortHandler = (property) => (event) => {
-        onRequestSort(event, property);
-    };
-
-    return (
-        <TableHead>
-            <TableRow sx={{bgcolor: 'grey.100'}}>
-                {headCells.map((headCell) => (
-                    <TableCell
-                        key={headCell.id}
-                        align={headCell.numeric ? 'right' : 'left'}
-                        sortDirection={orderBy === headCell.id ? order : false}
-                        width={headCell.width}
-                        sx={{fontWeight: 'bold'}}
-                    >
-                        {headCell.disableSorting ? (
-                            headCell.label
-                        ) : (
-                            <TableSortLabel
-                                active={orderBy === headCell.id}
-                                direction={orderBy === headCell.id ? order : 'asc'}
-                                onClick={createSortHandler(headCell.id)}
-                            >
-                                {headCell.label}
-                                {orderBy === headCell.id ? (
-                                    <Box component="span" sx={visuallyHidden}>
-                                        {order === 'desc' ? 'sorted descending' : 'sorted ascending'}
-                                    </Box>
-                                ) : null}
-                            </TableSortLabel>
-                        )}
-                    </TableCell>
-                ))}
-            </TableRow>
-        </TableHead>
-    );
-}
-
-// --- ROW COMPONENT ---
-function LineRow({row, isExpanded, onToggle}) {
-    const {name, required, assigned, acceptedCount, employees} = row;
-    const progressVal = assigned > 0 ? Math.min((acceptedCount / assigned) * 100, 100) : 0;
-    const isFullyAccepted = assigned > 0 && acceptedCount >= assigned;
-    const color = isFullyAccepted ? 'success' : (progressVal > 50 ? 'primary' : 'warning');
-
-    return (
-        <React.Fragment>
-            <TableRow hover onClick={onToggle} sx={{cursor: 'pointer', '& > *': {borderBottom: 'unset'}}}
-                      selected={isExpanded}>
-                <TableCell component="th" scope="row" sx={{fontWeight: 500}}>{name}</TableCell>
-                <TableCell align="right">{required}</TableCell>
-                <TableCell align="right">{assigned}</TableCell>
-                <TableCell align="right">
-                    <Chip label={`${acceptedCount} / ${assigned}`} size="small"
-                          color={isFullyAccepted ? "success" : "default"}
-                          variant={isFullyAccepted ? "filled" : "outlined"} sx={{fontWeight: 'bold', minWidth: 60}}/>
-                </TableCell>
-                <TableCell>
-                    <Box sx={{display: 'flex', alignItems: 'center'}}>
-                        <Box sx={{width: '100%', mr: 1}}>
-                            <LinearProgress variant="determinate" value={progressVal} color={color}
-                                            sx={{height: 8, borderRadius: 5}}/>
-                        </Box>
-                        <Box sx={{minWidth: 35}}>
-                            <Typography variant="body2" color="text.secondary">{Math.round(progressVal)}%</Typography>
-                        </Box>
-                    </Box>
-                </TableCell>
-                <TableCell>
-                    <IconButton size="small">{isExpanded ? <KeyboardArrowUpIcon/> :
-                        <KeyboardArrowDownIcon/>}</IconButton>
-                </TableCell>
-            </TableRow>
-            <TableRow>
-                <TableCell style={{paddingBottom: 0, paddingTop: 0}} colSpan={6}>
-                    <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                        <Box sx={{margin: 2}}>
-                            <Typography variant="subtitle2" gutterBottom component="div" color="primary">Employee List
-                                — {name}</Typography>
-                            <Paper variant="outlined"><EmployeeListTable employees={employees}/></Paper>
-                        </Box>
-                    </Collapse>
-                </TableCell>
-            </TableRow>
-        </React.Fragment>
-    );
-}
+import FactoryIcon from '@mui/icons-material/Factory';
+import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 export default function OvertimeTicketDetail() {
     const {id} = useParams();
@@ -135,9 +33,6 @@ export default function OvertimeTicketDetail() {
     const [error, setError] = useState(null);
 
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const [order, setOrder] = useState('asc');
-    const [orderBy, setOrderBy] = useState('name');
-    const [expandedLineId, setExpandedLineId] = useState(null);
 
     const loadData = async () => {
         try {
@@ -176,8 +71,11 @@ export default function OvertimeTicketDetail() {
         };
     }, [connected, subscribe, id]);
 
-    const rows = useMemo(() => {
-        if (!ticket || !ticket.employeeList) return [];
+    // Flattened logic: Extract the single line data directly
+    const lineData = useMemo(() => {
+        if (!ticket || !ticket.employeeList) return null;
+
+        // Group by line to find the distinct line (should only be one per ticket now)
         const groups = {};
         ticket.employeeList.forEach(emp => {
             const lineId = emp.lineId || 9999;
@@ -196,22 +94,19 @@ export default function OvertimeTicketDetail() {
                 groups[lineId].acceptedCount++;
             }
         });
-        return Object.values(groups).map(g => ({...g, assigned: g.employees.length}));
+
+        // Get the first group found (assuming 1 ticket = 1 line)
+        const groupValues = Object.values(groups);
+        if (groupValues.length > 0) {
+            const g = groupValues[0];
+            const assigned = g.employees.length;
+            const progressVal = assigned > 0 ? Math.min((g.acceptedCount / assigned) * 100, 100) : 0;
+            const isFullyAccepted = assigned > 0 && g.acceptedCount >= assigned;
+            return { ...g, assigned, progressVal, isFullyAccepted };
+        }
+
+        return null;
     }, [ticket, lineRequirements]);
-
-    const handleRequestSort = (event, property) => {
-        const isAsc = orderBy === property && order === 'asc';
-        setOrder(isAsc ? 'desc' : 'asc');
-        setOrderBy(property);
-    };
-
-    const sortedRows = useMemo(() => {
-        return [...rows].sort((a, b) => {
-            const isAsc = order === 'asc';
-            if (orderBy === 'name') return isAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
-            return isAsc ? (a[orderBy] - b[orderBy]) : (b[orderBy] - a[orderBy]);
-        });
-    }, [rows, order, orderBy]);
 
     const getStatusChip = (status) => {
         let color = 'default';
@@ -226,6 +121,8 @@ export default function OvertimeTicketDetail() {
             case 'rejected':
                 color = 'error';
                 break;
+            default:
+                break;
         }
         return <Chip label={label} color={color} sx={{fontWeight: 'bold', borderRadius: 1}}/>;
     };
@@ -238,6 +135,7 @@ export default function OvertimeTicketDetail() {
 
     return (
         <Container maxWidth="lg" sx={{mt: 2, mb: 8}}>
+            {/* --- HEADER SECTION --- */}
             <Paper elevation={2} sx={{p: 3, mb: 3, borderRadius: 2, borderTop: '4px solid #1976d2'}}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                     <Button startIcon={<ArrowBackIcon/>} onClick={() => navigate('/overtime-ticket')}
@@ -268,28 +166,89 @@ export default function OvertimeTicketDetail() {
                 </Grid>
             </Paper>
 
-            <Box sx={{width: '100%', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1, p: 2}}>
-                <Box sx={{borderBottom: 1, borderColor: 'divider', mb: 2}}>
-                    <Tabs value={0}><Tab icon={<ViewListIcon/>} iconPosition="start" label="Line Breakdown & Staffing"/></Tabs>
+            {/* --- LINE SUMMARY & STATISTICS --- */}
+            {lineData ? (
+                <Box sx={{mb: 3}}>
+                    <Card variant="outlined" sx={{bgcolor: 'background.default'}}>
+                        <CardContent>
+                            <Grid container spacing={2} alignItems="center">
+                                <Grid item xs={12} md={4}>
+                                    <Stack direction="row" spacing={1} alignItems="center">
+                                        <FactoryIcon color="action" />
+                                        <Typography variant="h6" fontWeight="bold">
+                                            {lineData.name}
+                                        </Typography>
+                                    </Stack>
+                                    <Typography variant="caption" color="text.secondary" sx={{ml: 4}}>
+                                        Target Line for Overtime
+                                    </Typography>
+                                </Grid>
+
+                                <Grid item xs={12} md={8}>
+                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} justifyContent="flex-end">
+                                        <Box textAlign="center">
+                                            <Typography variant="caption" color="text.secondary">Required</Typography>
+                                            <Typography variant="h6">{lineData.required}</Typography>
+                                        </Box>
+                                        <Divider orientation="vertical" flexItem sx={{display: {xs: 'none', sm: 'block'}}} />
+                                        <Box textAlign="center">
+                                            <Typography variant="caption" color="text.secondary">Assigned</Typography>
+                                            <Typography variant="h6" color="primary">{lineData.assigned}</Typography>
+                                        </Box>
+                                        <Divider orientation="vertical" flexItem sx={{display: {xs: 'none', sm: 'block'}}} />
+                                        <Box textAlign="center">
+                                            <Typography variant="caption" color="text.secondary">Accepted</Typography>
+                                            <Stack direction="row" spacing={0.5} alignItems="center">
+                                                <Typography variant="h6" color={lineData.isFullyAccepted ? "success.main" : "text.primary"}>
+                                                    {lineData.acceptedCount}
+                                                </Typography>
+                                                {lineData.isFullyAccepted && <CheckCircleIcon color="success" fontSize="small"/>}
+                                            </Stack>
+                                        </Box>
+                                    </Stack>
+                                </Grid>
+                            </Grid>
+
+                            <Box sx={{mt: 3, display: 'flex', alignItems: 'center'}}>
+                                <Box sx={{width: '100%', mr: 1}}>
+                                    <LinearProgress
+                                        variant="determinate"
+                                        value={lineData.progressVal}
+                                        color={lineData.isFullyAccepted ? "success" : "primary"}
+                                        sx={{height: 10, borderRadius: 5}}
+                                    />
+                                </Box>
+                                <Box sx={{minWidth: 35}}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {Math.round(lineData.progressVal)}%
+                                    </Typography>
+                                </Box>
+                            </Box>
+                        </CardContent>
+                    </Card>
                 </Box>
-                <TableContainer component={Paper} variant="outlined">
-                    <Table>
-                        <EnhancedTableHead order={order} orderBy={orderBy} onRequestSort={handleRequestSort}/>
-                        <TableBody>
-                            {sortedRows.length > 0 ? (
-                                sortedRows.map((row) => (
-                                    <LineRow key={row.id} row={row} isExpanded={expandedLineId === row.id}
-                                             onToggle={() => setExpandedLineId(expandedLineId === row.id ? null : row.id)}/>
-                                ))
-                            ) : (
-                                <TableRow><TableCell colSpan={6} align="center" sx={{py: 3}}>No lines found or no
-                                    employees assigned.</TableCell></TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+            ) : (
+                <Alert severity="warning" sx={{mb: 3}}>No line data or employees found for this ticket.</Alert>
+            )}
+
+            {/* --- EMPLOYEE LIST --- */}
+            <Box sx={{width: '100%', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1, p: 2}}>
+                <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                    <AssignmentIndIcon color="primary"/>
+                    <Typography variant="h6">Assigned Employees</Typography>
+                </Stack>
+                <Divider sx={{mb: 1, bgcolor: 'black'}} variant='middle'/>
+
+                {lineData && lineData.employees && lineData.employees.length > 0 ? (
+                    <EmployeeListTable employees={lineData.employees}/>
+                ) : (
+                    <Typography variant="body2" color="text.secondary" align="center" sx={{py: 4}}>
+                        No employees have been assigned to this ticket yet.
+                    </Typography>
+                )}
             </Box>
 
+            {/* --- DRAWER (HISTORY) --- */}
             <Drawer anchor="right" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
                 <Box sx={{width: 350, p: 3}}>
                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>

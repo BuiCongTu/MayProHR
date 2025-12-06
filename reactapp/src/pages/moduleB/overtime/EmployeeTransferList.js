@@ -4,7 +4,7 @@ import {
     List, ListItem, ListItemIcon, ListItemText, Checkbox,
     Paper, Typography, TextField, InputAdornment,
     Stack, ToggleButton, ToggleButtonGroup, Divider,
-    Avatar, Tooltip, ListItemAvatar
+    Avatar, Tooltip, ListItemAvatar, ListSubheader
 } from '@mui/material';
 
 import SearchIcon from '@mui/icons-material/Search';
@@ -17,6 +17,8 @@ import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import WarningIcon from '@mui/icons-material/Warning';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 // --- HELPER FUNCTIONS ---
 function intersection(a, b) {
@@ -66,6 +68,7 @@ export default function EmployeeTransferList({
                                                  initialSelected = [],
                                                  unavailableEmployees = new Map(),
                                                  requestedCount = 0,
+                                                 targetLineId = null,
                                                  onSave
                                              }) {
     const [checked, setChecked] = useState([]);
@@ -87,11 +90,31 @@ export default function EmployeeTransferList({
         }
     }, [open, initialSelected]);
 
-    // --- LIMIT LOGIC ---
+    // --- SOFT LIMIT LOGIC ---
     const targetCount = requestedCount || 0;
     const selectedCount = right.length;
-    const remainingSlots = Math.max(0, targetCount - selectedCount);
-    const isFulfilled = targetCount > 0 && selectedCount >= targetCount;
+    const softLimit = targetCount * 2; // 2x Requirement
+
+    // Determine Status State
+    let statusColor = 'primary';
+    let statusIcon = <AssignmentIndIcon fontSize="small" sx={{ mr: 1 }} />;
+    let statusText = `Selected: ${selectedCount} / ${targetCount}`;
+
+    if (targetCount > 0) {
+        if (selectedCount === targetCount) {
+            statusColor = 'success';
+            statusIcon = <CheckCircleIcon fontSize="small" sx={{ mr: 1 }} />;
+            statusText = `Target Met: ${selectedCount} / ${targetCount}`;
+        } else if (selectedCount > targetCount && selectedCount <= softLimit) {
+            statusColor = 'warning';
+            statusIcon = <WarningIcon fontSize="small" sx={{ mr: 1 }} />;
+            statusText = `Overstaffing: ${selectedCount} / ${targetCount}`;
+        } else if (selectedCount > softLimit) {
+            statusColor = 'error';
+            statusIcon = <ErrorOutlineIcon fontSize="small" sx={{ mr: 1 }} />;
+            statusText = `Excessive: ${selectedCount} / ${targetCount} (>2x)`;
+        }
+    }
 
     const filterList = (list, isSourceList) => {
         return list.filter(u => {
@@ -115,6 +138,19 @@ export default function EmployeeTransferList({
     const leftFiltered = filterList(left, true);
     const rightFiltered = filterList(right, false);
 
+    const { priorityList, otherList } = useMemo(() => {
+        const priority = [];
+        const others = [];
+        leftFiltered.forEach(emp => {
+            if (targetLineId && (emp.lineId === targetLineId)) {
+                priority.push(emp);
+            } else {
+                others.push(emp);
+            }
+        });
+        return { priorityList: priority, otherList: others };
+    }, [leftFiltered, targetLineId]);
+
     const leftChecked = intersection(checked, leftFiltered);
     const rightChecked = intersection(checked, rightFiltered);
 
@@ -128,7 +164,6 @@ export default function EmployeeTransferList({
     };
 
     const handleCheckedRight = () => {
-        if (leftChecked.length > remainingSlots) return;
         setRight(right.concat(leftChecked));
         setChecked(not(checked, leftChecked));
     };
@@ -139,11 +174,29 @@ export default function EmployeeTransferList({
     };
 
     const handleAllRight = () => {
-        const moveables = leftFiltered.filter(u => !unavailableEmployees.has(u.id));
-        if (moveables.length > remainingSlots) {
-            setRight(right.concat(moveables.slice(0, remainingSlots)));
-        } else {
-            setRight(right.concat(moveables));
+        let candidates = leftFiltered.filter(u => !unavailableEmployees.has(u.id));
+
+        if (targetLineId) {
+            candidates.sort((a, b) => {
+                const aIsLine = a.lineId === targetLineId;
+                const bIsLine = b.lineId === targetLineId;
+                if (aIsLine && !bIsLine) return -1;
+                if (!aIsLine && bIsLine) return 1;
+                return 0;
+            });
+        }
+
+        let itemsToMove = candidates;
+
+        if (targetCount > 0) {
+            const currentSelected = right.length;
+            const remainingSlots = Math.max(0, softLimit - currentSelected);
+
+            itemsToMove = candidates.slice(0, remainingSlots);
+        }
+
+        if (itemsToMove.length > 0) {
+            setRight(right.concat(itemsToMove));
         }
     };
 
@@ -151,10 +204,71 @@ export default function EmployeeTransferList({
         setRight(not(right, rightFiltered));
     };
 
-    const isOverSelection = leftChecked.length > remainingSlots;
+    // -- ROW RENDERER --
+    const renderRow = (user, type) => {
+        const isUnavailable = unavailableEmployees.has(user.id);
+        const reason = unavailableEmployees.get(user.id);
+        const labelId = `transfer-list-item-${user.id}-label`;
+        const isChecked = checked.indexOf(user) !== -1;
 
-    // -- LIST RENDERER --
-    const CustomList = ({ items, type }) => (
+        return (
+            <ListItem
+                key={user.id}
+                role="listitem"
+                button
+                onClick={handleToggle(user)}
+                disabled={isUnavailable && type === 'source'}
+                divider
+                sx={{
+                    bgcolor: isChecked ? 'action.selected' : 'inherit',
+                    py: 0.5
+                }}
+            >
+                <ListItemIcon sx={{ minWidth: 36 }}>
+                    <Checkbox
+                        checked={isChecked}
+                        tabIndex={-1}
+                        disableRipple
+                        inputProps={{ 'aria-labelledby': labelId }}
+                        disabled={isUnavailable && type === 'source'}
+                        size="small"
+                    />
+                </ListItemIcon>
+                <ListItemAvatar sx={{ minWidth: 40 }}>
+                    <Avatar {...stringAvatar(user.fullName)} />
+                </ListItemAvatar>
+                <ListItemText
+                    id={labelId}
+                    primary={
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                            <Typography
+                                variant="body2"
+                                sx={{
+                                    fontWeight: isUnavailable ? 'normal' : 'medium',
+                                    color: isUnavailable ? 'text.disabled' : 'text.primary'
+                                }}
+                            >
+                                {user.fullName}
+                            </Typography>
+                            {isUnavailable && type === 'source' && (
+                                <Tooltip title={reason} placement="top">
+                                    <LockIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
+                                </Tooltip>
+                            )}
+                        </Stack>
+                    }
+                    secondary={
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                            ID: {user.id} • {user.lineName || 'Unassigned'}
+                        </Typography>
+                    }
+                />
+            </ListItem>
+        );
+    };
+
+    // -- LIST CONTAINER --
+    const CustomList = ({ type }) => (
         <Paper
             elevation={0}
             variant="outlined"
@@ -162,8 +276,7 @@ export default function EmployeeTransferList({
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
-                borderColor: type === 'target' && isFulfilled ? 'success.light' : 'divider',
-                borderWidth: type === 'target' && isFulfilled ? 2 : 1,
+                borderColor: 'divider',
                 overflow: 'hidden'
             }}
         >
@@ -171,7 +284,7 @@ export default function EmployeeTransferList({
             <Box sx={{
                 py: 1,
                 px: 2,
-                bgcolor: type === 'target' ? (isFulfilled ? 'success.50' : 'primary.50') : 'grey.100',
+                bgcolor: 'grey.100',
                 borderBottom: 1,
                 borderColor: 'divider',
                 flexShrink: 0
@@ -191,87 +304,42 @@ export default function EmployeeTransferList({
                 sx={{
                     flex: 1,
                     overflowY: 'auto',
-                    bgcolor: 'background.paper'
+                    bgcolor: 'background.paper',
+                    position: 'relative',
+                    p: 0
                 }}
             >
-                {items.length === 0 ? (
-                    <Box
-                        display="flex"
-                        flexDirection="column"
-                        alignItems="center"
-                        justifyContent="center"
-                        height="100%"
-                        color="text.secondary"
-                        p={3}
-                        gap={1}
-                    >
-                        {type === 'source' ? <GroupAddIcon fontSize="large" color="disabled" /> : <PlaylistAddCheckIcon fontSize="large" color="disabled" />}
-                        <Typography variant="caption">
-                            {type === 'source' ? "No employees found" : "List is empty"}
-                        </Typography>
+                {type === 'source' && leftFiltered.length === 0 && (
+                    <Box p={3} textAlign="center" color="text.secondary">
+                        <GroupAddIcon fontSize="large" color="disabled" />
+                        <Typography variant="caption" display="block">No employees found</Typography>
                     </Box>
-                ) : (
-                    items.map((user) => {
-                        const isUnavailable = unavailableEmployees.has(user.id);
-                        const reason = unavailableEmployees.get(user.id);
-                        const labelId = `transfer-list-item-${user.id}-label`;
-                        const isChecked = checked.indexOf(user) !== -1;
-
-                        return (
-                            <ListItem
-                                key={user.id}
-                                role="listitem"
-                                button
-                                onClick={handleToggle(user)}
-                                disabled={isUnavailable && type === 'source'}
-                                divider
-                                sx={{
-                                    bgcolor: isChecked ? 'action.selected' : 'inherit'
-                                }}
-                            >
-                                <ListItemIcon sx={{ minWidth: 36 }}>
-                                    <Checkbox
-                                        checked={isChecked}
-                                        tabIndex={-1}
-                                        disableRipple
-                                        inputProps={{ 'aria-labelledby': labelId }}
-                                        disabled={isUnavailable && type === 'source'}
-                                        size="small"
-                                    />
-                                </ListItemIcon>
-                                <ListItemAvatar sx={{ minWidth: 40 }}>
-                                    <Avatar {...stringAvatar(user.fullName)} />
-                                </ListItemAvatar>
-                                <ListItemText
-                                    id={labelId}
-                                    primary={
-                                        <Stack direction="row" alignItems="center" spacing={1}>
-                                            <Typography
-                                                variant="body2"
-                                                sx={{
-                                                    fontWeight: isUnavailable ? 'normal' : 'medium',
-                                                    color: isUnavailable ? 'text.disabled' : 'text.primary'
-                                                }}
-                                            >
-                                                {user.fullName}
-                                            </Typography>
-                                            {isUnavailable && type === 'source' && (
-                                                <Tooltip title={reason} placement="top">
-                                                    <LockIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
-                                                </Tooltip>
-                                            )}
-                                        </Stack>
-                                    }
-                                    secondary={
-                                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                            ID: {user.id} • {user.lineName || 'Unassigned'}
-                                        </Typography>
-                                    }
-                                />
-                            </ListItem>
-                        );
-                    })
                 )}
+
+                {type === 'target' && rightFiltered.length === 0 && (
+                    <Box p={3} textAlign="center" color="text.secondary">
+                        <PlaylistAddCheckIcon fontSize="large" color="disabled" />
+                        <Typography variant="caption" display="block">List is empty</Typography>
+                    </Box>
+                )}
+
+                {/* SOURCE LIST: WITH GROUPING */}
+                {type === 'source' && priorityList.length > 0 && (
+                    <ListSubheader sx={{ bgcolor: '#e3f2fd', lineHeight: '30px', fontWeight: 'bold', color: 'primary.main' }}>
+                        📍 Recommended (Current Line)
+                    </ListSubheader>
+                )}
+                {type === 'source' && priorityList.map(user => renderRow(user, type))}
+
+                {type === 'source' && otherList.length > 0 && priorityList.length > 0 && (
+                    <ListSubheader sx={{ bgcolor: '#f5f5f5', lineHeight: '30px', fontWeight: 'bold', borderTop: '1px solid #e0e0e0' }}>
+                        👥 Other Departments
+                    </ListSubheader>
+                )}
+                {type === 'source' && otherList.map(user => renderRow(user, type))}
+
+                {/* TARGET LIST: FLAT LIST */}
+                {type === 'target' && rightFiltered.map(user => renderRow(user, type))}
             </List>
         </Paper>
     );
@@ -284,8 +352,8 @@ export default function EmployeeTransferList({
             PaperProps={{
                 sx: {
                     width: '100%',
-                    maxWidth: 900,
-                    height: '80vh',
+                    maxWidth: 950,
+                    height: '85vh',
                     maxHeight: 800,
                     display: 'flex',
                     flexDirection: 'column'
@@ -304,7 +372,7 @@ export default function EmployeeTransferList({
                     variant="outlined"
                     sx={{
                         p: 1.5,
-                        mb: 1,
+                        mb: 2,
                         bgcolor: 'white',
                         display: 'flex',
                         alignItems: 'center',
@@ -338,33 +406,22 @@ export default function EmployeeTransferList({
 
                     <Box sx={{ flexGrow: 1 }} />
 
-                    {/* INTEGRATED COUNTER & WARNING */}
+                    {/* STATUS BAR WITH SOFT LIMIT COLORS */}
                     <Box sx={{
                         display: 'flex',
                         alignItems: 'center',
                         px: 2,
-                        py: 0.5,
+                        py: 0.75,
                         borderRadius: 1,
-                        bgcolor: isOverSelection ? 'error.50' : (isFulfilled ? 'success.50' : 'primary.50'),
+                        bgcolor: `${statusColor}.50`,
                         border: 1,
-                        borderColor: isOverSelection ? 'error.light' : (isFulfilled ? 'success.light' : 'primary.light'),
-                        color: isOverSelection ? 'error.main' : (isFulfilled ? 'success.main' : 'primary.main')
+                        borderColor: `${statusColor}.light`,
+                        color: `${statusColor}.main`
                     }}>
-                        {isOverSelection ? (
-                            <>
-                                <WarningIcon fontSize="small" sx={{ mr: 1 }} />
-                                <Typography variant="body2" fontWeight="bold">
-                                    Over Limit: Uncheck {leftChecked.length - remainingSlots}
-                                </Typography>
-                            </>
-                        ) : (
-                            <>
-                                <AssignmentIndIcon fontSize="small" sx={{ mr: 1 }} />
-                                <Typography variant="body2" fontWeight="bold">
-                                    Selected: {selectedCount} / {targetCount}
-                                </Typography>
-                            </>
-                        )}
+                        {statusIcon}
+                        <Typography variant="body2" fontWeight="bold">
+                            {statusText}
+                        </Typography>
                     </Box>
                 </Paper>
 
@@ -379,7 +436,7 @@ export default function EmployeeTransferList({
                 >
                     {/* LEFT COLUMN */}
                     <Box sx={{ width: '45%', height: '100%' }}>
-                        {CustomList({ items: leftFiltered, type: 'source' })}
+                        {CustomList({ type: 'source' })}
                     </Box>
 
                     {/* BUTTONS COLUMN */}
@@ -387,7 +444,7 @@ export default function EmployeeTransferList({
                         <Button
                             variant="outlined"
                             onClick={handleAllRight}
-                            disabled={leftFiltered.length === 0 || isFulfilled}
+                            disabled={leftFiltered.length === 0}
                             sx={{ minWidth: 40 }}
                         >
                             <KeyboardDoubleArrowRightIcon />
@@ -395,8 +452,7 @@ export default function EmployeeTransferList({
                         <Button
                             variant="contained"
                             onClick={handleCheckedRight}
-                            disabled={leftChecked.length === 0 || isOverSelection || isFulfilled}
-                            color={isOverSelection ? "error" : "primary"}
+                            disabled={leftChecked.length === 0}
                             sx={{ minWidth: 40 }}
                         >
                             <KeyboardArrowRightIcon />
@@ -421,7 +477,7 @@ export default function EmployeeTransferList({
 
                     {/* RIGHT COLUMN */}
                     <Box sx={{ width: '45%', height: '100%' }}>
-                        {CustomList({ items: rightFiltered, type: 'target' })}
+                        {CustomList({ type: 'target' })}
                     </Box>
                 </Stack>
             </DialogContent>
