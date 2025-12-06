@@ -10,4 +10,5 @@ import lombok.Setter;
 public class DepartmentDTO {
     private Integer id;
     private String name;
+    private int numberOfEmployees;
 }

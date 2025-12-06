@@ -20,6 +20,17 @@ public class DepartmentServiceImpl implements DepartmentService {
 
     @Override
     public List<DepartmentDTO> findALl() {
-        return departmentRepository.findAll().stream().map(DepartmentMapper::toDTO).toList();
+        return departmentRepository.findAll().stream().map(dept -> {
+            DepartmentDTO dto = DepartmentMapper.toDTO(dept);
+            //only get employees with role name worker
+            if (dept.getUsers() != null) {
+                dto.setNumberOfEmployees(dept.getUsers().stream().filter(
+                        tbUser -> "Worker".equalsIgnoreCase(tbUser.getRole().getName()))
+                        .toList().size());
+            } else {
+                dto.setNumberOfEmployees(0);
+            }
+            return dto;
+        }).toList();
     }
 }
