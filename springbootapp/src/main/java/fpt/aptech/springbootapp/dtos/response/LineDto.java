@@ -19,7 +19,7 @@ public class LineDto {
     private String managerName;
     private Integer managerId;
     private String description;
-
+    private int totalEmployees;
     @Builder.Default
     private List<LineDto> children = new ArrayList<>();
 }
