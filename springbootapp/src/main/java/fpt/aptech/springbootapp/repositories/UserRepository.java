@@ -23,4 +23,6 @@ public interface UserRepository extends JpaRepository<TbUser, Integer> {
     List<TbUser> findByRoleName(String roleName);
 
     List<TbUser> findByRoleNameAndLineId(String roleName, Integer lineId);
+
+    long countByLineId(Integer lineId);
 }
