@@ -1,7 +1,7 @@
 import axios from 'axios';
 import BASE_API from './api';
 
-const USER_API = '/users'; // Sửa lại đúng backend
+const USER_API = '/user'; // Sửa lại đúng backend
 
 // Lấy danh sách users theo phòng ban
 export async function getUsersByDepartment(deptId) {
