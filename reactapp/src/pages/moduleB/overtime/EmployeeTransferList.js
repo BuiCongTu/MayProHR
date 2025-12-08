@@ -183,10 +183,10 @@ export default function EmployeeTransferList({
     };
 
     const handleAllRight = () => {
-        // Only move available employees
+        // 1. Get all valid candidates
         let candidates = leftFiltered.filter(u => !unavailableEmployees.has(u.id));
 
-        // Sort candidates: Native first, then others
+        // 2. Sort candidates: Native (Priority) first, then others
         if (targetLineId) {
             candidates.sort((a, b) => {
                 const aIsLine = a.lineId === targetLineId;
@@ -197,16 +197,24 @@ export default function EmployeeTransferList({
             });
         }
 
-        // Cap "Select All" to remaining soft limit to prevent massive over-selection
-        let itemsToMove = candidates;
-        if (targetCount > 0) {
-            const currentSelected = right.length;
-            const remainingSlots = Math.max(0, softLimit - currentSelected);
-            itemsToMove = candidates.slice(0, remainingSlots);
+        const currentCount = right.length;
+        const target = requestedCount || 0;
+        const limit = target * 2;
+
+        let numberToAdd = 0;
+
+        if (currentCount < target) {
+            numberToAdd = target - currentCount;
+        } else if (currentCount < limit) {
+            numberToAdd = limit - currentCount;
+        } else {
+            numberToAdd = 0;
         }
 
-        if (candidates.length > 0) {
-            setRight(right.concat(candidates));
+        const itemsToMove = candidates.slice(0, numberToAdd);
+
+        if (itemsToMove.length > 0) {
+            setRight(right.concat(itemsToMove));
         }
     };
 

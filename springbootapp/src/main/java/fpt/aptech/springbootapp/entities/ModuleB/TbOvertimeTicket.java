@@ -38,7 +38,6 @@ public class TbOvertimeTicket {
     @OneToMany(mappedBy = "overtimeTicket", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<TbOvertimeTicketEmployee> overtimeEmployees = new HashSet<>();
 
-    @Lob
     @Column(name = "reason")
     private String reason;
 

@@ -222,6 +222,7 @@ export default function OvertimeRequestDetail() {
     const [rejectTarget, setRejectTarget] = useState({ type: null, id: null });
 
     const loadData = async () => {
+        setError(null);
         try {
             const data = await getOvertimeRequestById(id);
             let linesData = allLines;
@@ -242,8 +243,9 @@ export default function OvertimeRequestDetail() {
     };
 
     useEffect(() => {
+        if (!user || !user.id) return;
         loadData();
-    }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [id, user?.id, connected]);
 
     useEffect(() => {
         if (!connected) return;

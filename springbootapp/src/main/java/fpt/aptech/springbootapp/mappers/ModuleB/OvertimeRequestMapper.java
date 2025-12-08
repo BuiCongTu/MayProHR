@@ -27,6 +27,7 @@ public interface OvertimeRequestMapper {
 
     @Mapping(source = "line.id", target = "lineId")
     @Mapping(source = "line.name", target = "lineName")
+    @Mapping(source = "line.level", target = "lineLevel")
     OvertimeRequestDetailDTO toDetailDTO(TbOvertimeRequestDetail detail);
 
     @Mapping(source = "lineId", target = "line.id")

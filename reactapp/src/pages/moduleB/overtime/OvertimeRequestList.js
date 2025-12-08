@@ -21,7 +21,7 @@ const mainHeadCells = [
     { id: 'departmentName', label: 'Department', width: '20%' },
     { id: 'overtimeDate', label: 'Date', width: '15%' },
     { id: 'startTime', label: 'Time', width: '15%', disableSorting: true },
-    { id: 'numEmployees', label: 'Total Empl.', numeric: true, width: '15%', disableSorting: true },
+    { id: 'numEmployees', label: 'Workers', numeric: true, width: '15%', disableSorting: true }, // Renamed Label
     { id: 'status', label: 'Status', width: '15%', disableSorting: true },
     { id: 'actions', label: 'Actions', width: '10%', disableSorting: true }
 ];
@@ -90,17 +90,21 @@ function LineBreakdownTable({ request, navigate }) {
             });
         }
 
-        return request.lineDetails.map(detail => {
-            const currentStaffed = staffedCounts[detail.lineId] || 0;
-            const required = detail.numEmployees;
-            const percentage = Math.min((currentStaffed / required) * 100, 100);
+        // FILTER: Hide Level 4 (Leader) lines from this snapshot
+        // We only want to show the "Workforce" progress
+        return request.lineDetails
+            .filter(detail => detail.lineLevel !== 4)
+            .map(detail => {
+                const currentStaffed = staffedCounts[detail.lineId] || 0;
+                const required = detail.numEmployees;
+                const percentage = Math.min((currentStaffed / required) * 100, 100);
 
-            return {
-                ...detail,
-                staffed: currentStaffed,
-                progressValue: percentage
-            };
-        });
+                return {
+                    ...detail,
+                    staffed: currentStaffed,
+                    progressValue: percentage
+                };
+            });
     }, [request.lineDetails, request.overtimeTickets]);
 
     const handleRequestSort = (event, property) => {
@@ -123,7 +127,7 @@ function LineBreakdownTable({ request, navigate }) {
     return (
         <Box sx={{ width: '100%', mt: 2 }}>
             <Typography variant="subtitle2" color="primary" gutterBottom fontWeight="bold">
-                LINE STAFFING SNAPSHOT
+                WORKFORCE STAFFING SNAPSHOT
             </Typography>
 
             <TableContainer component={Paper} variant="outlined" sx={{ bgcolor: 'white' }}>
@@ -185,7 +189,7 @@ function LineBreakdownTable({ request, navigate }) {
                             );
                         })}
                         {sortedRows.length === 0 && (
-                            <TableRow><TableCell colSpan={4} align="center">No lines specified</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={4} align="center">No worker lines specified</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>
@@ -210,6 +214,14 @@ function RequestRow({ request, isExpanded, onToggle, navigate, isLineManager }) 
 
     const fmtTime = (t) => t ? t.substring(0, 5) : '';
 
+    const displayCount = useMemo(() => {
+        if (!request.lineDetails || request.lineDetails.length === 0) return request.numEmployees;
+
+        return request.lineDetails
+            .filter(d => d.lineLevel !== 4)
+            .reduce((sum, d) => sum + (d.numEmployees || 0), 0);
+    }, [request]);
+
     return (
         <React.Fragment>
             <TableRow hover selected={isExpanded} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
@@ -218,7 +230,7 @@ function RequestRow({ request, isExpanded, onToggle, navigate, isLineManager }) 
                 <TableCell onClick={onToggle} sx={{ cursor: 'pointer' }}>{request.overtimeDate}</TableCell>
                 <TableCell onClick={onToggle} sx={{ cursor: 'pointer' }}>{fmtTime(request.startTime)} - {fmtTime(request.endTime)} ({request.overtimeTime}h)</TableCell>
                 <TableCell align="right" onClick={onToggle} sx={{ cursor: 'pointer' }}>
-                    <Typography fontWeight="bold" color="text.primary">{request.numEmployees}</Typography>
+                    <Typography fontWeight="bold" color="text.primary">{displayCount}</Typography>
                 </TableCell>
                 <TableCell onClick={onToggle} sx={{ cursor: 'pointer' }}>{getStatusChip(request.status)}</TableCell>
 
@@ -301,7 +313,6 @@ export default function OvertimeRequestList() {
     const isFactoryManager = user?.roleName === 'Factory Manager' || user?.roleName === 'FManager';
     const isLineManager = user?.roleName === 'Manager';
 
-    // --- 2. GET WEBSOCKET ---
     const { subscribe, connected } = useWebSocket();
 
     useEffect(() => {
@@ -329,53 +340,32 @@ export default function OvertimeRequestList() {
         }
     }
 
-    // Initial Load
     useEffect(() => {
         loadData();
     }, [statusFilter, debouncedSearch, order, orderBy, page, isLineManager, user?.departmentId]);
 
 
-    // --- 3. REAL-TIME UPDATE LOGIC ---
     useEffect(() => {
         if (!connected) return;
-
-        console.log("Subscribing to Overtime Updates...");
-
         const sub = subscribe('/topic/requests', (updatedRequest) => {
-            console.log("Update Received:", updatedRequest);
-
             setRequests(prevRequests => {
-                // 1. Check if this request is already in our list
                 const exists = prevRequests.find(r => r.id === updatedRequest.id);
-
-                // 2. Role Filtering for new items
-                // If Line Manager -> Don't show 'Pending' requests and 'Rejected' requests
                 if (isLineManager && (updatedRequest.status === 'pending' || updatedRequest.status === 'rejected')) {
                     if (exists) return prevRequests.filter(r => r.id !== updatedRequest.id);
                     return prevRequests;
                 }
-
-                // 3. Department Filtering for Line Managers
-                // If it's a new request for a different dept, ignore it
                 if (isLineManager && user?.departmentId && updatedRequest.departmentId !== user.departmentId) {
                     return prevRequests;
                 }
-
                 if (exists) {
-                    // UPDATE: Replace the old object with the new one
                     return prevRequests.map(r => r.id === updatedRequest.id ? updatedRequest : r);
                 } else {
-                    if (page === 0) {
-                        return [updatedRequest, ...prevRequests];
-                    }
+                    if (page === 0) return [updatedRequest, ...prevRequests];
                     return prevRequests;
                 }
             });
         });
-
-        return () => {
-            if (sub) sub.unsubscribe();
-        };
+        return () => { if (sub) sub.unsubscribe(); };
     }, [connected, subscribe, isLineManager, user?.departmentId, page]);
 
 
