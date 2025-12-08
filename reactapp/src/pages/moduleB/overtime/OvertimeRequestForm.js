@@ -24,7 +24,11 @@ import {
     Chip,
     Tooltip,
     Divider,
-    MenuItem
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    FormHelperText
 } from '@mui/material';
 
 const MAX_DAILY_OT_HOURS = 4.0;
@@ -35,7 +39,7 @@ const filter = createFilterOptions({
     stringify: (option) => `${option.id} ${option.name}`,
 });
 
-// --- TIME UTILS ---
+// --- UTILS ---
 const generateTimeSlots = () => {
     const slots = [];
     for (let i = 0; i < 24; i++) {
@@ -86,6 +90,7 @@ function OvertimeRequestForm() {
     const [isSpecialDay, setIsSpecialDay] = useState(false);
     const [timeError, setTimeError] = useState(null);
     const [displayDuration, setDisplayDuration] = useState("1h 0m");
+    const [capacityError, setCapacityError] = useState(false);
 
     // --- EFFECTS ---
 
@@ -109,7 +114,6 @@ function OvertimeRequestForm() {
                 try {
                     const fetchedLines = await getLinesByDepartment(formData.departmentId);
                     setAllLines(fetchedLines || []);
-                    // Filter for "Leader Lines" (Level 4)
                     const sections = (fetchedLines || []).filter(l => l.level === 4);
                     setChildLines(sections);
 
@@ -181,12 +185,6 @@ function OvertimeRequestForm() {
         return Object.values(grandchildQuotas).reduce((sum, val) => sum + val, 0);
     };
 
-    const getCurrentDepartmentCap = () => {
-        const dept = departments.find(d => d.id === formData.departmentId);
-        return dept ? (dept.numberOfEmployees || 0) : 0;
-    };
-
-    // Filter Logic: Returns ONLY valid times for the list
     const getValidEndTimes = () => {
         const sMins = timeToMinutes(formData.startTime);
         return timeSlots.filter(t => {
@@ -230,11 +228,36 @@ function OvertimeRequestForm() {
             });
             return;
         }
+
         const intVal = parseInt(val);
         setGrandchildQuotas(prev => ({
             ...prev,
             [lineId]: isNaN(intVal) ? 0 : intVal
         }));
+    };
+
+    // Check if any line quota exceeds its capacity
+    useEffect(() => {
+        let hasError = false;
+        // Iterate current quotas
+        for (const [lineIdStr, qty] of Object.entries(grandchildQuotas)) {
+            const lineId = parseInt(lineIdStr);
+            const lineObj = allLines.find(l => l.id === lineId);
+            if (lineObj && qty > lineObj.totalEmployees) {
+                hasError = true;
+                break;
+            }
+        }
+        setCapacityError(hasError);
+    }, [grandchildQuotas, allLines]);
+
+
+    // Strict Integer Input Handler
+    const handleNumberKeyDown = (e) => {
+        if (['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+        if (!/[0-9]/.test(e.key)) {
+            e.preventDefault();
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -251,6 +274,11 @@ function OvertimeRequestForm() {
         }
         if (timeError || formData.overtimeTime <= 0) {
             setError("Please fix time errors.");
+            setLoading(false);
+            return;
+        }
+        if (capacityError) {
+            setError("One or more lines exceed their employee capacity. Please fix the red fields.");
             setLoading(false);
             return;
         }
@@ -276,7 +304,7 @@ function OvertimeRequestForm() {
                     missingWorkersError = true;
                     break;
                 }
-                // FIX: Structure matching DetailDTO (flat fields)
+
                 lineDetails.push({
                     lineId: gc.id,
                     numEmployees: count
@@ -291,15 +319,6 @@ function OvertimeRequestForm() {
             return;
         }
 
-        const totalReq = getTotalEmployees();
-        const deptCap = getCurrentDepartmentCap();
-        if (deptCap > 0 && totalReq > deptCap) {
-            setError(`Request exceeds department capacity! (Requested: ${totalReq}, Available: ${deptCap})`);
-            setLoading(false);
-            return;
-        }
-
-        // FIX: Payload matching RequestDTO (flat fields)
         const payload = {
             factoryManagerId: parseInt(formData.factoryManagerId),
             departmentId: parseInt(formData.departmentId),
@@ -313,9 +332,9 @@ function OvertimeRequestForm() {
 
         try {
             await createOvertimeRequest(payload);
+            const totalReq = getTotalEmployees();
             setSuccess(`Successfully created request for ${totalReq} employees!`);
             alert(`Success!`);
-            // FIX: Correct navigation path from App.js
             navigate("/overtime-request");
         } catch (err) {
             console.error("Submit Error:", err);
@@ -352,7 +371,7 @@ function OvertimeRequestForm() {
 
                 <Box component="form" onSubmit={handleSubmit} sx={{mt: 2, display: 'flex', flexDirection: 'column', gap: 3}}>
 
-                    {/* --- GENERAL INFO (Repo Layout) --- */}
+                    {/* GENERAL INFO SECTIONS */}
                     <Box sx={{display: 'flex', gap: 2, flexWrap: 'wrap'}}>
                         <TextField
                             label="Factory Manager ID"
@@ -376,7 +395,6 @@ function OvertimeRequestForm() {
                                 <TextField
                                     {...params}
                                     label="Department"
-                                    // Removed 'required' attribute
                                     error={!departments.length && !loading}
                                 />
                             )}
@@ -384,7 +402,7 @@ function OvertimeRequestForm() {
                     </Box>
 
                     <Grid container spacing={2}>
-                        <Grid item xs={12} sm={4}>
+                        <Grid item xs={12} sm={3}>
                             <TextField
                                 label="Date"
                                 name="overtimeDate"
@@ -396,40 +414,37 @@ function OvertimeRequestForm() {
                             />
                         </Grid>
 
-                        {/* Start Time Select */}
                         <Grid item xs={12} sm={3}>
-                            <TextField
-                                select
-                                label="From"
-                                name="startTime"
-                                value={formData.startTime}
-                                onChange={handleMainChange}
-                                fullWidth
-                                disabled={!isSpecialDay}
-                                helperText={!isSpecialDay ? "Fixed (17:00)" : ""}
-                            >
-                                {timeSlots.map((t) => (
-                                    <MenuItem key={t} value={t}>{t}</MenuItem>
-                                ))}
-                            </TextField>
+                            <FormControl fullWidth disabled={!isSpecialDay}>
+                                <InputLabel>From</InputLabel>
+                                <Select
+                                    label="From"
+                                    name="startTime"
+                                    value={formData.startTime}
+                                    onChange={handleMainChange}
+                                >
+                                    {timeSlots.map((t) => (
+                                        <MenuItem key={t} value={t}>{t}</MenuItem>
+                                    ))}
+                                </Select>
+                                {!isSpecialDay && <FormHelperText>Fixed (17:00)</FormHelperText>}
+                            </FormControl>
                         </Grid>
 
-                        {/* End Time Select (Filtered) */}
-                        <Grid item xs={12} sm={3}>
-                            <TextField
-                                select
-                                label="To"
-                                name="endTime"
-                                value={formData.endTime}
-                                onChange={handleMainChange}
-                                fullWidth
-                                error={!!timeError}
-                            >
-                                {/* Only show valid options */}
-                                {getValidEndTimes().map((t) => (
-                                    <MenuItem key={t} value={t}>{t}</MenuItem>
-                                ))}
-                            </TextField>
+                        <Grid item xs={12} sm={4}>
+                            <FormControl fullWidth error={!!timeError}>
+                                <InputLabel>To</InputLabel>
+                                <Select
+                                    label="To"
+                                    name="endTime"
+                                    value={formData.endTime}
+                                    onChange={handleMainChange}
+                                >
+                                    {getValidEndTimes().map((t) => (
+                                        <MenuItem key={t} value={t}>{t}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
                         </Grid>
 
                         <Grid item xs={12} sm={2}>
@@ -449,11 +464,7 @@ function OvertimeRequestForm() {
                         </Grid>
                     </Grid>
 
-                    {timeError && (
-                        <Alert severity="error" sx={{mt: -2}}>
-                            {timeError}
-                        </Alert>
-                    )}
+                    {timeError && <Alert severity="error" sx={{mt: -2}}>{timeError}</Alert>}
 
                     <TextField
                         label="Reason / Details"
@@ -467,7 +478,6 @@ function OvertimeRequestForm() {
 
                     <Divider sx={{ my: 1 }} />
 
-                    {/* --- HIERARCHY SELECTOR (CSS Grid - 2 Cols) --- */}
                     <Typography variant="h6" sx={{mt: 1}}>
                         Assign Workers to Lines
                     </Typography>
@@ -511,43 +521,58 @@ function OvertimeRequestForm() {
                                         </AccordionSummary>
 
                                         <AccordionDetails sx={{ bgcolor: '#fafafa', p: 2 }}>
-                                            {/* CSS GRID: STRICT 2 COLUMNS */}
+                                            {/* --- CSS GRID: STRICT 2 COLUMNS --- */}
                                             <Box sx={{
                                                 display: 'grid',
                                                 gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
                                                 gap: 2
                                             }}>
-                                                {grandchildren.map(gc => (
-                                                    <Box
-                                                        key={gc.id}
-                                                        sx={{
-                                                            p: 1.5,
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between',
-                                                            bgcolor: 'white',
-                                                            border: '1px solid #e0e0e0',
-                                                            borderRadius: 1
-                                                        }}
-                                                    >
-                                                        <Tooltip title={gc.name} placement="top">
-                                                            <Typography variant="body2" noWrap sx={{ maxWidth: '70%', fontWeight: 500 }}>
-                                                                {gc.name}
-                                                            </Typography>
-                                                        </Tooltip>
+                                                {grandchildren.map(gc => {
+                                                    const currentVal = grandchildQuotas[gc.id] || 0;
+                                                    // CAPACITY CHECK LOGIC
+                                                    const maxCap = gc.totalEmployees || 0;
+                                                    const isOverCap = currentVal > maxCap;
 
-                                                        {/* Simple Integer Input - No complex key handlers */}
-                                                        <TextField
-                                                            type="number"
-                                                            size="small"
-                                                            placeholder="0"
-                                                            value={grandchildQuotas[gc.id] || ''}
-                                                            onChange={(e) => handleQuotaChange(gc.id, e.target.value)}
-                                                            inputProps={{ min: 1, style: { textAlign: 'center', padding: '4px' } }}
-                                                            sx={{ width: '80px' }}
-                                                        />
-                                                    </Box>
-                                                ))}
+                                                    return (
+                                                        <Box
+                                                            key={gc.id}
+                                                            sx={{
+                                                                p: 1.5,
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-between',
+                                                                bgcolor: 'white',
+                                                                border: isOverCap ? '1px solid red' : '1px solid #e0e0e0',
+                                                                borderRadius: 1,
+                                                                position: 'relative'
+                                                            }}
+                                                        >
+                                                            <Box sx={{ maxWidth: '65%' }}>
+                                                                <Tooltip title={gc.name} placement="top">
+                                                                    <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
+                                                                        {gc.name}
+                                                                    </Typography>
+                                                                </Tooltip>
+                                                                {/* SHOW CAPACITY */}
+                                                                <Typography variant="caption" color={isOverCap ? "error" : "text.secondary"}>
+                                                                    Max: {maxCap}
+                                                                </Typography>
+                                                            </Box>
+
+                                                            <TextField
+                                                                type="number"
+                                                                size="small"
+                                                                placeholder="0"
+                                                                value={grandchildQuotas[gc.id] || ''}
+                                                                onChange={(e) => handleQuotaChange(gc.id, e.target.value)}
+                                                                onKeyDown={handleNumberKeyDown}
+                                                                inputProps={{ min: 1, style: { textAlign: 'center', padding: '4px' } }}
+                                                                sx={{ width: '70px' }}
+                                                                error={isOverCap}
+                                                            />
+                                                        </Box>
+                                                    );
+                                                })}
                                             </Box>
 
                                             {grandchildren.length === 0 && (
@@ -571,6 +596,9 @@ function OvertimeRequestForm() {
                         </Typography>
                     </Box>
 
+                    {/* CAPACITY ERROR MESSAGE */}
+                    {capacityError && <Alert severity="error">Cannot submit: Some lines exceed their employee limit.</Alert>}
+
                     {error && <Alert severity="error">{error}</Alert>}
                     {success && <Alert severity="success">{success}</Alert>}
 
@@ -578,7 +606,8 @@ function OvertimeRequestForm() {
                         type="submit"
                         variant="contained"
                         size="large"
-                        disabled={loading || getTotalEmployees() === 0 || !!timeError}
+                        // DISABLE IF CAPACITY ERROR
+                        disabled={loading || getTotalEmployees() === 0 || !!timeError || capacityError}
                         sx={{py: 1.5, fontWeight: 'bold'}}
                     >
                         {loading ? <CircularProgress size={26} color="inherit"/> : 'Submit Overtime Request'}
