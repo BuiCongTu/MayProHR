@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getFilteredOvertimeRequest, createOvertimeTicket, checkEmployeeAvailability } from '../../../services/moduleB/overtimeService'; // Import new service
+import { getFilteredOvertimeRequest, createOvertimeTicket, checkEmployeeAvailability } from '../../../services/moduleB/overtimeService';
 import { getUsersByDepartment } from '../../../services/userService';
 import { getLinesByDepartment } from '../../../services/departmentService';
 import { getCurrentUser } from '../../../services/authService';
@@ -28,33 +28,33 @@ export default function OvertimeTicketCreate() {
     const [requests, setRequests] = useState([]);
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [deptEmployees, setDeptEmployees] = useState([]);
+
+    // Hierarchy Data (For Client-Side Sibling Checks)
+    const [allLines, setAllLines] = useState([]);
     const [managedLineIds, setManagedLineIds] = useState(new Set());
 
     // Form States
     const [lines, setLines] = useState([]);
-    const [allocations, setAllocations] = useState({});
+    const [allocations, setAllocations] = useState({}); // { [lineId]: [employees] }
 
-    // New State for Backend Availability Check
+    // Validation Caches
     const [backendConflicts, setBackendConflicts] = useState(new Map()); // Map<empId, reason>
 
     // UI States
     const [loading, setLoading] = useState(false);
     const [loadingReq, setLoadingReq] = useState(true);
-    const [checkingAvailability, setCheckingAvailability] = useState(false); // Loading state for modal
+    const [checkingAvailability, setCheckingAvailability] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
     const [currentEditingLine, setCurrentEditingLine] = useState(null);
     const [error, setError] = useState(null);
 
-    // 1. Load Data & Determine Ownership
+    // 1. Load Data
     useEffect(() => {
         let isMounted = true;
 
         async function init() {
             if (!user) {
-                if (isMounted) {
-                    setError("User not authenticated.");
-                    setLoadingReq(false);
-                }
+                if (isMounted) setError("User not authenticated.");
                 return;
             }
 
@@ -81,24 +81,30 @@ export default function OvertimeTicketCreate() {
 
                 setRequests(fetchedRequests);
                 setDeptEmployees(fetchedUsers || []);
+                setAllLines(fetchedLines || []);
 
-                // C. Determine Owned Lines
+                // C. Determine Owned Lines (Hierarchy Aware)
                 const owned = new Set();
-                if (user.lineId) {
-                    owned.add(user.lineId);
-                } else if (fetchedUsers && fetchedUsers.length > 0) {
-                    const myProfile = fetchedUsers.find(u => String(u.id) === String(user.id));
-                    if (myProfile?.lineId) owned.add(myProfile.lineId);
-                    else if (myProfile?.line?.id) owned.add(myProfile.line.id);
-                }
-                if (fetchedLines && Array.isArray(fetchedLines)) {
-                    fetchedLines.forEach(l => {
-                        const lineManagerId = l.manager?.id || l.managerId;
-                        if (lineManagerId && String(lineManagerId) === String(user.id)) {
-                            owned.add(l.id);
-                        }
-                    });
-                }
+
+                // Helper to check ancestry
+                const isManagerOf = (line) => {
+                    // Direct manager?
+                    if (String(line.managerId) === String(user.id)) return true;
+                    // Ancestor manager?
+                    let parentId = line.parentId;
+                    while (parentId) {
+                        const parent = fetchedLines.find(l => l.id === parentId);
+                        if (parent && String(parent.managerId) === String(user.id)) return true;
+                        parentId = parent ? parent.parentId : null;
+                    }
+                    return false;
+                };
+
+                fetchedLines.forEach(l => {
+                    if (isManagerOf(l)) {
+                        owned.add(l.id);
+                    }
+                });
                 setManagedLineIds(owned);
 
                 // D. Handle Pre-selection
@@ -120,7 +126,7 @@ export default function OvertimeTicketCreate() {
 
         init();
         return () => { isMounted = false; };
-    }, [user?.id, user?.departmentId, location.state]);
+    }, [user?.id, user?.departmentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Helper: Count Server Assignments
     const getServerAssignedCount = (req, lineId) => {
@@ -128,27 +134,23 @@ export default function OvertimeTicketCreate() {
         let count = 0;
         req.overtimeTickets.forEach(ticket => {
             if (ticket.status !== 'rejected') {
-                ticket.employeeList?.forEach(emp => {
-                    if (emp.lineId === lineId && emp.status !== 'rejected') {
-                        count++;
-                    }
-                });
+                count += 0;
             }
         });
         return count;
     };
 
     const setupLinesForRequest = (req) => {
-        if (req) {
+        if (req && req.lineDetails) {
             const initialLines = req.lineDetails.map(d => ({
                 lineId: d.lineId,
-                lineName: d.lineName,
-                numEmployees: d.numEmployees,
+                lineName: d.lineName || "Unknown Line",
+                numEmployees: d.numEmployees || 0, // Safe Fallback
                 serverAssigned: getServerAssignedCount(req, d.lineId)
             }));
             setLines(initialLines);
             setAllocations({});
-            setBackendConflicts(new Map()); // Reset conflicts when req changes
+            setBackendConflicts(new Map());
         } else {
             setLines([]);
             setAllocations({});
@@ -163,37 +165,87 @@ export default function OvertimeTicketCreate() {
         setupLinesForRequest(newValue);
     };
 
-    // --- MODIFIED: OPEN EMPLOYEE PICKER ---
+    // --- HYBRID AVAILABILITY CHECK ---
+
+    // 1. Client-Side Sibling Check
+    const getSiblingConflict = (employee, targetLineId) => {
+        if (!employee.lineId || !targetLineId) return null;
+        if (employee.lineId === targetLineId) return null; // Native = OK
+
+        const targetLine = allLines.find(l => l.id === targetLineId);
+        const workerLine = allLines.find(l => l.id === employee.lineId);
+
+        // If both lines exist and share a parent (Level 4), they are siblings -> BLOCK
+        if (targetLine?.parentId && workerLine?.parentId) {
+            if (targetLine.parentId === workerLine.parentId) {
+                return `Sibling Block: Belongs to ${workerLine.name}`;
+            }
+        }
+        return null;
+    };
+
+    // 2. Open Picker & Check Backend
     const openEmployeePicker = async (line) => {
         setCurrentEditingLine(line);
         setCheckingAvailability(true);
 
-        // 1. Identify which employees we need to check
         const employeeIdsToCheck = deptEmployees.map(u => u.id);
 
         if (selectedRequest && employeeIdsToCheck.length > 0) {
             try {
-                // 2. Call API
-                const results = await checkEmployeeAvailability(selectedRequest.id, employeeIdsToCheck);
+                // Call Backend for: Weekly Limits, Time Conflicts, Active Cousin Lock
+                const response = await checkEmployeeAvailability(selectedRequest.id, employeeIdsToCheck);
 
-                // 3. Process results into a Map
                 const conflictMap = new Map();
-                results.forEach(res => {
-                    if (!res.available) {
-                        conflictMap.set(res.employeeId, res.reason);
-                    }
-                });
+                // Response is List<AvailabilityCheckDTO.Response>
+                if (Array.isArray(response)) {
+                    response.forEach(res => {
+                        if (!res.available) {
+                            conflictMap.set(res.employeeId, res.reason);
+                        }
+                    });
+                }
                 setBackendConflicts(conflictMap);
 
             } catch (err) {
                 console.error("Availability check failed", err);
-                // alert("Could not verify real-time availability. Proceeding with caution.");
             }
         }
 
         setCheckingAvailability(false);
         setModalOpen(true);
     };
+
+    // 3. Build Final Unavailable Map (Backend + Draft + Sibling)
+    const getUnavailableEmployeesMap = (targetLineId) => {
+        const unavailable = new Map();
+
+        // A. Backend Conflicts (Time, Weekly Limit)
+        backendConflicts.forEach((reason, id) => unavailable.set(id, reason));
+
+        // B. Frontend Draft Conflicts (Double Booking)
+        Object.keys(allocations).forEach(lId => {
+            const lineIdInt = parseInt(lId);
+            if (lineIdInt !== targetLineId) {
+                const lineObj = lines.find(l => l.lineId === lineIdInt);
+                const lineName = lineObj ? lineObj.lineName : 'another line';
+                allocations[lId].forEach(u => {
+                    unavailable.set(u.id, `Draft: Assigned to ${lineName}`);
+                });
+            }
+        });
+
+        // C. Frontend Sibling Conflicts (Immediate)
+        deptEmployees.forEach(emp => {
+            if (!unavailable.has(emp.id)) {
+                const conflict = getSiblingConflict(emp, targetLineId);
+                if (conflict) unavailable.set(emp.id, conflict);
+            }
+        });
+
+        return unavailable;
+    };
+
 
     const handleSaveAllocation = (selectedUsers) => {
         if (currentEditingLine) {
@@ -204,29 +256,6 @@ export default function OvertimeTicketCreate() {
         }
         setModalOpen(false);
         setCurrentEditingLine(null);
-    };
-
-    const getUnavailableEmployeesMap = (targetLineId) => {
-        const unavailable = new Map();
-
-        // 1. Add Backend Conflicts
-        backendConflicts.forEach((reason, id) => {
-            unavailable.set(id, reason);
-        });
-
-        // 2. Add Frontend Conflicts
-        Object.keys(allocations).forEach(lId => {
-            const lineIdInt = parseInt(lId);
-            if (lineIdInt !== targetLineId) {
-                const lineObj = lines.find(l => l.lineId === lineIdInt);
-                const lineName = lineObj ? lineObj.lineName : 'Other Line';
-                allocations[lId].forEach(u => {
-                    unavailable.set(u.id, `Assigned to ${lineName} (Current Draft)`);
-                });
-            }
-        });
-
-        return unavailable;
     };
 
     const handleSubmit = async () => {
@@ -258,7 +287,7 @@ export default function OvertimeTicketCreate() {
             alert("Ticket created successfully!");
             navigate('/overtime-ticket');
         } catch (err) {
-            const msg = typeof err === 'string' ? err : (err.response?.data || "Failed to create ticket.");
+            const msg = typeof err === 'string' ? err : (err.message || JSON.stringify(err));
             setError(msg);
         } finally {
             setLoading(false);
@@ -288,7 +317,7 @@ export default function OvertimeTicketCreate() {
                         loading={loadingReq}
                         isOptionEqualToValue={(option, value) => option.id === value.id}
                         renderInput={(params) => (
-                            <TextField {...params} placeholder="Search Open Requests..." fullWidth variant="outlined" size="medium" />
+                            <TextField {...params} placeholder="Search Open Requests..." fullWidth variant="outlined" />
                         )}
                         renderOption={(props, option) => (
                             <li {...props}>
@@ -353,7 +382,7 @@ export default function OvertimeTicketCreate() {
                                                                 <Typography variant="h6" fontWeight="bold">{totalRequired}</Typography>
                                                             </Box>
                                                             <Box sx={{ minWidth: 80 }}>
-                                                                <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.7rem' }}>AVAILABLE</Typography>
+                                                                <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.7rem' }}>REMAINING</Typography>
                                                                 <Typography variant="h6" fontWeight="bold" color={isQuotaFull ? "text.disabled" : "success.main"}>{availableSlots}</Typography>
                                                             </Box>
                                                             <Box sx={{ minWidth: 80 }}>
