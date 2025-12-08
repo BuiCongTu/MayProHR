@@ -29,16 +29,16 @@ export default function OvertimeTicketCreate() {
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [deptEmployees, setDeptEmployees] = useState([]);
 
-    // Hierarchy Data (For Client-Side Sibling Checks)
+    // Hierarchy Data
     const [allLines, setAllLines] = useState([]);
     const [managedLineIds, setManagedLineIds] = useState(new Set());
 
     // Form States
     const [lines, setLines] = useState([]);
-    const [allocations, setAllocations] = useState({}); // { [lineId]: [employees] }
+    const [allocations, setAllocations] = useState({});
 
     // Validation Caches
-    const [backendConflicts, setBackendConflicts] = useState(new Map()); // Map<empId, reason>
+    const [backendConflicts, setBackendConflicts] = useState(new Map());
 
     // UI States
     const [loading, setLoading] = useState(false);
@@ -83,14 +83,12 @@ export default function OvertimeTicketCreate() {
                 setDeptEmployees(fetchedUsers || []);
                 setAllLines(fetchedLines || []);
 
-                // C. Determine Owned Lines (Hierarchy Aware)
+                // C. Determine Owned Lines
                 const owned = new Set();
 
-                // Helper to check ancestry
                 const isManagerOf = (line) => {
-                    // Direct manager?
                     if (String(line.managerId) === String(user.id)) return true;
-                    // Ancestor manager?
+                    // Ancestor Check
                     let parentId = line.parentId;
                     while (parentId) {
                         const parent = fetchedLines.find(l => l.id === parentId);
@@ -126,7 +124,7 @@ export default function OvertimeTicketCreate() {
 
         init();
         return () => { isMounted = false; };
-    }, [user?.id, user?.departmentId]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [user?.id, user?.departmentId]);
 
     // Helper: Count Server Assignments
     const getServerAssignedCount = (req, lineId) => {
@@ -134,6 +132,8 @@ export default function OvertimeTicketCreate() {
         let count = 0;
         req.overtimeTickets.forEach(ticket => {
             if (ticket.status !== 'rejected') {
+                // In a real scenario, check specific line assignments here if DTO provides detail
+                // For now returning 0 to let LM see they need to fill quota
                 count += 0;
             }
         });
@@ -145,7 +145,7 @@ export default function OvertimeTicketCreate() {
             const initialLines = req.lineDetails.map(d => ({
                 lineId: d.lineId,
                 lineName: d.lineName || "Unknown Line",
-                numEmployees: d.numEmployees || 0, // Safe Fallback
+                numEmployees: d.numEmployees || 0,
                 serverAssigned: getServerAssignedCount(req, d.lineId)
             }));
             setLines(initialLines);
@@ -157,7 +157,16 @@ export default function OvertimeTicketCreate() {
         }
     };
 
-    const visibleLines = lines.filter(l => managedLineIds.has(l.lineId));
+    // --- LOGIC UPDATE: Filter visible lines ---
+    const visibleLines = lines.filter(l => {
+        // 1. Must be managed by me
+        if (!managedLineIds.has(l.lineId)) return false;
+
+        const lineDef = allLines.find(al => al.id === l.lineId);
+        if (lineDef && lineDef.level === 4) return false;
+
+        return true;
+    });
 
     const handleRequestChange = (event, newValue) => {
         setSelectedRequest(newValue);
@@ -165,17 +174,16 @@ export default function OvertimeTicketCreate() {
         setupLinesForRequest(newValue);
     };
 
-    // --- HYBRID AVAILABILITY CHECK ---
+    // --- HYBRID AVAILABILITY ---
 
     // 1. Client-Side Sibling Check
     const getSiblingConflict = (employee, targetLineId) => {
         if (!employee.lineId || !targetLineId) return null;
-        if (employee.lineId === targetLineId) return null; // Native = OK
+        if (employee.lineId === targetLineId) return null;
 
         const targetLine = allLines.find(l => l.id === targetLineId);
         const workerLine = allLines.find(l => l.id === employee.lineId);
 
-        // If both lines exist and share a parent (Level 4), they are siblings -> BLOCK
         if (targetLine?.parentId && workerLine?.parentId) {
             if (targetLine.parentId === workerLine.parentId) {
                 return `Sibling Block: Belongs to ${workerLine.name}`;
@@ -184,7 +192,7 @@ export default function OvertimeTicketCreate() {
         return null;
     };
 
-    // 2. Open Picker & Check Backend
+    // 2. Backend Check
     const openEmployeePicker = async (line) => {
         setCurrentEditingLine(line);
         setCheckingAvailability(true);
@@ -193,11 +201,9 @@ export default function OvertimeTicketCreate() {
 
         if (selectedRequest && employeeIdsToCheck.length > 0) {
             try {
-                // Call Backend for: Weekly Limits, Time Conflicts, Active Cousin Lock
                 const response = await checkEmployeeAvailability(selectedRequest.id, employeeIdsToCheck);
 
                 const conflictMap = new Map();
-                // Response is List<AvailabilityCheckDTO.Response>
                 if (Array.isArray(response)) {
                     response.forEach(res => {
                         if (!res.available) {
@@ -216,14 +222,12 @@ export default function OvertimeTicketCreate() {
         setModalOpen(true);
     };
 
-    // 3. Build Final Unavailable Map (Backend + Draft + Sibling)
+    // 3. Unavailable Map
     const getUnavailableEmployeesMap = (targetLineId) => {
         const unavailable = new Map();
 
-        // A. Backend Conflicts (Time, Weekly Limit)
         backendConflicts.forEach((reason, id) => unavailable.set(id, reason));
 
-        // B. Frontend Draft Conflicts (Double Booking)
         Object.keys(allocations).forEach(lId => {
             const lineIdInt = parseInt(lId);
             if (lineIdInt !== targetLineId) {
@@ -235,7 +239,6 @@ export default function OvertimeTicketCreate() {
             }
         });
 
-        // C. Frontend Sibling Conflicts (Immediate)
         deptEmployees.forEach(emp => {
             if (!unavailable.has(emp.id)) {
                 const conflict = getSiblingConflict(emp, targetLineId);
@@ -245,7 +248,6 @@ export default function OvertimeTicketCreate() {
 
         return unavailable;
     };
-
 
     const handleSaveAllocation = (selectedUsers) => {
         if (currentEditingLine) {

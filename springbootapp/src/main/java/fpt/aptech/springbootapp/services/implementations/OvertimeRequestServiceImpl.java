@@ -17,7 +17,7 @@ import fpt.aptech.springbootapp.repositories.ModuleB.OvertimeTicketRepository;
 import fpt.aptech.springbootapp.repositories.UserRepository;
 import fpt.aptech.springbootapp.services.System.NotificationService;
 import fpt.aptech.springbootapp.services.System.WebSocketService;
-//import fpt.aptech.springbootapp.services.interfaces.LineService;
+import fpt.aptech.springbootapp.services.interfaces.LineService;
 import fpt.aptech.springbootapp.services.interfaces.OvertimeRequestService;
 import fpt.aptech.springbootapp.specifications.OvertimeRequestSpecification;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +46,7 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
     private final OvertimeRequestMapper overtimeRequestMapper;
     private final WebSocketService webSocketService;
     private final NotificationService notificationService;
-    //private final LineService lineService;
+    private final LineService lineService;
     private final LineRepository lineRepository;
 
     @Autowired
@@ -58,7 +58,7 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
             OvertimeRequestMapper overtimeRequestMapper,
             WebSocketService webSocketService,
             NotificationService notificationService,
-            //LineService lineService,
+            LineService lineService,
             LineRepository lineRepository) {
         this.overtimeRequestRepository = overtimeRequestRepository;
         this.overtimeTicketRepository = overtimeTicketRepository;
@@ -67,7 +67,7 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
         this.overtimeRequestMapper = overtimeRequestMapper;
         this.webSocketService = webSocketService;
         this.notificationService = notificationService;
-        //this.lineService = lineService;
+        this.lineService = lineService;
         this.lineRepository = lineRepository;
     }
 
@@ -118,7 +118,7 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
             throw new IllegalArgumentException("Overtime duration (" + String.format("%.1f", durationInHours) + "h) exceeds the maximum allowed limit of " + MAX_DAILY_OT_HOURS + " hours per day.");
         }
 
-        // --- 3. LINE CAPACITY CHECK ---
+        // --- 3. LINE VALIDATION & FIX TRANSIENT ERROR ---
         if (overtimeRequest.getLineDetails() == null || overtimeRequest.getLineDetails().isEmpty()) {
             throw new IllegalArgumentException("At least one line must be selected.");
         }
@@ -128,14 +128,16 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
                 throw new IllegalArgumentException("Number of employees for line " + detail.getLine().getId() + " must be greater than 0");
             }
 
-            // CAPACITY CHECK: Does the line actually have enough workers?
-            long actualCount = userRepository.countByLineId(detail.getLine().getId());
+            TbLine realLine = lineRepository.findById(detail.getLine().getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Line not found with ID: " + detail.getLine().getId()));
+
+            long actualCount = userRepository.countByLineId(realLine.getId());
             if (detail.getNumEmployees() > actualCount) {
-                TbLine line = lineRepository.findById(detail.getLine().getId()).orElse(null);
-                String lineName = line != null ? line.getName() : "ID " + detail.getLine().getId();
-                throw new IllegalArgumentException("Capacity Error: Line '" + lineName + "' only has " + actualCount + " employees, but you requested " + detail.getNumEmployees() + ".");
+                throw new IllegalArgumentException("Capacity Error: Line '" + realLine.getName() + "' only has " + actualCount + " employees, but you requested " + detail.getNumEmployees() + ".");
             }
 
+            // Set the MANAGED entity back to the detail
+            detail.setLine(realLine);
             detail.setOvertimeRequest(overtimeRequest);
         }
 
@@ -177,7 +179,6 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
             List<TbOvertimeRequestDetail> newDetails = new ArrayList<>();
             Set<Integer> parentIdsToProcess = new HashSet<>();
 
-            // 1. Identify affected Level 4 Lines
             for (TbOvertimeRequestDetail detail : overtimeRequest.getLineDetails()) {
                 TbLine line = detail.getLine();
                 if (line.getParent() != null) {
@@ -186,24 +187,24 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
                 }
             }
 
-            // 2. Process Leaders
             for (Integer pid : parentIdsToProcess) {
                 TbLine leaderLine = lineRepository.findById(pid).orElse(null);
                 if (leaderLine == null) continue;
 
+                // Add to Request Details if missing
                 if (!existingLineIds.contains(pid)) {
                     TbOvertimeRequestDetail leaderDetail = new TbOvertimeRequestDetail();
                     leaderDetail.setLine(leaderLine);
                     leaderDetail.setNumEmployees(1);
                     leaderDetail.setOvertimeRequest(overtimeRequest);
 
+                    // Add to lists
                     overtimeRequest.getLineDetails().add(leaderDetail);
                     existingLineIds.add(pid);
                 }
 
                 // --- B. AUTO-GENERATE TICKET FOR LEADER ---
 
-                // Find Leader User
                 List<TbUser> leaders = userRepository.findByRoleNameAndLineId("Leader", pid);
                 if (leaders.isEmpty()) continue;
                 TbUser leaderUser = leaders.getFirst();
@@ -215,7 +216,6 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
                 }
                 if (lineManager == null) lineManager = overtimeRequest.getFactoryManager();
 
-                // Create Ticket
                 TbOvertimeTicket leaderTicket = new TbOvertimeTicket();
                 leaderTicket.setOvertimeRequest(overtimeRequest);
                 leaderTicket.setManager(lineManager);
@@ -223,7 +223,6 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
                 leaderTicket.setCreatedAt(Instant.now());
                 leaderTicket.setReason("Auto-generated for Section Leader");
 
-                // Create Employee Entry
                 TbOvertimeTicketEmployee ticketEmployee = new TbOvertimeTicketEmployee();
                 ticketEmployee.setOvertimeTicket(leaderTicket);
                 ticketEmployee.setEmployee(leaderUser);
@@ -234,7 +233,6 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
 
                 overtimeTicketRepository.save(leaderTicket);
 
-                // Notify Leader
                 notificationService.sendNotification(leaderUser,
                         "Overtime Assignment: You have been automatically assigned to supervise Request #" + id,
                         TbNotification.NotificationType.approval);
@@ -244,18 +242,16 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
             overtimeRequest.setStatus(TbOvertimeRequest.OvertimeRequestStatus.open);
             TbOvertimeRequest saved = overtimeRequestRepository.save(overtimeRequest);
 
-            // --- D. NOTIFY MAIN STAKEHOLDERS ---
+            // --- D. NOTIFY ---
             TbOvertimeRequest fullRequest = overtimeRequestRepository.findById(saved.getId()).orElse(saved);
             OvertimeRequestDTO dto = overtimeRequestMapper.toDTO(fullRequest);
             webSocketService.sendGlobalUpdate("/topic/requests", dto);
 
-            // Notify Factory Manager
             if (fullRequest.getFactoryManager() != null) {
                 String fmMessage = "Your Request #" + fullRequest.getId() + " has been Approved.";
                 notificationService.sendNotification(fullRequest.getFactoryManager(), fmMessage, TbNotification.NotificationType.approval);
             }
 
-            // Notify Line Managers (Level 3 Only)
             notifyLineManagers(fullRequest);
 
             return dto;
@@ -263,7 +259,6 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
         throw new IllegalArgumentException("Overtime request not found");
     }
 
-    // Helper to find Level 3 Managers and notify them
     private void notifyLineManagers(TbOvertimeRequest request) {
         if (request.getLineDetails() == null) return;
 
@@ -275,7 +270,6 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
                 List<TbUser> foundManagers = new ArrayList<>();
                 TbLine currentLine = lineRepository.findById(currentLineId).orElse(null);
 
-                // Walk UP the tree until we find a "Manager" (Level 3)
                 while (currentLine != null && foundManagers.isEmpty()) {
                     foundManagers = userRepository.findByRoleNameAndLineId("Manager", currentLine.getId());
 
@@ -283,7 +277,7 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
                         if (currentLine.getParent() != null) {
                             currentLine = lineRepository.findById(currentLine.getParent().getId()).orElse(null);
                         } else {
-                            currentLine = null; // Stop at root
+                            currentLine = null;
                         }
                     }
                 }
@@ -388,12 +382,8 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
     }
 
     @Override
-    public void update(TbOvertimeRequest overtimeRequest) {
-        // Implement update logic if required
-    }
+    public void update(TbOvertimeRequest overtimeRequest) {}
 
     @Override
-    public void delete(int id) {
-        // Implement delete logic if required
-    }
+    public void delete(int id) {}
 }
