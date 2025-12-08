@@ -7,6 +7,7 @@ import {
 import TicketStatusTracker from '../../../components/moduleB/TicketStatusTracker';
 import EmployeeListTable from './EmployeeList';
 import {useWebSocket} from '../../../contexts/WebSocketContext';
+import { getCurrentUser } from '../../../services/authService';
 
 import {
     Box, CircularProgress, Typography, Alert, Button, Container,
@@ -27,6 +28,7 @@ export default function OvertimeTicketDetail() {
     const {id} = useParams();
     const navigate = useNavigate();
     const {subscribe, connected} = useWebSocket();
+    const user = getCurrentUser();
     const [ticket, setTicket] = useState(null);
     const [lineRequirements, setLineRequirements] = useState({});
     const [loading, setLoading] = useState(true);
@@ -35,6 +37,7 @@ export default function OvertimeTicketDetail() {
     const [drawerOpen, setDrawerOpen] = useState(false);
 
     const loadData = async () => {
+        setError(null);
         try {
             const ticketData = await getOvertimeTicketById(id);
             setTicket(ticketData);
@@ -56,8 +59,9 @@ export default function OvertimeTicketDetail() {
     };
 
     useEffect(() => {
+        if (!user || !user.id) return;
         loadData();
-    }, [id]);
+    }, [id, user?.id, connected]);
 
     useEffect(() => {
         if (!connected) return;

@@ -10,4 +10,5 @@ public class OvertimeRequestDetailDTO {
     private Integer lineId;
     private String lineName;
     private Integer numEmployees;
+    private Integer lineLevel;
 }
