@@ -76,6 +76,7 @@ export default function EmployeeTransferList({
     const [viewFilter, setViewFilter] = useState('available');
     const [searchTerm, setSearchTerm] = useState("");
 
+    // Calculate 'Left' list (Source) excluding already selected 'Right' users
     const left = useMemo(() => {
         const rightIds = new Set(right.map(u => u.id));
         return allEmployees.filter(u => !rightIds.has(u.id));
@@ -93,9 +94,9 @@ export default function EmployeeTransferList({
     // --- SOFT LIMIT LOGIC ---
     const targetCount = requestedCount || 0;
     const selectedCount = right.length;
-    const softLimit = targetCount * 2; // 2x Requirement
+    const softLimit = targetCount * 2; // Warning threshold (e.g. 200% staffing)
 
-    // Determine Status State
+    // Determine Status Bar Color
     let statusColor = 'primary';
     let statusIcon = <AssignmentIndIcon fontSize="small" sx={{ mr: 1 }} />;
     let statusText = `Selected: ${selectedCount} / ${targetCount}`;
@@ -116,6 +117,7 @@ export default function EmployeeTransferList({
         }
     }
 
+    // --- FILTERING LOGIC ---
     const filterList = (list, isSourceList) => {
         return list.filter(u => {
             const term = searchTerm.toLowerCase();
@@ -127,6 +129,7 @@ export default function EmployeeTransferList({
 
             if (!matchesSearch) return false;
 
+            // "View Available" toggle hides unavailable users from source list
             if (isSourceList && viewFilter === 'available') {
                 return !unavailableEmployees.has(u.id);
             }
@@ -138,10 +141,12 @@ export default function EmployeeTransferList({
     const leftFiltered = filterList(left, true);
     const rightFiltered = filterList(right, false);
 
+    // --- GROUPING LOGIC (Native vs Foreign) ---
     const { priorityList, otherList } = useMemo(() => {
         const priority = [];
         const others = [];
         leftFiltered.forEach(emp => {
+            // Priority: Employees belonging to the Target Line (Native)
             if (targetLineId && (emp.lineId === targetLineId)) {
                 priority.push(emp);
             } else {
@@ -154,8 +159,12 @@ export default function EmployeeTransferList({
     const leftChecked = intersection(checked, leftFiltered);
     const rightChecked = intersection(checked, rightFiltered);
 
+    // --- HANDLERS ---
+
     const handleToggle = (value) => () => {
+        // Prevent toggling disabled items in source list
         if (unavailableEmployees.has(value.id) && left.includes(value)) return;
+
         const currentIndex = checked.indexOf(value);
         const newChecked = [...checked];
         if (currentIndex === -1) newChecked.push(value);
@@ -174,8 +183,10 @@ export default function EmployeeTransferList({
     };
 
     const handleAllRight = () => {
+        // Only move available employees
         let candidates = leftFiltered.filter(u => !unavailableEmployees.has(u.id));
 
+        // Sort candidates: Native first, then others
         if (targetLineId) {
             candidates.sort((a, b) => {
                 const aIsLine = a.lineId === targetLineId;
@@ -186,17 +197,16 @@ export default function EmployeeTransferList({
             });
         }
 
+        // Cap "Select All" to remaining soft limit to prevent massive over-selection
         let itemsToMove = candidates;
-
         if (targetCount > 0) {
             const currentSelected = right.length;
             const remainingSlots = Math.max(0, softLimit - currentSelected);
-
             itemsToMove = candidates.slice(0, remainingSlots);
         }
 
-        if (itemsToMove.length > 0) {
-            setRight(right.concat(itemsToMove));
+        if (candidates.length > 0) {
+            setRight(right.concat(candidates));
         }
     };
 
@@ -221,7 +231,8 @@ export default function EmployeeTransferList({
                 divider
                 sx={{
                     bgcolor: isChecked ? 'action.selected' : 'inherit',
-                    py: 0.5
+                    py: 0.5,
+                    opacity: (isUnavailable && type === 'source') ? 0.6 : 1
                 }}
             >
                 <ListItemIcon sx={{ minWidth: 36 }}>
@@ -251,8 +262,13 @@ export default function EmployeeTransferList({
                                 {user.fullName}
                             </Typography>
                             {isUnavailable && type === 'source' && (
-                                <Tooltip title={reason} placement="top">
-                                    <LockIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
+                                <Tooltip title={reason} placement="top" arrow>
+                                    <Stack direction="row" alignItems="center" sx={{ cursor: 'help' }}>
+                                        <LockIcon sx={{ fontSize: 14, color: 'error.main', mr: 0.5 }} />
+                                        <Typography variant="caption" color="error" sx={{ fontSize: '0.65rem' }}>
+                                            Blocked
+                                        </Typography>
+                                    </Stack>
                                 </Tooltip>
                             )}
                         </Stack>
@@ -326,14 +342,14 @@ export default function EmployeeTransferList({
                 {/* SOURCE LIST: WITH GROUPING */}
                 {type === 'source' && priorityList.length > 0 && (
                     <ListSubheader sx={{ bgcolor: '#e3f2fd', lineHeight: '30px', fontWeight: 'bold', color: 'primary.main' }}>
-                        📍 Recommended (Current Line)
+                        ★ Recommended (Current Line)
                     </ListSubheader>
                 )}
                 {type === 'source' && priorityList.map(user => renderRow(user, type))}
 
                 {type === 'source' && otherList.length > 0 && priorityList.length > 0 && (
                     <ListSubheader sx={{ bgcolor: '#f5f5f5', lineHeight: '30px', fontWeight: 'bold', borderTop: '1px solid #e0e0e0' }}>
-                        👥 Other Departments
+                        ↓ Other Departments
                     </ListSubheader>
                 )}
                 {type === 'source' && otherList.map(user => renderRow(user, type))}
@@ -406,7 +422,7 @@ export default function EmployeeTransferList({
 
                     <Box sx={{ flexGrow: 1 }} />
 
-                    {/* STATUS BAR WITH SOFT LIMIT COLORS */}
+                    {/* STATUS BAR */}
                     <Box sx={{
                         display: 'flex',
                         alignItems: 'center',
@@ -444,7 +460,7 @@ export default function EmployeeTransferList({
                         <Button
                             variant="outlined"
                             onClick={handleAllRight}
-                            disabled={leftFiltered.length === 0}
+                            disabled={leftFiltered.filter(u => !unavailableEmployees.has(u.id)).length === 0}
                             sx={{ minWidth: 40 }}
                         >
                             <KeyboardDoubleArrowRightIcon />

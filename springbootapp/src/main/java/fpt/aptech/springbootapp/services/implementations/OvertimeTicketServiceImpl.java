@@ -214,6 +214,26 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
         throw new UnsupportedOperationException("Use createTicket(DTO) instead");
     }
 
+    private boolean isEmployeeActiveInRequest(TbOvertimeRequest request, Integer employeeId) {
+        if (request.getOvertimeTickets() == null) return false;
+
+        for (TbOvertimeTicket ticket : request.getOvertimeTickets()) {
+            // Ignore Rejected Tickets
+            if (ticket.getStatus() == OvertimeTicketStatus.rejected) continue;
+
+            if (ticket.getOvertimeEmployees() != null) {
+                for (TbOvertimeTicketEmployee emp : ticket.getOvertimeEmployees()) {
+                    if (emp.getStatus() == TbOvertimeTicketEmployee.EmployeeOvertimeStatus.rejected) continue;
+
+                    if (emp.getEmployee().getId().equals(employeeId)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     // --- MAIN CREATE METHOD ---
     @Override
     @Transactional
@@ -229,7 +249,6 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
         if (!manager.getRole().getName().equalsIgnoreCase("manager")) {
             throw new IllegalArgumentException("User is not a manager");
         }
-
         if (manager.getLine() == null) {
             throw new IllegalArgumentException("Manager is not assigned to any line.");
         }
@@ -245,12 +264,12 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
             throw new IllegalArgumentException("Cannot create ticket: The Request is not Open for submissions.");
         }
 
-        // Create a Set of allowed line IDs from the Request (for Scope Check)
+        // Allowed Lines Scope
         Set<Integer> allowedLineIds = request.getLineDetails().stream()
                 .map(detail -> detail.getLine().getId())
                 .collect(Collectors.toSet());
 
-        // Calculate Week Boundaries for [RESTORED] Weekly Limit Check
+        // Time calculations for limits
         LocalDate requestDate = request.getOvertimeDate();
         LocalDate startOfWeek = requestDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         LocalDate endOfWeek = requestDate.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
@@ -270,13 +289,13 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
             TbLine targetLine = lineRepository.findById(allocation.getLineId())
                     .orElseThrow(() -> new IllegalArgumentException("Target line not found: " + allocation.getLineId()));
 
-            // --- HIERARCHY CHECK 1: POWER RULE (Manager Authority) ---
+            // HIERARCHY CHECK 1: POWER RULE
             if (!lineService.isAncestor(manager.getLine().getId(), targetLine.getId())) {
                 throw new IllegalArgumentException("Unauthorized: You (" + manager.getLine().getName() +
                         ") cannot create tickets for line " + targetLine.getName() + " because it is not under your hierarchy.");
             }
 
-            // --- HIERARCHY CHECK 2: SCOPE RULE (Request Validity) ---
+            // HIERARCHY CHECK 2: SCOPE RULE
             if (!allowedLineIds.contains(targetLine.getId())) {
                 throw new IllegalArgumentException("Line " + targetLine.getName() + " is not included in this Overtime Request.");
             }
@@ -285,7 +304,7 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
             TbOvertimeRequestDetail lineDetail = request.getLineDetails().stream()
                     .filter(d -> d.getLine().getId().equals(targetLine.getId()))
                     .findFirst()
-                    .orElseThrow(() -> new RuntimeException("Logic Error: Detail not found after scope check"));
+                    .orElseThrow(() -> new RuntimeException("Detail not found after scope check"));
 
             long currentAssignedCount = overtimeTicketRepository.countAssignedEmployeesByLine(request.getId(), targetLine.getId());
             int newAllocationCount = allocation.getEmployeeIds().size();
@@ -299,43 +318,41 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
             // D. Process Employees
             for (Integer empId : allocation.getEmployeeIds()) {
                 if (processedEmployeeIds.contains(empId)) {
-                    throw new IllegalArgumentException("Employee ID " + empId + " is assigned multiple times.");
+                    throw new IllegalArgumentException("Employee ID " + empId + " is assigned multiple times in this ticket.");
                 }
 
-                // Already in this request?
-                if (overtimeTicketRepository.isEmployeeWorkingInRequest(request.getId(), empId)) {
+                // Robust Check: Is employee in ANY active ticket for this request?
+                if (isEmployeeActiveInRequest(request, empId)) {
                     throw new IllegalArgumentException("Employee ID " + empId + " is already assigned to another ticket in this request.");
                 }
 
-                // Global Conflict?
+                // Global Conflict Check
                 if (overtimeTicketRepository.existsGlobalTimeConflict(
                         empId, request.getOvertimeDate(), request.getStartTime(), request.getEndTime()) > 0) {
                     throw new IllegalArgumentException("Conflict: Employee " + empId + " is already scheduled elsewhere.");
                 }
 
-                // WEEKLY LIMIT CHECK
+                // Weekly Limit Check
                 Double currentWeeklyHours = overtimeTicketRepository.getWeeklyOvertimeHours(empId, startOfWeek, endOfWeek);
                 if (currentWeeklyHours == null) currentWeeklyHours = 0.0;
-
                 double potentialTotalHours = currentWeeklyHours + request.getOvertimeTime();
 
                 if (potentialTotalHours > MAX_WEEKLY_OT_HOURS) {
                     TbUser otUser = userRepository.findById(empId).orElse(null);
                     String empName = otUser != null ? otUser.getFullName() : ("ID " + empId);
                     throw new IllegalArgumentException(String.format(
-                            "Overtime Limit Exceeded: %s has already worked %.1f OT hours this week. Adding %.1f hours would exceed the limit of %.1f hours.",
+                            "Limit Exceeded: %s has %.1f OT hours this week. +%.1f exceeds limit of %.0f.",
                             empName, currentWeeklyHours, request.getOvertimeTime(), MAX_WEEKLY_OT_HOURS
                     ));
                 }
 
-                // --- HIERARCHY CHECK 3: TRAFFIC LIGHT (Native / Sibling / Active Cousin) ---
+                // HIERARCHY CHECK 3: TRAFFIC LIGHT
                 TbUser employee = userRepository.findById(empId)
                         .orElseThrow(() -> new IllegalArgumentException("Employee not found: " + empId));
 
                 TbLine workerLine = employee.getLine();
                 if (workerLine == null) throw new IllegalArgumentException("Employee has no line assigned.");
 
-                // Get Parents
                 Integer targetParentId = lineService.getParentId(targetLine.getId());
                 Integer workerParentId = lineService.getParentId(workerLine.getId());
 
@@ -351,7 +368,7 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                     boolean isWorkerLineActive = allowedLineIds.contains(workerLine.getId());
                     if (isWorkerLineActive) {
                         throw new IllegalArgumentException("Active Lock: Worker " + employee.getFullName() +
-                                " belongs to " + workerLine.getName() + " which is ALSO active in this request. They must stay there.");
+                                " belongs to active line " + workerLine.getName() + ".");
                     }
                 }
 
@@ -373,7 +390,6 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
 
         ticket.setOvertimeEmployees(ticketEmployees);
         TbOvertimeTicket saved = overtimeTicketRepository.save(ticket);
-
         submitTicket(saved.getId());
     }
 
@@ -387,7 +403,6 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
             dto.setStatus(a.getStatus().name());
             dto.setLineName(a.getLine() != null ? a.getLine().getName() : "N/A");
 
-            // Navigate relationships safely
             if (a.getOvertimeTicket().getOvertimeRequest() != null) {
                 var req = a.getOvertimeTicket().getOvertimeRequest();
                 dto.setOvertimeDate(req.getOvertimeDate());
@@ -396,11 +411,9 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                 dto.setHours(req.getOvertimeTime());
                 dto.setDepartmentName(req.getDepartment().getName());
             }
-
             if (a.getOvertimeTicket().getManager() != null) {
                 dto.setManagerName(a.getOvertimeTicket().getManager().getFullName());
             }
-
             return dto;
         }).collect(Collectors.toList());
     }
@@ -409,10 +422,7 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
     @Transactional
     public void respondToInvite(Integer userId, Integer ticketId, String statusStr) {
         TbOvertimeTicketEmployee assignment = overtimeTicketEmployeeRepository.findByTicketAndEmployee(ticketId, userId);
-
-        if (assignment == null) {
-            throw new IllegalArgumentException("Assignment not found for this user.");
-        }
+        if (assignment == null) throw new IllegalArgumentException("Assignment not found.");
 
         if (assignment.getOvertimeTicket().getStatus() == TbOvertimeTicket.OvertimeTicketStatus.rejected) {
             throw new IllegalArgumentException("This ticket has been rejected by the manager.");
@@ -423,39 +433,29 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                     TbOvertimeTicketEmployee.EmployeeOvertimeStatus.valueOf(statusStr.toLowerCase());
 
             if (newStatus == TbOvertimeTicketEmployee.EmployeeOvertimeStatus.accepted) {
-
                 TbOvertimeRequest request = assignment.getOvertimeTicket().getOvertimeRequest();
                 Integer lineId = assignment.getLine().getId();
 
                 TbOvertimeRequestDetail lineDetail = request.getLineDetails().stream()
                         .filter(d -> d.getLine().getId().equals(lineId))
                         .findFirst()
-                        .orElseThrow(() -> new IllegalArgumentException("Line config not found in request"));
+                        .orElseThrow(() -> new IllegalArgumentException("Line config not found"));
 
                 long currentAccepted = overtimeTicketRepository.countAssignedEmployeesByLine(request.getId(), lineId);
 
-                //check line quota
                 if (currentAccepted >= lineDetail.getNumEmployees()) {
-                    throw new IllegalArgumentException("Shift is full! The quota (" +
-                            lineDetail.getNumEmployees() + ") has already been filled by other employees.");
+                    throw new IllegalArgumentException("Shift is full!");
                 }
 
-                //global time conflict check
                 if (overtimeTicketRepository.existsGlobalTimeConflict(
-                        userId,
-                        request.getOvertimeDate(),
-                        request.getStartTime(),
-                        request.getEndTime()) > 0) {
-
-                    throw new IllegalArgumentException("You have already accepted another overtime shift during this time.");
+                        userId, request.getOvertimeDate(), request.getStartTime(), request.getEndTime()) > 0) {
+                    throw new IllegalArgumentException("You have another overtime shift during this time.");
                 }
             }
-
             assignment.setStatus(newStatus);
             overtimeTicketEmployeeRepository.save(assignment);
-
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid status. Use 'accepted' or 'rejected'.");
+            throw new IllegalArgumentException("Invalid status.");
         }
     }
 
@@ -464,14 +464,11 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
     public List<AvailabilityCheckDTO.Response> checkAvailability(AvailabilityCheckDTO.Request requestDto) {
         List<AvailabilityCheckDTO.Response> results = new ArrayList<>();
 
-        // 1. Fetch Request
         TbOvertimeRequest request = overtimeRequestRepository.findById(requestDto.getRequestId())
                 .orElseThrow(() -> new IllegalArgumentException("Request not found"));
 
-        // 2. Identify Context (Manager & Target Line)
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         TbUser manager = userRepository.findByEmail(email).orElse(null);
-
         boolean performHierarchyChecks = (manager != null && "Manager".equalsIgnoreCase(manager.getRole().getName()) && manager.getLine() != null);
 
         TbLine targetLine = null;
@@ -479,12 +476,10 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
             targetLine = lineRepository.findById(requestDto.getTargetLineId()).orElse(null);
         }
 
-        // Pre-calculate Scope (Allowed Lines)
         Set<Integer> allowedLineIds = request.getLineDetails().stream()
                 .map(detail -> detail.getLine().getId())
                 .collect(Collectors.toSet());
 
-        // Pre-calculate Time vars
         LocalDate requestDate = request.getOvertimeDate();
         LocalDate startOfWeek = requestDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         LocalDate endOfWeek = requestDate.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
@@ -495,17 +490,13 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
             response.setAvailable(true);
 
             try {
-                // --- A. STANDARD CHECKS (Time & Usage) ---
-
-                // 1. Already in Request?
-                if (overtimeTicketRepository.isEmployeeWorkingInRequest(request.getId(), empId)) {
+                if (isEmployeeActiveInRequest(request, empId)) {
                     response.setAvailable(false);
-                    response.setReason("Already Assigned");
+                    response.setReason("Already Assigned in Req");
                     results.add(response);
                     continue;
                 }
 
-                // 2. Global Conflict?
                 if (overtimeTicketRepository.existsGlobalTimeConflict(
                         empId, requestDate, request.getStartTime(), request.getEndTime()) > 0) {
                     response.setAvailable(false);
@@ -514,36 +505,30 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                     continue;
                 }
 
-                // 3. Weekly Limit?
                 Double currentWeeklyHours = overtimeTicketRepository.getWeeklyOvertimeHours(empId, startOfWeek, endOfWeek);
                 if (currentWeeklyHours == null) currentWeeklyHours = 0.0;
                 if (currentWeeklyHours + request.getOvertimeTime() > MAX_WEEKLY_OT_HOURS) {
                     response.setAvailable(false);
-                    response.setReason("Weekly Limit Exceeded");
+                    response.setReason("Weekly Limit");
                     results.add(response);
                     continue;
                 }
 
-                // --- B. HIERARCHY CHECKS (If context is valid) ---
                 if (performHierarchyChecks && targetLine != null) {
-
-                    // 4. Power Check: Does Manager own Target Line?
                     if (!lineService.isAncestor(manager.getLine().getId(), targetLine.getId())) {
                         response.setAvailable(false);
-                        response.setReason("Unauthorized (Not your line)");
+                        response.setReason("Unauthorized");
                         results.add(response);
                         continue;
                     }
 
-                    // 5. Scope Check: Is Target Line in Request?
                     if (!allowedLineIds.contains(targetLine.getId())) {
                         response.setAvailable(false);
-                        response.setReason("Line Not In Request");
+                        response.setReason("Scope Error");
                         results.add(response);
                         continue;
                     }
 
-                    // 6. Traffic Light Check (Native / Sibling / Active Cousin)
                     TbUser employee = userRepository.findById(empId).orElse(null);
                     if (employee != null && employee.getLine() != null) {
                         TbLine workerLine = employee.getLine();
@@ -554,7 +539,6 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                         boolean isSameFamily = Objects.equals(targetParentId, workerParentId);
 
                         if (isSameFamily) {
-                            // Sibling Block
                             if (!isNative) {
                                 response.setAvailable(false);
                                 response.setReason("Sibling Block");
@@ -562,22 +546,19 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                                 continue;
                             }
                         } else {
-                            // Cousin Check: Active Lock
                             if (allowedLineIds.contains(workerLine.getId())) {
                                 response.setAvailable(false);
-                                response.setReason("Active Lock (Home Line Running)");
+                                response.setReason("Active Lock");
                                 results.add(response);
                                 continue;
                             }
                         }
                     }
                 }
-
                 results.add(response);
-
             } catch (Exception e) {
                 response.setAvailable(false);
-                response.setReason("Check Error");
+                response.setReason("Error");
                 results.add(response);
             }
         }
