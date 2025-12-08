@@ -1,6 +1,7 @@
 package fpt.aptech.springbootapp.services.implementations;
 
 import fpt.aptech.springbootapp.dtos.ModuleB.OvertimeRequestDTO;
+import fpt.aptech.springbootapp.entities.Core.TbDepartment;
 import fpt.aptech.springbootapp.entities.Core.TbLine;
 import fpt.aptech.springbootapp.entities.Core.TbUser;
 import fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeRequest;
@@ -78,24 +79,24 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
             throw new IllegalArgumentException("Overtime request cannot be null");
         }
 
-        // --- 1. BASIC VALIDATION ---
+        // --- 1. BASIC VALIDATION & ENTITY POPULATION ---
         if (overtimeRequest.getFactoryManager() == null || overtimeRequest.getFactoryManager().getId() == null) {
             throw new IllegalArgumentException("Factory manager is required");
         }
-        TbUser factoryManager = userRepository.findById(overtimeRequest.getFactoryManager().getId()).orElse(null);
-        if (factoryManager == null) {
-            throw new IllegalArgumentException("Factory manager not found");
-        }
+        TbUser factoryManager = userRepository.findById(overtimeRequest.getFactoryManager().getId())
+                .orElseThrow(() -> new IllegalArgumentException("Factory manager not found"));
+
         if (!factoryManager.getRole().getName().equalsIgnoreCase("factory manager")) {
             throw new IllegalArgumentException("User is not a factory manager");
         }
+        overtimeRequest.setFactoryManager(factoryManager);
 
         if (overtimeRequest.getDepartment() == null || overtimeRequest.getDepartment().getId() == null) {
             throw new IllegalArgumentException("Department is required");
         }
-        if (departmentRepository.findById(overtimeRequest.getDepartment().getId()).isEmpty()) {
-            throw new IllegalArgumentException("Department not found");
-        }
+        TbDepartment department = departmentRepository.findById(overtimeRequest.getDepartment().getId())
+                .orElseThrow(() -> new IllegalArgumentException("Department not found"));
+        overtimeRequest.setDepartment(department);
 
         // --- 2. TIME VALIDATION ---
         if (overtimeRequest.getOvertimeDate() == null) {
@@ -136,7 +137,6 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
                 throw new IllegalArgumentException("Capacity Error: Line '" + realLine.getName() + "' only has " + actualCount + " employees, but you requested " + detail.getNumEmployees() + ".");
             }
 
-            // Set the MANAGED entity back to the detail
             detail.setLine(realLine);
             detail.setOvertimeRequest(overtimeRequest);
         }
@@ -146,19 +146,21 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
         overtimeRequest.setCreatedAt(Instant.now());
         TbOvertimeRequest savedRequest = overtimeRequestRepository.save(overtimeRequest);
 
-        // --- 5. NOTIFY DIRECTORS ---
+        // --- 5. NOTIFY DIRECTORS & WS ---
         TbOvertimeRequest fullRequest = overtimeRequestRepository.findById(savedRequest.getId()).orElse(savedRequest);
+
         try {
             OvertimeRequestDTO dto = overtimeRequestMapper.toDTO(fullRequest);
-            List<TbUser> directors = userRepository.findByRoleName("Factory Director");
 
+            webSocketService.sendGlobalUpdate("/topic/requests", dto);
+
+            List<TbUser> directors = userRepository.findByRoleName("Factory Director");
             for (TbUser director : directors) {
                 String message = "New Overtime Request #" + fullRequest.getId() +
                         " from " + factoryManager.getFullName() +
                         " is pending your approval.";
                 notificationService.sendNotification(director, message, TbNotification.NotificationType.other);
             }
-            webSocketService.sendGlobalUpdate("/topic/requests", dto);
 
         } catch (Exception e) {
             System.err.println("Failed to broadcast notification: " + e.getMessage());
@@ -171,7 +173,6 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
         TbOvertimeRequest overtimeRequest = overtimeRequestRepository.findById(id).orElse(null);
         if (overtimeRequest != null) {
 
-            // --- A. AUTO-INJECT LEADERS (Level 4 Parents) ---
             Set<Integer> existingLineIds = overtimeRequest.getLineDetails().stream()
                     .map(d -> d.getLine().getId())
                     .collect(Collectors.toSet());
@@ -191,19 +192,15 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
                 TbLine leaderLine = lineRepository.findById(pid).orElse(null);
                 if (leaderLine == null) continue;
 
-                // Add to Request Details if missing
                 if (!existingLineIds.contains(pid)) {
                     TbOvertimeRequestDetail leaderDetail = new TbOvertimeRequestDetail();
                     leaderDetail.setLine(leaderLine);
                     leaderDetail.setNumEmployees(1);
                     leaderDetail.setOvertimeRequest(overtimeRequest);
 
-                    // Add to lists
                     overtimeRequest.getLineDetails().add(leaderDetail);
                     existingLineIds.add(pid);
                 }
-
-                // --- B. AUTO-GENERATE TICKET FOR LEADER ---
 
                 List<TbUser> leaders = userRepository.findByRoleNameAndLineId("Leader", pid);
                 if (leaders.isEmpty()) continue;
@@ -238,11 +235,9 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
                         TbNotification.NotificationType.approval);
             }
 
-            // --- C. UPDATE STATUS & SAVE ---
             overtimeRequest.setStatus(TbOvertimeRequest.OvertimeRequestStatus.open);
             TbOvertimeRequest saved = overtimeRequestRepository.save(overtimeRequest);
 
-            // --- D. NOTIFY ---
             TbOvertimeRequest fullRequest = overtimeRequestRepository.findById(saved.getId()).orElse(saved);
             OvertimeRequestDTO dto = overtimeRequestMapper.toDTO(fullRequest);
             webSocketService.sendGlobalUpdate("/topic/requests", dto);
@@ -349,7 +344,6 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
             TbOvertimeRequest saved = overtimeRequestRepository.save(overtimeRequest);
             TbOvertimeRequest fullRequest = overtimeRequestRepository.findById(saved.getId()).orElse(saved);
             OvertimeRequestDTO dto = overtimeRequestMapper.toDTO(fullRequest);
-
             webSocketService.sendGlobalUpdate("/topic/requests", dto);
 
             if (fullRequest.getFactoryManager() != null) {
@@ -374,7 +368,6 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
             TbOvertimeRequest saved = overtimeRequestRepository.save(overtimeRequest);
             TbOvertimeRequest fullRequest = overtimeRequestRepository.findById(saved.getId()).orElse(saved);
             OvertimeRequestDTO dto = overtimeRequestMapper.toDTO(fullRequest);
-
             webSocketService.sendGlobalUpdate("/topic/requests", dto);
             return dto;
         }
