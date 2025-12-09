@@ -19,4 +19,7 @@ public class OvertimeInviteDTO {
     private String departmentName;
     private String managerName;
     private String lineName;
+
+    private Integer currentAttendees;
+    private Integer maxAttendees;
 }

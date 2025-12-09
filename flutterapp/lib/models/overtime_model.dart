@@ -8,6 +8,8 @@ class OvertimeInvite {
   final String departmentName;
   final String managerName;
   final String lineName;
+  final int currentAttendees;
+  final int maxAttendees;
 
   OvertimeInvite({
     required this.ticketId,
@@ -19,6 +21,8 @@ class OvertimeInvite {
     required this.departmentName,
     required this.managerName,
     required this.lineName,
+    this.currentAttendees = 0,
+    this.maxAttendees = 0,
   });
 
   factory OvertimeInvite.fromJson(Map<String, dynamic> json) {
@@ -32,6 +36,8 @@ class OvertimeInvite {
       departmentName: json['departmentName'] ?? 'Unknown Dept',
       managerName: json['managerName'] ?? 'Unknown Manager',
       lineName: json['lineName'] ?? 'N/A',
+      currentAttendees: json['currentAttendees'] ?? 0,
+      maxAttendees: json['maxAttendees'] ?? 0,
     );
   }
 }

@@ -410,6 +410,19 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                 dto.setEndTime(req.getEndTime());
                 dto.setHours(req.getOvertimeTime());
                 dto.setDepartmentName(req.getDepartment().getName());
+                if (a.getLine() != null) {
+                    Integer lineId = a.getLine().getId();
+                    int max = req.getLineDetails().stream()
+                            .filter(d -> d.getLine().getId().equals(lineId))
+                            .mapToInt(TbOvertimeRequestDetail::getNumEmployees)
+                            .findFirst()
+                            .orElse(0);
+                    dto.setMaxAttendees(max);
+
+                    // 2. Get Current Count (Accepted only)
+                    long current = overtimeTicketRepository.countAssignedEmployeesByLine(req.getId(), lineId);
+                    dto.setCurrentAttendees((int) current);
+                }
             }
             if (a.getOvertimeTicket().getManager() != null) {
                 dto.setManagerName(a.getOvertimeTicket().getManager().getFullName());
