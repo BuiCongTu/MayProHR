@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../overtime/my_overtime_screen.dart';
+import '../auth/login_screen.dart';
 
 class UserHome extends StatelessWidget {
   const UserHome({super.key});
@@ -18,7 +19,10 @@ class UserHome extends StatelessWidget {
           IconButton(
             onPressed: () {
               auth.logout();
-              Navigator.pop(context);
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                    (Route<dynamic> route) => false,
+              );
             },
             icon: const Icon(Icons.logout),
           ),
@@ -83,19 +87,18 @@ class UserHome extends StatelessWidget {
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 children: [
-                  // 1. Payroll Button (Placeholder logic based on your previous code)
+                  // 1. Payroll Button
                   _buildMenuCard(
                     context,
                     title: "Payroll",
                     icon: Icons.monetization_on,
                     color: Colors.blue,
                     onTap: () {
-                      // Add navigation to your PayrollListScreen here if needed
-                      // Navigator.push(context, MaterialPageRoute(builder: (context) => PayrollListScreen(...)));
+                      // Navigate to Payroll if implemented
                     },
                   ),
 
-                  // 2. [NEW] Overtime Button
+                  // 2. Overtime Button
                   _buildMenuCard(
                     context,
                     title: "My Overtime",
@@ -111,7 +114,7 @@ class UserHome extends StatelessWidget {
                     },
                   ),
 
-                  // 3. Attendance (Placeholder)
+                  // 3. Attendance
                   _buildMenuCard(
                     context,
                     title: "Attendance",
@@ -129,12 +132,12 @@ class UserHome extends StatelessWidget {
   }
 
   Widget _buildMenuCard(
-    BuildContext context, {
-    required String title,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
+      BuildContext context, {
+        required String title,
+        required IconData icon,
+        required Color color,
+        required VoidCallback onTap,
+      }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),

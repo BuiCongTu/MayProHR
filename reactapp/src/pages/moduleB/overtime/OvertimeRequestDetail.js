@@ -220,6 +220,7 @@ export default function OvertimeRequestDetail() {
     const [selectedEmployeeList, setSelectedEmployeeList] = useState([]);
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
     const [rejectTarget, setRejectTarget] = useState({ type: null, id: null });
+    const [lastUpdated, setLastUpdated] = useState(Date.now());
 
     const loadData = async () => {
         setError(null);
@@ -235,6 +236,7 @@ export default function OvertimeRequestDetail() {
 
             setRequest(data);
             setProcessedData(processStaffingData(data, linesData));
+            setLastUpdated(Date.now());
         } catch (err) {
             setError("Failed to load request details.");
         } finally {
@@ -435,7 +437,6 @@ export default function OvertimeRequestDetail() {
             {request.status === 'open' && (
                 <Alert severity="info" icon={<AutoModeIcon />} variant="filled" sx={{ mb: 3, boxShadow: 2 }}>
                     <Typography variant="subtitle2" fontWeight="bold">Auto-Processing Active</Typography>
-                    Leader assignment (Level 4) is automated. Use the "Line Coverage" tab to view leadership hierarchy.
                 </Alert>
             )}
 
@@ -571,7 +572,7 @@ export default function OvertimeRequestDetail() {
                 {/* TAB 1: TICKET LIST */}
                 {tabValue === 1 && (
                     <Box>
-                        <RequestTicketList request={request} onRefresh={loadData} />
+                        <RequestTicketList request={request} refreshTrigger={lastUpdated} />
                     </Box>
                 )}
             </Box>

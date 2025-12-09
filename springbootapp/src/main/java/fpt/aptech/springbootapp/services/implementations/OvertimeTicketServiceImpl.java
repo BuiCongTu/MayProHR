@@ -467,6 +467,11 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
             }
             assignment.setStatus(newStatus);
             overtimeTicketEmployeeRepository.save(assignment);
+
+            TbOvertimeTicket updatedTicket = overtimeTicketRepository.findById(ticketId).orElse(assignment.getOvertimeTicket());
+            OvertimeTicketDTO ticketDTO = overtimeTicketMapper.toDTO(updatedTicket);
+            webSocketService.sendGlobalUpdate("/topic/tickets", ticketDTO);
+
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid status.");
         }
