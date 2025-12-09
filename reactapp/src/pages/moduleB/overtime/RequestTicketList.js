@@ -208,7 +208,6 @@ function RequestTicketList({request, refreshTrigger}) {
             <Dialog open={employeeModalOpen} onClose={() => setEmployeeModalOpen(false)} maxWidth="md" fullWidth>
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     Ticket Employees
-                    {selectedTicketId && <Chip label={`#${selectedTicketId}`} size="small" sx={{ml: 1}} />}
                     <IconButton onClick={() => setEmployeeModalOpen(false)}>
                         <CloseIcon />
                     </IconButton>
