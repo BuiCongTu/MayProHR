@@ -442,7 +442,7 @@ export default function OvertimeRequestDetail() {
             {/* STAT CARDS */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
                 <Grid item xs={12} sm={6} md={4}>
-                    <StatCard title="Total Demand" value={stats.totalDemand} subtitle={<Typography variant="body2" color="textSecondary">Required Employees (L5)</Typography>} icon={<GroupIcon />} color="#1976d2" />
+                    <StatCard title="Total Demand" value={stats.totalDemand} subtitle={<Typography variant="body2" color="textSecondary">Required Employees</Typography>} icon={<GroupIcon />} color="#1976d2" />
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard title="Current Supply" value={stats.totalSupply} subtitle={<Typography variant="body2" color="textSecondary">Accepted Employees</Typography>} icon={<AssignmentTurnedInIcon />} color={stats.totalSupply >= stats.totalDemand ? "#2e7d32" : "#ed6c02"} />
