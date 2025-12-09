@@ -220,6 +220,7 @@ export default function OvertimeRequestDetail() {
     const [selectedEmployeeList, setSelectedEmployeeList] = useState([]);
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
     const [rejectTarget, setRejectTarget] = useState({ type: null, id: null });
+    const [lastUpdated, setLastUpdated] = useState(Date.now());
 
     const loadData = async () => {
         setError(null);
@@ -235,6 +236,7 @@ export default function OvertimeRequestDetail() {
 
             setRequest(data);
             setProcessedData(processStaffingData(data, linesData));
+            setLastUpdated(Date.now());
         } catch (err) {
             setError("Failed to load request details.");
         } finally {
@@ -570,7 +572,7 @@ export default function OvertimeRequestDetail() {
                 {/* TAB 1: TICKET LIST */}
                 {tabValue === 1 && (
                     <Box>
-                        <RequestTicketList request={request} onRefresh={loadData} />
+                        <RequestTicketList request={request} refreshTrigger={lastUpdated} />
                     </Box>
                 )}
             </Box>

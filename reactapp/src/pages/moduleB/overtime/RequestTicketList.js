@@ -61,7 +61,7 @@ function EnhancedTableHead(props) {
     );
 }
 
-function RequestTicketList({request}) {
+function RequestTicketList({request, refreshTrigger}) {
     const [tickets, setTickets] = useState([]);
     const [order, setOrder] = useState('desc');
     const [orderBy, setOrderBy] = useState('id');
@@ -72,7 +72,7 @@ function RequestTicketList({request}) {
 
     // Modals
     const [employeeModalOpen, setEmployeeModalOpen] = useState(false);
-    const [selectedEmployees, setSelectedEmployees] = useState([]);
+    const [selectedTicketId, setSelectedTicketId] = useState(null);
 
     const requestId = request?.id;
 
@@ -108,7 +108,7 @@ function RequestTicketList({request}) {
         }
 
         loadData();
-    }, [requestId, statusFilter, debouncedManagerName, order, orderBy]);
+    }, [requestId, statusFilter, debouncedManagerName, order, orderBy, refreshTrigger]);
 
     const handleStatusChange = (event, newStatus) => {
         setStatusFilter(newStatus || '');
@@ -120,10 +120,13 @@ function RequestTicketList({request}) {
         setOrderBy(property);
     };
 
-    const handleOpenEmployeeModal = (employees) => {
-        setSelectedEmployees(employees || []);
+    const handleOpenEmployeeModal = (ticketId) => {
+        setSelectedTicketId(ticketId);
         setEmployeeModalOpen(true);
     };
+
+    const activeTicket = tickets.find(t => t.id === selectedTicketId);
+    const modalEmployees = activeTicket ? activeTicket.employeeList : [];
 
     const getStatusChip = (status) => {
         let color;
@@ -188,7 +191,7 @@ function RequestTicketList({request}) {
                                             <TableCell>{getStatusChip(ticket.status)}</TableCell>
                                             <TableCell>
                                                 <Tooltip title="View List">
-                                                    <IconButton size="small" onClick={() => handleOpenEmployeeModal(ticket.employeeList)}>
+                                                    <IconButton size="small" onClick={() => handleOpenEmployeeModal(ticket.id)}>
                                                         <VisibilityIcon fontSize="small"/>
                                                     </IconButton>
                                                 </Tooltip>
@@ -205,12 +208,13 @@ function RequestTicketList({request}) {
             <Dialog open={employeeModalOpen} onClose={() => setEmployeeModalOpen(false)} maxWidth="md" fullWidth>
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     Ticket Employees
+                    {selectedTicketId && <Chip label={`#${selectedTicketId}`} size="small" sx={{ml: 1}} />}
                     <IconButton onClick={() => setEmployeeModalOpen(false)}>
                         <CloseIcon />
                     </IconButton>
                 </DialogTitle>
                 <DialogContent dividers sx={{ p: 0 }}>
-                    <EmployeeListTable employees={selectedEmployees} />
+                    <EmployeeListTable employees={modalEmployees} />
                 </DialogContent>
             </Dialog>
         </Box>
