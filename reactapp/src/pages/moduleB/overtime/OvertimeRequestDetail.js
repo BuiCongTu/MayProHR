@@ -435,7 +435,6 @@ export default function OvertimeRequestDetail() {
             {request.status === 'open' && (
                 <Alert severity="info" icon={<AutoModeIcon />} variant="filled" sx={{ mb: 3, boxShadow: 2 }}>
                     <Typography variant="subtitle2" fontWeight="bold">Auto-Processing Active</Typography>
-                    Leader assignment (Level 4) is automated. Use the "Line Coverage" tab to view leadership hierarchy.
                 </Alert>
             )}
 
