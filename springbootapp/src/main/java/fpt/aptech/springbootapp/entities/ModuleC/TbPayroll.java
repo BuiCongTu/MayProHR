@@ -28,7 +28,7 @@ import java.util.*;
 public class TbPayroll {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "payroll_id", nullable = false)
+    @Column(name = "id", nullable = false)
     private Integer id;
 
     @NotNull
@@ -52,6 +52,9 @@ public class TbPayroll {
     @ColumnDefault("'pending'")
     @Column(name = "status", length = 20)
     private PayrollStatus status = PayrollStatus.pending;
+
+    @Column(name = "year_month", length = 20)
+    private String yearMonth;
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

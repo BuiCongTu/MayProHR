@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import fpt.aptech.springbootapp.entities.Core.TbUser;
 import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.*;
@@ -61,6 +62,17 @@ public class TbEmployeePayroll {
     @ColumnDefault("0")
     @Column(name = "deduction", precision = 15, scale = 2)
     private BigDecimal deduction = BigDecimal.ZERO;
+
+    @ColumnDefault("0")
+    @Column(name = "personal_income_tax", precision = 15, scale = 2)
+    private BigDecimal personalIncomeTax = BigDecimal.ZERO;
+
+    @ColumnDefault("0")
+    @Column(name = "tax_deduction_total", precision = 15, scale = 2)
+    private BigDecimal taxDeductionTotal = BigDecimal.ZERO;
+
+    @OneToOne(mappedBy = "employeePayroll", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private TbPayrollTaxCalculation taxCalculation;
 
     @NotNull
     @Column(name = "total_pay", nullable = false, precision = 15, scale = 2)

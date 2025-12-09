@@ -1,24 +1,24 @@
 package fpt.aptech.springbootapp.services.ModuleA_Time_Attendance;
 
-import fpt.aptech.springbootapp.entities.Core.TbFaceTraining;
-import fpt.aptech.springbootapp.entities.Core.TbUser;
-import fpt.aptech.springbootapp.repositories.ModuleA_Time_Attendance.FaceTrainingRepository;
-import fpt.aptech.springbootapp.repositories.UserRepository;
-import fpt.aptech.springbootapp.services.System.UserService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+
+import fpt.aptech.springbootapp.entities.Core.TbFaceTraining;
+import fpt.aptech.springbootapp.entities.Core.TbUser;
+import fpt.aptech.springbootapp.repositories.ModuleA_Time_Attendance.FaceTrainingRepository;
+import fpt.aptech.springbootapp.repositories.UserRepository;
+import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Slf4j
@@ -27,9 +27,12 @@ public class FaceTrainingServiceImp implements FaceTrainingService {
     @Value("${face.model.version:v1.0}")
     private String modelVersion;
 
+    @Value("${face.recognition.api.url:http://localhost:5001}")
+    private String faceApiUrl;
+
     private final FaceTrainingRepository faceTrainingRepository;
     private final UserRepository userRepository;
-    private final WebClient webClient = WebClient.create("http://localhost:5000");
+    private WebClient webClient;
 
     @Autowired
     public FaceTrainingServiceImp(FaceTrainingRepository faceTrainingRepository, UserRepository userRepository) {
@@ -37,28 +40,34 @@ public class FaceTrainingServiceImp implements FaceTrainingService {
         this.userRepository = userRepository;
     }
 
+    @PostConstruct
+    public void init() {
+        this.webClient = WebClient.create(faceApiUrl);
+    }
+
     @Override
     public TbFaceTraining trainFace(Integer userId, String imageBase64, Integer trainedByUserId) {
-        try{
+        try {
             TbUser user = userRepository.findById(userId)
                     .orElseThrow(() -> new RuntimeException("User not found: " + userId));
 
             TbUser trainedByUser = userRepository.findById(trainedByUserId)
                     .orElseThrow(() -> new RuntimeException("Trainer user not found: " + trainedByUserId));
-            //goi python sẻvice qua webclient
+            //goi python service qua webclient
             Map<String, String> request = new HashMap<>();
             request.put("image_base64", imageBase64);
             request.put("user_id", userId.toString());
+            request.put("full_name", user.getFullName());
 
-            //caal api python
+            //call api python
             Map<String, Object> responseData = webClient.post()
-                    .uri("/api/face/train")
+                    .uri("/api/face/register")
                     .bodyValue(request)
                     .retrieve()
                     .bodyToMono(Map.class)
                     .timeout(java.time.Duration.ofSeconds(30))
-                    .onErrorMap(WebClientResponseException.class, ex ->
-                            new RuntimeException("Python service error: " + ex.getMessage()))
+                    .onErrorMap(WebClientResponseException.class, ex
+                            -> new RuntimeException("Python service error: " + ex.getMessage()))
                     .block();
 
             if (responseData == null) {

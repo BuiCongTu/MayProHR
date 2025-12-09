@@ -18,7 +18,7 @@ public class JwtUtils {
 
     private static final String secret = "AIzaSyB8dmLwCiGmIH82ZCCBPWP9IECoBapa27A";
     // expiration time 1 hour
-    private static final long jwtExpirationMs = 1000 * 60 * 60;
+    private static final long jwtExpirationMs = 1000 * 60 * 60 * 24;
 
     public String generateToken(String email, String role) {
         return Jwts.builder().setSubject(email)

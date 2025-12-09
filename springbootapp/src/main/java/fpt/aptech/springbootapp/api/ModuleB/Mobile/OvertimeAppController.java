@@ -5,6 +5,7 @@ import fpt.aptech.springbootapp.dtos.ModuleB.Mobile.OvertimeResponseDTO;
 import fpt.aptech.springbootapp.services.interfaces.OvertimeTicketService;
 import fpt.aptech.springbootapp.services.System.UserService;
 import fpt.aptech.springbootapp.entities.Core.TbUser;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;

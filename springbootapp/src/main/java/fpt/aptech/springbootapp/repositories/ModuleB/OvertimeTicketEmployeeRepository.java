@@ -1,10 +1,12 @@
 package fpt.aptech.springbootapp.repositories.ModuleB;
 
+import fpt.aptech.springbootapp.entities.Core.TbUser;
 import fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeTicketEmployee;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Repository
@@ -20,4 +22,10 @@ public interface OvertimeTicketEmployeeRepository extends JpaRepository<TbOverti
     @Query("SELECT te FROM TbOvertimeTicketEmployee te " +
             "WHERE te.overtimeTicket.id = :ticketId AND te.employee.id = :userId")
     TbOvertimeTicketEmployee findByTicketAndEmployee(Integer ticketId, Integer userId);
+
+    List<TbOvertimeTicketEmployee> findByEmployeeAndStatusAndTicketDateBetween(
+            TbUser user,
+            TbOvertimeTicketEmployee.EmployeeOvertimeStatus employeeOvertimeStatus,
+            LocalDate startDate,
+            LocalDate endDate);
 }

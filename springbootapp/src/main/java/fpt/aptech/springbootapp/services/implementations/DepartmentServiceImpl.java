@@ -1,6 +1,7 @@
 package fpt.aptech.springbootapp.services.implementations;
 
 import fpt.aptech.springbootapp.dtos.ModuleB.DepartmentDTO;
+import fpt.aptech.springbootapp.entities.Core.TbDepartment;
 import fpt.aptech.springbootapp.mappers.DepartmentMapper;
 import fpt.aptech.springbootapp.repositories.DepartmentRepository;
 import fpt.aptech.springbootapp.services.interfaces.DepartmentService;
@@ -19,14 +20,20 @@ public class DepartmentServiceImpl implements DepartmentService {
     }
 
     @Override
+//    public List<TbDepartment> findALl() {
+//        return departmentRepository.findAll();
+//    }
     public List<DepartmentDTO> findALl() {
         return departmentRepository.findAll().stream().map(dept -> {
             DepartmentDTO dto = DepartmentMapper.toDTO(dept);
             //only get employees with role name worker
             if (dept.getUsers() != null) {
-                dto.setNumberOfEmployees(dept.getUsers().stream().filter(
-                        tbUser -> "Worker".equalsIgnoreCase(tbUser.getRole().getName()))
-                        .toList().size());
+                dto.setNumberOfEmployees((int) dept.getUsers().stream()
+                        .filter(tbUser -> {
+                            if (tbUser.getRole() == null) return false;
+                            return "Worker".equalsIgnoreCase(tbUser.getRole().getName());
+                        })
+                        .count());
             } else {
                 dto.setNumberOfEmployees(0);
             }

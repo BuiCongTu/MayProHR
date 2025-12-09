@@ -15,14 +15,14 @@ CREATE TABLE tbRole (
 GO
 
 INSERT INTO tbRole (name, description) VALUES
-('Admin', 'Administrator / Quản trị viên hệ thống'),
-('HR', 'Human Resources / Nhân sự, quản lý hồ sơ, lịch sử'),
-('Factory Director', 'Factory Director / Giám đốc nhà máy, duyệt cuối cùng'),
-('Factory Manager', 'Factory Manager / Quản lý nhà máy, duyệt đơn, tăng ca'),
-('Manager', 'Line/Department Manager / Quản lý chuyền, quản lý Line'),
-('Leader', 'Leader / Tổ trưởng quản lý Section'),
-('Assistant Leader', 'Assistant Leader / Tổ phó quản lý Section'),
-('Worker', 'Worker / Công nhân trực tiếp sản xuất (may, KCS, hoàn thành)')
+('Admin', 'Administrator'),
+('HR', 'Human Resources'),
+('Factory Director', 'Factory Director'),
+('Factory Manager', 'Factory Manager'),
+('Manager', 'Department Manager'),
+('Leader', 'Leader'),
+('Assistant Leader', 'Assistant Leader'),
+('Worker', 'Worker')
 GO
 
 -- =============================================
@@ -36,12 +36,12 @@ CREATE TABLE tbLeaveReason (
 GO
 
 INSERT INTO tbLeaveReason (reason, description) VALUES
-('Common Illness/Bệnh thông thường', 'Common Illness / Nghỉ ốm thông thường, nghỉ ốm có giấy bệnh viện, điều trị ngoại trú.'),
-('Serious Illness/Bệnh nặng', 'Serious Illness / Nghỉ ốm có giấy khám bệnh viện, điều trị nội trú.'),
-('Maternity Leave/Thai sản', 'Maternity Leave / Chế độ thai sản'),
-('Personal Leave/Việc riêng', 'Personal Leave / Cưới hỏi, ma chay, việc cá nhân.'),
-('Unauthorized Leave/Nghỉ không phép', 'Unauthorized Leave / Nghỉ không xin phép'),
-('Annual Leave/Nghỉ phép năm', 'Annual Leave / Nghỉ theo quy định 12 ngày/năm');
+('Common Illness', 'Nghỉ ốm thông thường, nghỉ ốm có giấy bệnh viện, điều trị ngoại trú.'),
+('Serious Illness', 'Nghỉ ốm có giấy khám bệnh viện, điều trị nội trú.'),
+('Maternity Leave', 'Chế độ thai sản'),
+('Personal Leave', 'Cưới hỏi, ma chay, việc cá nhân.'),
+('Unauthorized Leave', 'Nghỉ không xin phép'),
+('Annual Leave', 'Nghỉ theo quy định 12 ngày/năm');
 GO
 
 -- =============================================
@@ -55,13 +55,13 @@ CREATE TABLE tbSkillLevel (
 GO
 
 INSERT INTO tbSkillLevel (name, description) VALUES
-('Level 1', 'Beginner / Mới vào nghề, cần được hướng dẫn và giám sát chặt chẽ.'),
-('Level 2', 'Basic Experience / Kinh nghiệm cơ bản, cần được hướng dẫn thêm'),
-('Level 3', 'Solid Experience / Kinh nghiệm vững vàng, đã được đào tạo bài bản'),
-('Level 4', 'Senior Worker / Kinh nghiệm lâu năm, hướng dẫn người khác - Leader, Ass. leader'),
-('Level 5', 'Expert Worker / Kinh nghiệm lâu năm, xử lý sản phẩm khó'),
-('Level 6', 'Sample Maker / Thợ may mẫu, có tay nghề cao và khả năng đọc, hiểu các bản vẽ kỹ thuật phức tạp'),
-('Level 7', 'Technical Master / Kỹ thuật may, tay nghề cao, chuyên sâu kỹ thuật may');
+('Level 1', 'Mới vào nghề, cần được hướng dẫn và giám sát chặt chẽ.'),
+('Level 2', 'Kinh nghiệm cơ bản, cần được hướng dẫn thêm'),
+('Level 3', 'Kinh nghiệm vững vàng, đã được đào tạo bài bản'),
+('Level 4', 'Kinh nghiệm lâu năm, hướng dẫn người khác - Leader, Ass. leader'),
+('Level 5', 'Kinh nghiệm lâu năm, xử lý sản phẩm khó'),
+('Level 6', 'Thợ may mẫu, có tay nghề cao và khả năng đọc, hiểu các bản vẽ kỹ thuật phức tạp'),
+('Level 7', 'Kỹ thuật may, tay nghề cao, chuyên sâu kỹ thuật may');
 GO
 
 -- =============================================
@@ -76,12 +76,12 @@ CREATE TABLE tbDepartment (
 GO
 
 INSERT INTO tbDepartment (name, manager_id, description) VALUES
-('HR/Hành Chính', NULL, 'Human Resources Department / Thống kê lao động, Y tế, Bảo vệ, Tạp vụ, Tài xế.'),
-('Planning/Kế hoạch', NULL, 'Planning / Kế Hoạch sản xuất hàng, Kho nguyên liệu, Kho phụ liệu.'),
-('FQC', NULL, 'Final Quality Control / Quản lý chất lượng'),
-('Technical/Kỹ thuật', NULL, 'Technical / Kỹ thuật, Cơ điện, LEAN'),
-('Production/Sản xuất', NULL, 'Production / Rập mẫu, Tổ cắt, Chuyền may, KCS TW'),
-('Finishing Center/Trung tâm hoàn thành', NULL, 'Finishing Center / Tổ hoàn thành 1, tổ hoàn thành 2, tổ hoàn thành 3, Tổ hậu cần, KCS SW, Tổ Xuất hàng');
+('HR/', NULL, 'Thống kê lao động, Y tế, Bảo vệ, Tạp vụ, Tài xế.'),
+('Planning', NULL, 'P Kế Hoạch sản xuất hàng, Kho nguyên liệu, Kho phụ liệu.'),
+('FQC', NULL, 'Final Quality Control'),
+('Technical', NULL, 'Kỹ thuật, Cơ điện, LEAN'),
+('Production', NULL, 'Rập mẫu, Tổ cắt, Chuyền may, KCS TW'),
+('Finishing Center', NULL, 'Tổ hoàn thành, Tổ hậu cần, KCS SW, Tổ Xuất hàng');
 GO
 
 -- =============================================
@@ -134,32 +134,32 @@ CREATE TABLE tbLine (
 GO
 
 -- Tạo line trong deparment
-DECLARE @DeptHoanThanh INT = (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành');
+DECLARE @DeptHoanThanh INT = (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center');
 
 INSERT INTO tbLine (department_id,parent_id,[level], [name], [description], manager_id) VALUES
-(@DeptHoanThanh,null,3, N'Operations/ Vận hành', N'Bộ phận Vận Hành trực thuộc Finishing Center', null),
-(@DeptHoanThanh,null,3, N'Delivery/ Giao hàng', N'Bộ phận Xuất Hàng trực thuộc Finishing Center', null)
+(@DeptHoanThanh,null,3, N'Operations', N'Bộ phận Vận Hành trực thuộc Finishing Center', null),
+(@DeptHoanThanh,null,3, N'Delivery', N'Bộ phận Xuất Hàng trực thuộc Finishing Center', null)
 GO
 
 -- Tạo section trong line
 -----------------
-DECLARE @DeptHoanThanh INT = (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành');
-DECLARE @line1 INT = (SELECT line_id FROM tbLine WHERE name = 'Operations/ Vận hành');
-DECLARE @line2 INT = (SELECT line_id FROM tbLine WHERE name = 'Delivery/ Giao hàng');
+DECLARE @DeptHoanThanh INT = (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center');
+DECLARE @line1 INT = (SELECT line_id FROM tbLine WHERE name = 'Operations');
+DECLARE @line2 INT = (SELECT line_id FROM tbLine WHERE name = 'Delivery');
 
 INSERT INTO tbLine (department_id,parent_id,[level], [name], [description], manager_id) VALUES
-(@DeptHoanThanh,@line1,4, N'Finishing/ Tổ Hoàn Thành', N'Tổ Hoàn Thành Sản Phẩm, trực thuộc Bộ phận Vận Hành.', null),
-(@DeptHoanThanh,@line1,4, N'Warehouse/ Tổ Hậu Cần', N'Tổ Hậu Cầu, trực thuộc Bộ phận Vận Hành.', null),
-(@DeptHoanThanh,@line1,4, N'KCS SW/ Tổ KCS', N'Tổ Kiểm tra chất lượng sản phẩm tại chỗ, trực thuộc Bộ phận Vận Hành.', null),
-(@DeptHoanThanh,@line2,4, N'Planing Local/ Kế Hoạch', N'Tổ Kế Hoạch Xuất Hàng, trực thuộc Bộ phận Xuất Hàng.', null)
+(@DeptHoanThanh,@line1,4, N'Finishing', N'Tổ Hoàn Thành Sản Phẩm, trực thuộc Bộ phận Vận Hành.', null),
+(@DeptHoanThanh,@line1,4, N'Warehouse', N'Tổ Hậu Cầu, trực thuộc Bộ phận Vận Hành.', null),
+(@DeptHoanThanh,@line1,4, N'KCS SW', N'Tổ Kiểm tra chất lượng sản phẩm tại chỗ, trực thuộc Bộ phận Vận Hành.', null),
+(@DeptHoanThanh,@line2,4, N'Planing Local', N'Tổ Kế Hoạch Xuất Hàng, trực thuộc Bộ phận Xuất Hàng.', null)
 GO
 
 --tạo word unit trong  section
-DECLARE @DeptHoanThanh INT = (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành');
-DECLARE @section1 INT = (SELECT line_id FROM tbLine WHERE name = 'Finishing/ Tổ Hoàn Thành');
-DECLARE @section2 INT = (SELECT line_id FROM tbLine WHERE name = 'Warehouse/ Tổ Hậu Cần');
-DECLARE @section3 INT = (SELECT line_id FROM tbLine WHERE name = 'KCS SW/ Tổ KCS');
-DECLARE @section4 INT = (SELECT line_id FROM tbLine WHERE name = 'Planing Local/ Kế Hoạch');
+DECLARE @DeptHoanThanh INT = (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center');
+DECLARE @section1 INT = (SELECT line_id FROM tbLine WHERE name = 'Finishing');
+DECLARE @section2 INT = (SELECT line_id FROM tbLine WHERE name = 'Warehouse');
+DECLARE @section3 INT = (SELECT line_id FROM tbLine WHERE name = 'KCS SW');
+DECLARE @section4 INT = (SELECT line_id FROM tbLine WHERE name = 'Planing Local');
 
 INSERT INTO tbLine (department_id,parent_id,[level], [name], [description], manager_id) VALUES
 (@DeptHoanThanh,@section1,5, N'Sewing Programming', N'Công đoạn May lập trình, trực thuộc tổ Hoàn Thành Sản Phẩm.', null),
@@ -197,55 +197,55 @@ VALUES
  NULL, NULL, 'TimeBased', 45000000,(SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 7'), '2000-07-01'),
 -- Factory Manager (Female)
 ('Factory Manager', 'factory.manager@maypro.com','$2a$10$jcw0c1yYkDzTO4XTg/kTmeD3UggCAaQwpw1v1R76VMupvQMwelxwq','0900000002', 0,
- (SELECT role_id FROM tbRole WHERE name = 'Factory Manager'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
+ (SELECT role_id FROM tbRole WHERE name = 'Factory Manager'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
 NULL, 'TimeBased', 35000000,(SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 6'), '2000-12-01'),
 
 -- Manager Operations (Female)
 ('Manager Operations', 'manager.operations@maypro.com','$2a$10$jcw0c1yYkDzTO4XTg/kTmeD3UggCAaQwpw1v1R76VMupvQMwelxwq','0900000003', 0,
- (SELECT role_id FROM tbRole WHERE name = 'Manager'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
-(SELECT line_id FROM tbLine WHERE name = 'Operations/ Vận hành'),
+ (SELECT role_id FROM tbRole WHERE name = 'Manager'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
+(SELECT line_id FROM tbLine WHERE name = 'Operations'),
 'TimeBased', 25000000,(SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 4'), '2002-02-01'),
 
 -- Manager Delivery (Female)
 ('Manager Delivery', 'manager.delivery@maypro.com','$2a$10$jcw0c1yYkDzTO4XTg/kTmeD3UggCAaQwpw1v1R76VMupvQMwelxwq','0900000004', 0,
- (SELECT role_id FROM tbRole WHERE name = 'Manager'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
-(SELECT line_id FROM tbLine WHERE name = 'Delivery/ Giao hàng'),
+ (SELECT role_id FROM tbRole WHERE name = 'Manager'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
+(SELECT line_id FROM tbLine WHERE name = 'Delivery'),
 'TimeBased', 25000000,(SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 4'), '2004-02-11'),
 
 -- Leader Finishing (Female)
 ('Leader Finishing', 'leader.finishing@maypro.com','$2a$10$jcw0c1yYkDzTO4XTg/kTmeD3UggCAaQwpw1v1R76VMupvQMwelxwq','0900000005', 0,
- (SELECT role_id FROM tbRole WHERE name = 'Leader'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
-(SELECT line_id FROM tbLine WHERE name = 'Finishing/ Tổ Hoàn Thành'),
+ (SELECT role_id FROM tbRole WHERE name = 'Leader'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
+(SELECT line_id FROM tbLine WHERE name = 'Finishing'),
 'ProductBased', 13000000,(SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 3'), '2004-02-11'),
 
 -- Assistant Leader Finishing (Female)
 ('Assistant Leader Finishing', 'assistant.finishing@maypro.com','$2a$10$jcw0c1yYkDzTO4XTg/kTmeD3UggCAaQwpw1v1R76VMupvQMwelxwq','0900000006', 0,
- (SELECT role_id FROM tbRole WHERE name = 'Assistant Leader'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
-(SELECT line_id FROM tbLine WHERE name = 'Finishing/ Tổ Hoàn Thành'),
+ (SELECT role_id FROM tbRole WHERE name = 'Assistant Leader'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
+(SELECT line_id FROM tbLine WHERE name = 'Finishing'),
 'ProductBased', 11000000,(SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 3'), '2005-02-11'),
 
 -- Leader Warehouse (Female)
 ('Leader Warehouse', 'leader.warehouse@maypro.com','$2a$10$jcw0c1yYkDzTO4XTg/kTmeD3UggCAaQwpw1v1R76VMupvQMwelxwq','0900000007', 0,
- (SELECT role_id FROM tbRole WHERE name = 'Leader'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
-(SELECT line_id FROM tbLine WHERE name = 'Warehouse/ Tổ Hậu Cần'),
+ (SELECT role_id FROM tbRole WHERE name = 'Leader'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
+(SELECT line_id FROM tbLine WHERE name = 'Warehouse'),
 'TimeBased', 12000000,(SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 3'), '2006-02-11'),
 
 -- Assistant Leader Warehouse (Male)
 ('Assistant Leader Warehouse', 'assistant.warehouse@maypro.com','$2a$10$jcw0c1yYkDzTO4XTg/kTmeD3UggCAaQwpw1v1R76VMupvQMwelxwq','0900000008', 0,
- (SELECT role_id FROM tbRole WHERE name = 'Assistant Leader'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
-(SELECT line_id FROM tbLine WHERE name = 'Warehouse/ Tổ Hậu Cần'),
+ (SELECT role_id FROM tbRole WHERE name = 'Assistant Leader'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
+(SELECT line_id FROM tbLine WHERE name = 'Warehouse'),
 'TimeBased', 11000000,(SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 3'), '2007-02-11'),
 
 -- Leader KCS SW (Female)
 ('Leader KCS SW', 'leader.kcssw@maypro.com','$2a$10$jcw0c1yYkDzTO4XTg/kTmeD3UggCAaQwpw1v1R76VMupvQMwelxwq','0900000009', 0,
- (SELECT role_id FROM tbRole WHERE name = 'Leader'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
-(SELECT line_id FROM tbLine WHERE name = 'KCS SW/ Tổ KCS'),
+ (SELECT role_id FROM tbRole WHERE name = 'Leader'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
+(SELECT line_id FROM tbLine WHERE name = 'KCS SW'),
 'TimeBased', 14000000,(SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 4'), '2006-02-11'),
 
 -- Leader Planning Local (Female)
 ('Leader Planning Local', 'leader.planning@maypro.com','$2a$10$jcw0c1yYkDzTO4XTg/kTmeD3UggCAaQwpw1v1R76VMupvQMwelxwq','0900000010', 0,
- (SELECT role_id FROM tbRole WHERE name = 'Leader'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
-(SELECT line_id FROM tbLine WHERE name = 'Planing Local/ Kế Hoạch'),
+ (SELECT role_id FROM tbRole WHERE name = 'Leader'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
+(SELECT line_id FROM tbLine WHERE name = 'Planing Local'),
 'TimeBased', 13000000,(SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 4'), '2016-02-11')
 GO
 
@@ -265,7 +265,7 @@ BEGIN
         CONCAT('090000', FORMAT(@i, '0100')),
         0,
         (SELECT role_id FROM tbRole WHERE name = 'Worker'),
-        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
+        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
         (SELECT line_id FROM tbLine WHERE name = 'Sewing Programming'),
         'ProductBased', 8000000, (SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 2'),
         '2010-9-01'
@@ -288,7 +288,7 @@ BEGIN
         CONCAT('090000', FORMAT(@i, '0100')),
         0,
         (SELECT role_id FROM tbRole WHERE name = 'Worker'),
-        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
+        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
         (SELECT line_id FROM tbLine WHERE name = 'Passant'),
         'ProductBased', 6000000, (SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 1'),
         '2010-9-01'
@@ -311,7 +311,7 @@ BEGIN
         CONCAT('090000', FORMAT(@i, '0100')),
         0,
         (SELECT role_id FROM tbRole WHERE name = 'Worker'),
-        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
+        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
         (SELECT line_id FROM tbLine WHERE name = 'Rivet'),
         'ProductBased', 6500000, (SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 1'),
         '2010-9-01'
@@ -335,7 +335,7 @@ BEGIN
         CONCAT('090000', FORMAT(@i, '0100')),
         0,
         (SELECT role_id FROM tbRole WHERE name = 'Worker'),
-        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
+        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
         (SELECT line_id FROM tbLine WHERE name = 'Label Attaching'),
         'ProductBased', 6500000, (SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 1'),
         '2010-9-01'
@@ -359,7 +359,7 @@ BEGIN
         CONCAT('090000', FORMAT(@i, '0100')),
         0,
         (SELECT role_id FROM tbRole WHERE name = 'Worker'),
-        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
+        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
         (SELECT line_id FROM tbLine WHERE name = 'Dust Cleaning'),
         'ProductBased', 6000000, (SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 1'),
         '2010-9-01'
@@ -383,7 +383,7 @@ BEGIN
         CONCAT('090000', FORMAT(@i, '0100')),
         1,
         (SELECT role_id FROM tbRole WHERE name = 'Worker'),
-        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
+        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
         (SELECT line_id FROM tbLine WHERE name = 'Ironing'),
         'ProductBased', 7500000, (SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 2'),
         '2010-10-01'
@@ -407,7 +407,7 @@ BEGIN
         CONCAT('090000', FORMAT(@i, '0100')),
         0,
         (SELECT role_id FROM tbRole WHERE name = 'Worker'),
-        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
+        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
         (SELECT line_id FROM tbLine WHERE name = 'Material Handler'),
         'ProductBased', 6500000, (SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 1'),
         '2010-10-01'
@@ -431,7 +431,7 @@ BEGIN
         CONCAT('090000', FORMAT(@i, '0200')),
         0,
         (SELECT role_id FROM tbRole WHERE name = 'Worker'),
-        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
+        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
         (SELECT line_id FROM tbLine WHERE name = 'Issuance & Storage'),
         'TimeBased', 7500000, (SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 2'),
         '2011-5-15'
@@ -455,7 +455,7 @@ BEGIN
         CONCAT('090000', FORMAT(@i, '0200')),
         1,
         (SELECT role_id FROM tbRole WHERE name = 'Worker'),
-        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
+        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
         (SELECT line_id FROM tbLine WHERE name = 'Folding & Packing'),
         'TimeBased', 5500000, (SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 1'),
         '2011-5-15'
@@ -479,7 +479,7 @@ BEGIN
         CONCAT('090000', FORMAT(@i, '0200')),
         1,
         (SELECT role_id FROM tbRole WHERE name = 'Worker'),
-        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
+        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
         (SELECT line_id FROM tbLine WHERE name = 'Folding & Packing'),
         'TimeBased', 6000000, (SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 1'),
         '2011-5-15'
@@ -503,7 +503,7 @@ BEGIN
         CONCAT('090000', FORMAT(@i, '0200')),
         0,
         (SELECT role_id FROM tbRole WHERE name = 'Worker'),
-        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
+        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
         (SELECT line_id FROM tbLine WHERE name = 'KCS'),
         'TimeBased', 9000000, (SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 3'),
         '2012-3-20'
@@ -527,7 +527,7 @@ BEGIN
         CONCAT('090000', FORMAT(@i, '0200')),
         0,
         (SELECT role_id FROM tbRole WHERE name = 'Worker'),
-        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
+        (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
         (SELECT line_id FROM tbLine WHERE name = 'Production Data Clerk'),
         'TimeBased', 8500000, (SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 2'),
         '2013-7-25'
@@ -729,6 +729,7 @@ CREATE TABLE tbPayroll (
     details NVARCHAR(MAX),
     [status] VARCHAR(20) DEFAULT 'pending' 
         CHECK (status IN ('pending', 'balanced', 'approved', 'rejected')),
+    year_month VARCHAR(20),
     created_by INT NOT NULL,
     approved_by INT,
     balance_note TEXT,
@@ -789,7 +790,7 @@ GO
 -- 20. Chi tiết lương từng nhân viên theo tháng
 -- =============================================
 CREATE TABLE tbEmployeePayroll (
-    detail_id INT IDENTITY(199180000,1) PRIMARY KEY,
+    id INT IDENTITY(1000,1) PRIMARY KEY,
     payroll_id INT NOT NULL,
     user_id INT NOT NULL,
     base_salary DECIMAL(15,2) NOT NULL,
@@ -797,6 +798,10 @@ CREATE TABLE tbEmployeePayroll (
     overtime_pay DECIMAL(15,2) DEFAULT 0,
     allowance DECIMAL(15,2) DEFAULT 0,
     deduction DECIMAL(15,2) DEFAULT 0,
+    overtime_hours DECIMAL(10,2) DEFAULT 0,
+    actual_working_days DECIMAL(5,2) DEFAULT 22,
+    late_count INT DEFAULT 0,
+    approved_leave_days DECIMAL(5,2) DEFAULT 0,
     total_pay DECIMAL(15,2) NOT NULL,
     note TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -875,6 +880,172 @@ CREATE TABLE [dbo].[tb_face_scan_log] (
 );
 GO
 
+-- ====== tthem Module C Pay roll
+
+CREATE TABLE tbProductionLine (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    production_id INT NOT NULL,
+    line_id INT NOT NULL,
+    subline_id INT NOT NULL,
+    count_contribution INT NOT NULL,
+    total_working_hours BIGINT NOT NULL,
+    product_salary_per_hour DECIMAL(15,4),
+    created_at DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (production_id) REFERENCES tbProduction(production_id),
+    FOREIGN KEY (line_id) REFERENCES tbLine(line_id),
+    FOREIGN KEY (subline_id) REFERENCES tbLine(line_id),
+    INDEX idx_production_line (production_id, line_id),
+    INDEX idx_subline_dept (subline_id, line_id)
+);
+CREATE TABLE tbHoliday (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    holiday_date DATE NOT NULL,
+    holiday_name NVARCHAR(255) NOT NULL,
+    is_paid BIT DEFAULT 1,
+    note NVARCHAR(500),
+    created_at DATETIME DEFAULT GETDATE(),
+    INDEX idx_holiday_date (holiday_date)
+);
+
+-- Tạo bảng TbPayrollSchedule
+CREATE TABLE tbPayrollSchedule (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    payroll_month DATE NOT NULL,
+    data_collection_start_date DATE NOT NULL,
+    data_collection_end_date DATE NOT NULL,
+    calculation_deadline DATE NOT NULL,
+    approval_deadline DATE NOT NULL,
+    salary_payment_date DATE,
+    status VARCHAR(20) DEFAULT 'planning',
+    created_at DATETIME DEFAULT GETDATE()
+);
+
+-- Tạo bảng TbDeductionRule
+CREATE TABLE tbDeductionRule (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    rule_name NVARCHAR(255) NOT NULL,
+    rule_type VARCHAR(20),
+    percentage DECIMAL(5,2),
+    fixed_amount DECIMAL(15,2),
+    late_deduction_per_time DECIMAL(15,2),
+    description NVARCHAR(500),
+    is_active BIT DEFAULT 1,
+    created_at DATETIME DEFAULT GETDATE()
+);
+
+-- Tạo bảng TbPayrollDeduction
+CREATE TABLE tbPayrollDeduction (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    employee_payroll_id INT NOT NULL,
+    deduction_rule_id INT NOT NULL,
+    deduction_amount DECIMAL(15,2) NOT NULL,
+    calculation_basis NVARCHAR(255),
+    created_at DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (employee_payroll_id) REFERENCES tbEmployeePayroll(id),
+    FOREIGN KEY (deduction_rule_id) REFERENCES tbDeductionRule(id)
+);
+
+-- ======thuế TNCN
+-- Tạo bảng TbTaxBracket
+CREATE TABLE tbTaxBracket (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    bracket_number INT NOT NULL,
+    from_income DECIMAL(15,2) NOT NULL,
+    to_income DECIMAL(15,2) NOT NULL,
+    tax_rate DECIMAL(5,2) NOT NULL,
+    description NVARCHAR(255),
+    is_active BIT DEFAULT 1,
+    created_at DATETIME DEFAULT GETDATE()
+);
+
+-- Tạo bảng TbTaxDeduction
+CREATE TABLE tbTaxDeduction (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    deduction_type VARCHAR(100) NOT NULL,
+    deduction_amount DECIMAL(15,2) NOT NULL,
+    description NVARCHAR(255),
+    is_active BIT DEFAULT 1,
+    applicable_from DATE,
+    applicable_to DATE,
+    created_at DATETIME DEFAULT GETDATE()
+);
+
+-- Tạo bảng TbEmployeeTaxProfile
+CREATE TABLE tbEmployeeTaxProfile (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    user_id INT NOT NULL UNIQUE,
+    number_of_dependents INT DEFAULT 0,
+    insurance_rate DECIMAL(5,2) DEFAULT 10.5,
+    is_eligible_for_personal_deduction BIT DEFAULT 0,
+    is_eligible_for_dependent_deduction BIT DEFAULT 0,
+    note NVARCHAR(255),
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME,
+    FOREIGN KEY (user_id) REFERENCES tbUser(user_id)
+);
+
+-- Tạo bảng TbPayrollTaxCalculation
+CREATE TABLE tbPayrollTaxCalculation (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    employee_payroll_id INT NOT NULL UNIQUE,
+    gross_income DECIMAL(15,2) NOT NULL,
+    insurance_deduction DECIMAL(15,2) DEFAULT 0,
+    personal_deduction DECIMAL(15,2) DEFAULT 0,
+    dependent_deduction DECIMAL(15,2) DEFAULT 0,
+    other_deduction DECIMAL(15,2) DEFAULT 0,
+    total_deduction DECIMAL(15,2) NOT NULL,
+    taxable_income DECIMAL(15,2) NOT NULL,
+    bracket_1_tax DECIMAL(15,2) DEFAULT 0,
+    bracket_2_tax DECIMAL(15,2) DEFAULT 0,
+    bracket_3_tax DECIMAL(15,2) DEFAULT 0,
+    bracket_4_tax DECIMAL(15,2) DEFAULT 0,
+    bracket_5_tax DECIMAL(15,2) DEFAULT 0,
+    total_tax DECIMAL(15,2) NOT NULL,
+    calculation_detail NVARCHAR(MAX),
+    created_at DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (employee_payroll_id) REFERENCES tbEmployeePayroll(id)
+);
+
+-- Cập nhật TbEmployeePayroll
+ALTER TABLE tbEmployeePayroll ADD
+    personal_income_tax DECIMAL(15,2) DEFAULT 0,
+    tax_deduction_total DECIMAL(15,2) DEFAULT 0;
+
+-- Chèn bậc thuế 2026
+INSERT INTO tbTaxBracket VALUES
+(1, 0, 10000000, 5.00, 'Bracket 1: 0-10M @ 5%', 1, GETDATE()),
+(2, 10000000, 30000000, 10.00, 'Bracket 2: 10-30M @ 10%', 1, GETDATE()),
+(3, 30000000, 60000000, 20.00, 'Bracket 3: 30-60M @ 20%', 1, GETDATE()),
+(4, 60000000, 100000000, 30.00, 'Bracket 4: 50-75M @ 30%', 1, GETDATE()),
+(5, 100000000, 999999999999, 35.00, 'Bracket 5: >100M @ 35%', 1, GETDATE());
+
+-- deductions for 2026
+INSERT INTO tbTaxDeduction VALUES
+('PERSONAL', 15500000, 'Personal allowance', 1, '2026-01-01', '2026-12-31', GETDATE()),
+('DEPENDENT', 6200000, 'Dependent allowance (per person)', 1, '2026-01-01', '2026-12-31', GETDATE());
+
+-- ngày lễ Việt Nam 2025
+INSERT INTO tbHoliday (holiday_date, holiday_name, is_paid) VALUES
+('2025-01-01', 'New Year''s Day', 1),
+('2025-01-29', 'Lunar New Year Day 1', 1),
+('2025-01-30', 'Lunar New Year Day 2', 1),
+('2025-01-31', 'Lunar New Year Day 3', 1),
+('2025-04-7', 'Hung Vuong King death anniversary', 1),
+('2025-04-30', 'Southern Liberation Day, National Reunification Day', 1),
+('2025-05-01', 'International Labor Day', 1),
+('2025-09-02', 'Vietnam National Day', 1);
+
+INSERT INTO tbDeductionRule (rule_name, rule_type, percentage, fixed_amount, description, is_active) VALUES
+('IRPA 1 - Personal Income Tax', 'PERCENTAGE', 5.00, NULL, 'Deduct 5% for monthly income up to 10,000,000 VND', 1),
+('IRPA 2 - Personal Income Tax', 'PERCENTAGE', 10.00, NULL, 'Deduct 10% for monthly income from 10,000,000 to 30,000,000 VND', 1),
+('IRPA 3 - Personal Income Tax', 'PERCENTAGE', 20.00, NULL, 'Deduct 20% for monthly income from 30,000,000 to 60,000,000 VND', 1),
+('IRPA 4 - Personal Income Tax', 'PERCENTAGE', 30.00, NULL, 'Deduct 30% for monthly income from 60,000,000 to 100,000,000 VND', 1),
+('IRPA 5 - Personal Income Tax', 'PERCENTAGE', 35.00, NULL, 'Deduct 35% for monthly income above 100,000,000 VND', 1),
+
+('Social Insurance - Health Insurance - Unemployment Insurance', 'PERCENTAGE', 10.50, NULL, 'Deduct 10.5% from salary', 1),
+
+('Late Penalty', 'LATE_PENALTY', NULL, NULL,  '50,000 VND per late occurrence', 1);
+
 -- =============================================
 -- INSERT SAMPLE DATA
 -- =============================================
@@ -912,7 +1083,7 @@ VALUES
 GO
 
 -- 11. tbOvertimeRequest - 3 samples
-DECLARE @DeptFinishing INT = (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành');
+DECLARE @DeptFinishing INT = (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center');
 INSERT INTO tbOvertimeRequest (factory_manager_id, department_id, overtime_date, start_time, end_time, overtime_time, [status], details)
 VALUES
     (1001, @DeptFinishing, '2025-11-30', '17:00:00', '20:00:00', 3.0, 'open', N'Tăng ca hoàn thành đơn hàng gấp'),
@@ -945,7 +1116,7 @@ VALUES
 GO
 
 -- 15. tbProduction - 3 samples
-DECLARE @DeptFinishing2 INT = (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành');
+DECLARE @DeptFinishing2 INT = (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center');
 INSERT INTO tbProduction (department_id, product_count, DOP, unit_price)
 VALUES
     (@DeptFinishing2, 1200, '2025-11-25', 150.5),
@@ -954,7 +1125,7 @@ VALUES
 GO
 
 -- 16. tbPayroll - 3 samples
-DECLARE @DeptFinishing3 INT = (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành');
+DECLARE @DeptFinishing3 INT = (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center');
 INSERT INTO tbPayroll ([month], department_id, total_salary, details, [status], created_by, approved_by)
 VALUES
     ('2025-10-01', @DeptFinishing3, 850000000.00, N'Bảng lương tháng 10', 'approved', 1001, 1000),
@@ -1051,7 +1222,7 @@ INSERT INTO tbUser
 (full_name, email, password_hash, phone, gender, role_id, department_id, line_id, salary_type, base_salary, skill_level_id, hire_date)
 VALUES
 ('Manager Operations 2', 'manager2.operations@maypro.com','$2a$10$jcw0c1yYkDzTO4XTg/kTmeD3UggCAaQwpw1v1R76VMupvQMwelxwq','09000000033', 0,
- (SELECT role_id FROM tbRole WHERE name = 'Manager'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center/Trung tâm hoàn thành'),
-(SELECT line_id FROM tbLine WHERE name = 'Operations/ Vận hành'),
+ (SELECT role_id FROM tbRole WHERE name = 'Manager'), (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center'),
+(SELECT line_id FROM tbLine WHERE name = 'Operations'),
 'TimeBased', 25000000,(SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 4'), '2002-02-01')
 GO
