@@ -120,6 +120,16 @@ const PayrollDashboard = () => {
                         </Card.Body>
                     </Card>
                 </Col>
+
+                <Col lg={3} md={6} className="mb-3">
+                    <Card className="shadow-sm stat-card">
+                        <Card.Body className="text-center">
+                            <h6 className="text-muted">Total Salary Expense</h6>
+                            <h5 className="text-danger">{formatCurrency(stats.totalSalaryExpense)}</h5>
+                            <small>this Month</small>
+                        </Card.Body>
+                    </Card>
+                </Col>
             </Row>
 
             {/* Charts */}
