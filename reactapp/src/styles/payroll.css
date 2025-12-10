@@ -1,0 +1,524 @@
+
+/* ========================================
+   PAYROLL MODULE - GENERAL STYLES
+   ======================================== */
+
+/* Container & Layout */
+.payroll-list-container,
+.payroll-approval-container,
+.payroll-report-container,
+.tax-calculator-container,
+.payroll-dashboard {
+    min-height: 100vh;
+    background-color: #f8f9fa;
+}
+
+/* Typography */
+.payroll-list-container h2,
+.payroll-approval-container h2,
+.payroll-report-container h2,
+.tax-calculator-container h2,
+.payroll-dashboard h1 {
+    color: #2c3e50;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+}
+
+/* Cards Enhancement */
+.payroll-list-container .card,
+.payroll-approval-container .card,
+.payroll-report-container .card,
+.tax-calculator-container .card {
+    border: none;
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.payroll-list-container .card:hover,
+.payroll-approval-container .card:hover,
+.payroll-report-container .card:hover,
+.tax-calculator-container .card:hover {
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15) !important;
+    transform: translateY(-2px);
+}
+
+/* Card Headers */
+.payroll-list-container .card-header,
+.payroll-approval-container .card-header,
+.payroll-report-container .card-header,
+.tax-calculator-container .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+/* ========================================
+   PAYROLL LIST STYLES
+   ======================================== */
+
+.payroll-list-container .table th {
+    background-color: #f8f9fa;
+    color: #2c3e50;
+    font-weight: 600;
+    border-bottom: 2px solid #dee2e6;
+    padding: 1rem;
+}
+
+.payroll-list-container .table td {
+    vertical-align: middle;
+    padding: 0.75rem 1rem;
+}
+
+.payroll-list-container .table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.payroll-list-container .badge {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+/* Pagination */
+.payroll-list-container .pagination {
+    margin-top: 1.5rem;
+}
+
+.payroll-list-container .pagination .page-link {
+    color: #0d6efd;
+    border: 1px solid #dee2e6;
+    transition: all 0.2s ease;
+}
+
+.payroll-list-container .pagination .page-link:hover {
+    color: #fff;
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.payroll-list-container .pagination .page-item.active .page-link {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+/* ========================================
+   TAX CALCULATOR STYLES
+   ======================================== */
+
+.tax-calculator-container .deduction-list {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin: 1rem 0;
+}
+
+.tax-calculator-container .deduction-list .row {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.tax-calculator-container .deduction-list .row:last-child {
+    border-bottom: none;
+}
+
+.tax-calculator-container .tax-bracket {
+    padding: 0.5rem;
+    background-color: #e7f3ff;
+    border-left: 4px solid #0d6efd;
+    margin: 0.5rem 0;
+}
+
+.tax-calculator-container .form-label {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+}
+
+.tax-calculator-container .form-control,
+.tax-calculator-container .form-select {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    transition: all 0.2s ease;
+}
+
+.tax-calculator-container .form-control:focus,
+.tax-calculator-container .form-select:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* ========================================
+   PAYROLL APPROVAL STYLES
+   ======================================== */
+
+.payroll-approval-container .table {
+    font-size: 0.9rem;
+}
+
+.payroll-approval-container .table td {
+    vertical-align: middle;
+}
+
+.payroll-approval-container .table tfoot tr {
+    font-weight: 600;
+    background-color: #f8f9fa;
+}
+
+.payroll-approval-container .btn-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.payroll-approval-container .modal-header {
+    border-bottom: 2px solid #dee2e6;
+}
+
+.payroll-approval-container .modal-footer {
+    border-top: 2px solid #dee2e6;
+}
+
+/* ========================================
+   PAYROLL REPORT STYLES
+   ======================================== */
+
+.payroll-report-container .summary-card {
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.payroll-report-container .summary-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15);
+}
+
+.payroll-report-container .bg-primary {
+    background-color: #0d6efd !important;
+}
+
+.payroll-report-container .bg-info {
+    background-color: #0dcaf0 !important;
+}
+
+.payroll-report-container .bg-success {
+    background-color: #198754 !important;
+}
+
+.payroll-report-container .bg-danger {
+    background-color: #dc3545 !important;
+}
+
+.payroll-report-container .export-buttons {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.payroll-report-container .export-buttons .btn {
+    min-width: 120px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.payroll-report-container .export-buttons .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* ========================================
+   PAYROLL DASHBOARD STYLES
+   ======================================== */
+
+.payroll-dashboard .stat-card {
+    border: none;
+    border-radius: 0.5rem;
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.payroll-dashboard .stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1.5rem rgba(102, 126, 234, 0.4);
+}
+
+.payroll-dashboard .stat-card .card-body h3 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0.5rem 0;
+}
+
+.payroll-dashboard .stat-card .card-body h6 {
+    font-size: 0.9rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+
+.payroll-dashboard .stat-card .card-body small {
+    opacity: 0.8;
+    font-size: 0.8rem;
+}
+
+/* Chart Containers */
+.payroll-dashboard .recharts-wrapper {
+    margin: 1rem 0;
+}
+
+.payroll-dashboard .recharts-surface {
+    overflow: visible;
+}
+
+/* Quick Actions */
+.payroll-dashboard .btn {
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.payroll-dashboard .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.payroll-dashboard .btn-primary {
+    background-color: #0d6efd;
+}
+
+.payroll-dashboard .btn-success {
+    background-color: #198754;
+}
+
+.payroll-dashboard .btn-info {
+    background-color: #0dcaf0;
+}
+
+.payroll-dashboard .btn-warning {
+    background-color: #ffc107;
+    color: #000;
+}
+
+/* Recent Payrolls Table */
+.payroll-dashboard .table {
+    margin: 0;
+}
+
+.payroll-dashboard .table thead {
+    background-color: #f8f9fa;
+}
+
+.payroll-dashboard .table th {
+    font-weight: 600;
+    color: #2c3e50;
+    border-bottom: 2px solid #dee2e6;
+    padding: 1rem;
+}
+
+.payroll-dashboard .table td {
+    padding: 0.75rem 1rem;
+    vertical-align: middle;
+}
+
+.payroll-dashboard .table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+@media (max-width: 768px) {
+    .payroll-list-container,
+    .payroll-approval-container,
+    .payroll-report-container,
+    .tax-calculator-container,
+    .payroll-dashboard {
+        padding: 1rem !important;
+    }
+
+    .payroll-list-container h2,
+    .payroll-approval-container h2,
+    .payroll-report-container h2,
+    .tax-calculator-container h2,
+    .payroll-dashboard h1 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .payroll-dashboard .stat-card .card-body h3 {
+        font-size: 1.5rem;
+    }
+
+    .payroll-list-container .table,
+    .payroll-approval-container .table,
+    .payroll-report-container .table,
+    .payroll-dashboard .table {
+        font-size: 0.85rem;
+    }
+
+    .payroll-list-container .btn-sm,
+    .payroll-approval-container .btn-sm,
+    .payroll-report-container .btn-sm,
+    .payroll-dashboard .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+
+    .tax-calculator-container .row {
+        margin-bottom: 1rem;
+    }
+
+    .payroll-report-container .export-buttons {
+        flex-direction: column;
+    }
+
+    .payroll-report-container .export-buttons .btn {
+        width: 100%;
+    }
+
+    .payroll-dashboard .d-md-flex {
+        flex-direction: column;
+    }
+
+    .payroll-dashboard .btn {
+        margin-bottom: 0.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .payroll-list-container h2,
+    .payroll-approval-container h2,
+    .payroll-report-container h2,
+    .tax-calculator-container h2,
+    .payroll-dashboard h1 {
+        font-size: 1.25rem;
+    }
+
+    .payroll-list-container .card-body,
+    .payroll-approval-container .card-body,
+    .payroll-report-container .card-body,
+    .tax-calculator-container .card-body {
+        padding: 0.75rem;
+    }
+
+    .payroll-dashboard .row {
+        margin-right: -0.375rem;
+        margin-left: -0.375rem;
+    }
+
+    .payroll-dashboard .col-lg-3,
+    .payroll-dashboard .col-lg-4,
+    .payroll-dashboard .col-lg-8,
+    .payroll-dashboard .col-md-6 {
+        padding-right: 0.375rem;
+        padding-left: 0.375rem;
+    }
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+
+.text-truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.text-truncate-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.font-weight-bold {
+    font-weight: 700;
+}
+
+.font-size-sm {
+    font-size: 0.875rem;
+}
+
+.font-size-lg {
+    font-size: 1.125rem;
+}
+
+/* Shadow effects */
+.shadow-sm {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+}
+
+.shadow-md {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+.shadow-lg {
+    box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Border utilities */
+.border-top-primary {
+    border-top: 3px solid #0d6efd !important;
+}
+
+.border-left-primary {
+    border-left: 4px solid #0d6efd !important;
+}
+
+.border-left-success {
+    border-left: 4px solid #198754 !important;
+}
+
+.border-left-danger {
+    border-left: 4px solid #dc3545 !important;
+}
+
+.border-left-warning {
+    border-left: 4px solid #ffc107 !important;
+}
+
+/* Loading spinner enhancement */
+.spinner-border {
+    color: #0d6efd;
+}
+
+/* Alerts */
+.alert {
+    border: none;
+    border-radius: 0.5rem;
+}
+
+.alert-info {
+    background-color: #cfe2ff;
+    color: #084298;
+}
+
+.alert-success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    color: #664d03;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    color: #842029;
+}
+
+/* Animation */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-slideInUp {
+    animation: slideInUp 0.3s ease;
+}

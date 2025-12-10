@@ -36,6 +36,12 @@ public class PersonalIncomeTaxCalService {
         this.objectMapper = objectMapper;
     }
 
+    //tính thuế luỹ tiến sau khi trừ gia cảnh + Bảo Hiểm + Phạt
+    //10M/ tháng -> IRPA : 5%
+    //10M-30M/ tháng -> IRPA : 10%
+    //30M-60M/ tháng -> IRPA : 20%
+    //60M-100M/ tháng -> IRPA : 30%
+    //>100/ tháng -> IRPA : 35%
     public TaxCalculationDTO calculatePersonalIncomeTax(
             TbUser user,
             BigDecimal grossIncome,

@@ -1,5 +1,40 @@
-----29/11/2025
+9/12
+Ví dụ cách tính thuế TNCN 2026 đối với cá nhân cư trú có ký HĐLĐ trên 03 tháng:
 
+Bà C có thu nhập từ tiền lương, tiền công trong tháng là 40 triệu đồng và nộp các khoản bảo hiểm bắt buộc là: 10,5% thu nhập. Bà C có 1 người phụ thuộc. Thuế thu nhập cá nhân tạm nộp trong tháng của Bà C được tính như sau:
+
+- Thu nhập chịu thuế của Bà C là 40 triệu đồng.
+
+- Bà C được giảm trừ các khoản sau:
+
++ Giảm trừ gia cảnh cho bản thân: 15,5 triệu đồng
+
++ Giảm trừ gia cảnh cho 01 người phụ thuộc: 6,2 triệu đồng
+
++ Bảo hiểm xã hội, bảo hiểm y tế, bảo hiểm thất nghiệp: 40 triệu đồng × 10,5% = 4,2 triệu đồng
+
+- Tổng cộng các khoản được giảm trừ:
+
+15,5 triệu đồng + 6,2 triệu đồng + 4,2 triệu đồng = 25,9 triệu đồng
+
+- Thu nhập tính thuế của Bà C là:
+
+40 triệu đồng - 25,9 triệu đồng = 14,1 triệu đồng
+
+- Số thuế phải nộp: Số thuế phải nộp tính theo từng bậc của Biểu thuế lũy tiến từng phần:
+
++ Bậc 1: thu nhập tính thuế đến 10 triệu đồng, thuế suất 5%:
+
+10 triệu đồng × 5% = 0,5 triệu đồng
+
++ Bậc 2: thu nhập tính thuế trên 10 triệu đồng đến 30 triệu đồng, thuế suất 10%:
+
+(14,1 triệu đồng - 10 triệu đồng) × 10% = 0,41 triệu đồng
+
+- Tổng số thuế Bà C phải tạm nộp trong tháng là:
+
+0,5 triệu đồng + 0,41 triệu đồng = 0,91 triệu đồng
+----29/11/2025
 sử dụng 2 API này đủ rồi
 
 OK -  GET http://localhost:9999/api/lines/root/1005 lấy theo department_id

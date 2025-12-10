@@ -705,7 +705,7 @@ GO
 -- 15. tbProduction - Sản lượng (theo bộ phận)
 -- =============================================
 CREATE TABLE tbProduction (
-    production_id INT IDENTITY(1000,1) PRIMARY KEY, 
+    id INT IDENTITY(1000,1) PRIMARY KEY, 
     department_id INT NOT NULL,
     product_count INT NOT NULL,
     DOP DATE NOT NULL,
@@ -722,7 +722,7 @@ GO
 -- 16. tbPayroll - Bảng lương
 -- =============================================
 CREATE TABLE tbPayroll (
-    payroll_id INT IDENTITY(1000,1) PRIMARY KEY,
+    id INT IDENTITY(1000,1) PRIMARY KEY,
     [month] DATE NOT NULL,
     department_id INT NOT NULL,
     total_salary DECIMAL(12,2) NOT NULL,
@@ -1026,7 +1026,7 @@ INSERT INTO tbTaxDeduction VALUES
 
 -- ngày lễ Việt Nam 2025
 INSERT INTO tbHoliday (holiday_date, holiday_name, is_paid) VALUES
-('2025-01-01', 'New Year''s Day', 1),
+('2025-01-01', 'New Years Day', 1),
 ('2025-01-29', 'Lunar New Year Day 1', 1),
 ('2025-01-30', 'Lunar New Year Day 2', 1),
 ('2025-01-31', 'Lunar New Year Day 3', 1),
@@ -1041,9 +1041,7 @@ INSERT INTO tbDeductionRule (rule_name, rule_type, percentage, fixed_amount, des
 ('IRPA 3 - Personal Income Tax', 'PERCENTAGE', 20.00, NULL, 'Deduct 20% for monthly income from 30,000,000 to 60,000,000 VND', 1),
 ('IRPA 4 - Personal Income Tax', 'PERCENTAGE', 30.00, NULL, 'Deduct 30% for monthly income from 60,000,000 to 100,000,000 VND', 1),
 ('IRPA 5 - Personal Income Tax', 'PERCENTAGE', 35.00, NULL, 'Deduct 35% for monthly income above 100,000,000 VND', 1),
-
 ('Social Insurance - Health Insurance - Unemployment Insurance', 'PERCENTAGE', 10.50, NULL, 'Deduct 10.5% from salary', 1),
-
 ('Late Penalty', 'LATE_PENALTY', NULL, NULL,  '50,000 VND per late occurrence', 1);
 
 -- =============================================
@@ -1213,11 +1211,6 @@ SELECT * FROM tbPasswordResetToken--21
 SELECT * FROM tb_face_training--22
 SELECT * FROM tb_face_scan_log--23
 
-
-
-
-
-
 INSERT INTO tbUser 
 (full_name, email, password_hash, phone, gender, role_id, department_id, line_id, salary_type, base_salary, skill_level_id, hire_date)
 VALUES
@@ -1226,3 +1219,201 @@ VALUES
 (SELECT line_id FROM tbLine WHERE name = 'Operations'),
 'TimeBased', 25000000,(SELECT skill_level_id FROM tbSkillLevel WHERE name = 'Level 4'), '2002-02-01')
 GO
+
+
+USE MayPayHR7;
+GO
+SET DATEFIRST 8;  -- Sunday = 1
+GO
+
+---------------------------------------------------------
+-- 0. KHỞI TẠO BIẾN + ROLE + DEPARTMENT
+---------------------------------------------------------
+DECLARE @DeptFinishing INT = (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center');
+
+IF @DeptFinishing IS NULL
+BEGIN
+    RAISERROR('Department Finishing Center not found',16,1);
+    RETURN;
+END
+
+DECLARE @roleIds TABLE (role_id INT);
+
+INSERT INTO @roleIds(role_id)
+SELECT r.role_id
+FROM tbRole r
+WHERE r.name IN (
+    'Factory Manager',
+    'Manager',
+    'Leader',
+    'Assistant Leader',
+    'Worker'
+);
+
+IF (SELECT COUNT(*) FROM @roleIds) = 0
+BEGIN
+    RAISERROR('No matching roles found',16,1);
+    RETURN;
+END
+
+DECLARE @createdBy INT = (SELECT TOP 1 user_id FROM tbUser);
+
+---------------------------------------------------------
+-- 1. TẠO PAYROLL THÁNG 11/2025
+---------------------------------------------------------
+INSERT INTO tbPayroll ([month],department_id,total_salary,details,[status],created_by,year_month)
+SELECT 
+    '2025-11-01',
+    @DeptFinishing,
+    SUM(u.base_salary),
+    (
+        SELECT user_id, full_name, base_salary
+        FROM tbUser 
+        WHERE department_id=@DeptFinishing AND role_id IN (SELECT role_id FROM @roleIds)
+        FOR JSON PATH
+    ),
+    'pending',
+    @createdBy,
+    '2025-11'
+FROM tbUser u
+WHERE u.department_id=@DeptFinishing
+  AND u.role_id IN (SELECT role_id FROM @roleIds);
+
+---------------------------------------------------------
+-- 2. TẠO ATTENDANCE (Mon–Fri)
+---------------------------------------------------------
+DECLARE @d DATE='2025-11-01';
+
+WHILE @d <= '2025-11-30'
+BEGIN
+    IF DATEPART(WEEKDAY,@d) NOT IN (1,7)
+    BEGIN
+        INSERT INTO tbAttendance(user_id,[date],time_in,time_out,[status])
+        SELECT 
+            u.user_id,
+            @d,
+            '08:00',
+            '17:00',
+            'success'
+        FROM tbUser u
+        WHERE u.department_id=@DeptFinishing
+          AND u.role_id IN (SELECT role_id FROM @roleIds);
+    END
+
+    SET @d = DATEADD(DAY,1,@d);
+END
+
+---------------------------------------------------------
+-- 2b. 2 NHÂN VIÊN NGHỈ PHÉP 5 NGÀY
+---------------------------------------------------------
+DECLARE @leave1 INT, @leave2 INT;
+
+SELECT TOP 2 user_id
+INTO #tmpLeave
+FROM tbUser
+WHERE department_id=@DeptFinishing 
+  AND role_id IN (SELECT role_id FROM @roleIds)
+ORDER BY user_id;
+
+SELECT @leave1 = (SELECT TOP 1 user_id FROM #tmpLeave ORDER BY user_id);
+SELECT @leave2 = (SELECT TOP 1 user_id FROM #tmpLeave WHERE user_id<>@leave1 ORDER BY user_id);
+
+DROP TABLE #tmpLeave;
+
+-- user 1 nghỉ 10-14
+DELETE tbAttendance WHERE user_id=@leave1 AND [date] BETWEEN '2025-11-10' AND '2025-11-14';
+
+INSERT INTO tbAttendance(user_id,[date],[status],reason,manual_updated_by)
+SELECT @leave1, d, 'manual', 'Annual Leave', @createdBy
+FROM (
+    SELECT '2025-11-10' UNION ALL
+    SELECT '2025-11-11' UNION ALL
+    SELECT '2025-11-12' UNION ALL
+    SELECT '2025-11-13' UNION ALL
+    SELECT '2025-11-14'
+) X(d);
+
+-- user 2 nghỉ 17-21
+IF @leave2 IS NOT NULL
+BEGIN
+    DELETE tbAttendance WHERE user_id=@leave2 AND [date] BETWEEN '2025-11-17' AND '2025-11-21';
+
+    INSERT INTO tbAttendance(user_id,[date],[status],reason,manual_updated_by)
+    SELECT @leave2, d, 'manual', 'Annual Leave', @createdBy
+    FROM (
+        SELECT '2025-11-17' UNION ALL
+        SELECT '2025-11-18' UNION ALL
+        SELECT '2025-11-19' UNION ALL
+        SELECT '2025-11-20' UNION ALL
+        SELECT '2025-11-21'
+    ) Y(d);
+END
+
+---------------------------------------------------------
+-- 3. OVERTIME REQUEST
+---------------------------------------------------------
+
+DECLARE @FactoryManagerId INT =
+(
+    SELECT TOP 1 user_id 
+    FROM tbUser u JOIN tbRole r ON u.role_id=r.role_id
+    WHERE r.name='Factory Manager' AND u.department_id=@DeptFinishing
+);
+
+IF @FactoryManagerId IS NULL
+    SET @FactoryManagerId = (SELECT TOP 1 user_id FROM tbUser WHERE department_id=@DeptFinishing);
+
+-- 3a: 20 ngày thường 15:00-20:00
+DECLARE @count INT=0, @day DATE='2025-11-01';
+
+WHILE @count < 20 AND @day <= '2025-11-30'
+BEGIN
+    IF DATEPART(WEEKDAY,@day) NOT IN (1,7)
+    BEGIN
+        INSERT INTO tbOvertimeRequest(factory_manager_id,department_id,overtime_date,start_time,end_time,overtime_time,[status],details)
+        SELECT 
+            @FactoryManagerId,
+            @DeptFinishing,
+            @day,
+            '15:00',
+            '20:00',
+            5.0,
+            'pending',
+            CONCAT('OT weekday ', full_name)
+        FROM tbUser
+        WHERE department_id=@DeptFinishing
+          AND role_id IN (SELECT role_id FROM @roleIds);
+
+        SET @count = @count + 1;
+    END
+    
+    SET @day = DATEADD(DAY,1,@day);
+END
+
+-- 3b: 1 ngày chủ nhật 07:30-16:00
+DECLARE @Sunday DATE = (
+    SELECT MIN(d)
+    FROM (
+        SELECT '2025-11-02' AS d UNION ALL
+        SELECT '2025-11-09' UNION ALL
+        SELECT '2025-11-16' UNION ALL
+        SELECT '2025-11-23' UNION ALL
+        SELECT '2025-11-30'
+    ) s
+);
+
+INSERT INTO tbOvertimeRequest(factory_manager_id,department_id,overtime_date,start_time,end_time,overtime_time,[status],details)
+SELECT 
+    @FactoryManagerId,
+    @DeptFinishing,
+    @Sunday,
+    '07:30',
+    '16:00',
+    8.5,
+    'pending',
+    CONCAT('OT Sunday ', full_name)
+FROM tbUser
+WHERE department_id=@DeptFinishing
+  AND role_id IN (SELECT role_id FROM @roleIds);
+
+PRINT 'DONE — Seed payroll + attendance + overtime for Finishing Center';
