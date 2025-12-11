@@ -1,32 +1,22 @@
 package fpt.aptech.springbootapp.api.ModuleC;
 
-import fpt.aptech.springbootapp.dtos.ModuleC.EmployeeTaxProfileDTO;
-import fpt.aptech.springbootapp.dtos.ModuleC.PayrollCalculationDTO;
-import fpt.aptech.springbootapp.dtos.ModuleC.PayrollResponseDTO;
-import fpt.aptech.springbootapp.dtos.ModuleC.TaxCalculationDTO;
-import fpt.aptech.springbootapp.dtos.response.ApiResponse;
-import fpt.aptech.springbootapp.entities.Core.TbUser;
-import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeePayroll;
-import fpt.aptech.springbootapp.entities.ModuleC.TbPayroll;
-import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.EmployeePayrollRepo;
-import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.PayrollRepo;
+import fpt.aptech.springbootapp.dtos.ModuleC.*;
+import fpt.aptech.springbootapp.entities.Core.*;
+import fpt.aptech.springbootapp.entities.ModuleC.*;
+import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.*;
 import fpt.aptech.springbootapp.repositories.UserRepository;
-import fpt.aptech.springbootapp.services.ModuleC_Payroll.EmployeeTaxProfileService;
-import fpt.aptech.springbootapp.services.ModuleC_Payroll.PayrollCalculationService;
-import fpt.aptech.springbootapp.services.ModuleC_Payroll.PayrollService;
-import fpt.aptech.springbootapp.services.ModuleC_Payroll.PersonalIncomeTaxCalService;
+import fpt.aptech.springbootapp.services.ModuleC_Payroll.*;
 import lombok.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -404,6 +394,131 @@ public class PayrollController {
             body.put("message", "Approve payroll successfully");
             return ResponseEntity.ok(body);
 
+        } catch (Exception e) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", false);
+            body.put("message", "error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(body);
+        }
+    }
+
+    @GetMapping("/statistics")
+    public ResponseEntity<?> getPayrollStatistics() {
+        try {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", Map.of(
+                    "totalPayroll", payrollRepo.count(),
+                    "approvedPayroll", 0,  // Tính toán từ DB
+                    "pendingPayroll", 0,   // Tính toán từ DB
+                    "totalSalaryExpense", BigDecimal.ZERO,
+                    "monthlyTrend", List.of()
+            ));
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", false);
+            body.put("message", "error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(body);
+        }
+    }
+
+    @GetMapping("/recent")
+    public ResponseEntity<?> getRecentPayrolls(@RequestParam(defaultValue = "5") int limit) {
+        try {
+            // Lấy các payroll gần đây
+            List<TbPayroll> payrolls = payrollRepo.findAll().stream()
+                    .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+                    .limit(limit)
+                    .collect(Collectors.toList());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", payrolls);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", false);
+            body.put("message", "error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(body);
+        }
+    }
+
+    @GetMapping("/list")
+    public ResponseEntity<?> getPayrollList(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Integer departmentId,
+            @RequestParam(required = false) Integer lineId) {
+        try {
+            // Implement pagination
+            List<TbPayroll> payrolls = payrollRepo.findAll();
+
+            if (departmentId != null) {
+                payrolls = payrolls.stream()
+                        .filter(p -> p.getDepartment().getId().equals(departmentId))
+                        .collect(Collectors.toList());
+            }
+
+            if (lineId != null) {
+                payrolls = payrolls.stream()
+                        .filter(p -> p.getEmployeePayrolls().stream()
+                                .anyMatch(ep -> ep.getUser().getLine() != null &&
+                                        ep.getUser().getLine().getId().equals(lineId)))
+                        .collect(Collectors.toList());
+            }
+
+            int totalElements = payrolls.size();
+            List<TbPayroll> paginatedPayrolls = payrolls.stream()
+                    .skip((long) page * size)
+                    .limit(size)
+                    .collect(Collectors.toList());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", paginatedPayrolls);
+            response.put("totalElements", totalElements);
+            response.put("totalPages", (totalElements + size - 1) / size);
+            response.put("currentPage", page);
+            response.put("pageSize", size);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", false);
+            body.put("message", "error: " + e.getMessage());
+            body.put("data", null);
+            return ResponseEntity.badRequest().body(body);
+        }
+    }
+
+    @GetMapping("/report")
+    public ResponseEntity<?> getPayrollReport(
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month,
+            @RequestParam(required = false) Integer departmentId) {
+        try {
+            List<TbPayroll> payrolls = payrollRepo.findAll();
+
+            if (year != null) {
+                payrolls = payrolls.stream()
+                        .filter(p -> p.getMonth().getYear() == year)
+                        .collect(Collectors.toList());
+            }
+            if (month != null) {
+                payrolls = payrolls.stream()
+                        .filter(p -> p.getMonth().getMonthValue() == month)
+                        .collect(Collectors.toList());
+            }
+            if (departmentId != null) {
+                payrolls = payrolls.stream()
+                        .filter(p -> p.getDepartment().getId().equals(departmentId))
+                        .collect(Collectors.toList());
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", payrolls);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             Map<String, Object> body = new HashMap<>();
             body.put("success", false);

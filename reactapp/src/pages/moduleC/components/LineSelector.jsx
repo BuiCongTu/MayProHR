@@ -1,153 +1,115 @@
-import React, { useState, useEffect } from 'react';
-import {
-    Box,
-    Breadcrumbs,
-    Link,
-    Typography,
-    CircularProgress,
-    Alert,
-    Button,
-    Stack
-} from '@mui/material';
-import NavigateNextIcon from '@mui/icons-material/NavigateNext';
-import { getDepartmentLines, getChildLines } from '../services/payrollService';
-
-//Department > Line (Level 3) > SubLine (Level 4) > WordUnit (Level 5)
-
-export const LineSelector = ({ departmentId, onSelectLine, selectedLine }) => {
-    const [breadcrumbPath, setBreadcrumbPath] = useState([]);
+import { useEffect, useState } from 'react';
+import { axiosInstance } from "../../../services/api";
+export default function LineSelector({ departmentId, onLineSelected }) {
+    const [hierarchy, setHierarchy] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [allLines, setAllLines] = useState([]);
+    const [error, setError] = useState('');
+    const [expandedLines, setExpandedLines] = useState(new Set());
 
+    // Fetch hierarchy when departmentId changes
     useEffect(() => {
         if (departmentId) {
-            loadDepartmentLines();
+            fetchLineHierarchy(departmentId);
         }
     }, [departmentId]);
 
-    const loadDepartmentLines = async () => {
+    const fetchLineHierarchy = async (deptId) => {
         try {
             setLoading(true);
-            setError(null);
+            setError('');
+            const response = await axiosInstance.get('/lines/hierarchy', {
+                params: { departmentId: deptId }
+            });
 
-            const lines = await getDepartmentLines(departmentId);
-            setAllLines(lines);
+           
+            let hierarchyData = null;
+            
+            if (response.data.success && response.data.data) {
+                hierarchyData = response.data.data;
+            } else if (response.data.data && !('success' in response.data)) {
+                hierarchyData = response.data.data;
+            } else if (!('data' in response.data) && !('success' in response.data)) {
+                hierarchyData = response.data;
+            }
 
-            // Xây dựng breadcrumb từ dữ liệu lines
-            const breadcrumb = buildBreadcrumb(lines);
-            setBreadcrumbPath(breadcrumb);
+            if (hierarchyData) {
+                setHierarchy(hierarchyData);
+            } else {
+                setError(response.data.message || 'Failed to load line hierarchy');
+            }
         } catch (err) {
-            setError('Lỗi tải dữ liệu lines: ' + err.message);
-            console.error(err);
+            console.error('Error loading line hierarchy:', err);
+            setError('Unable to load line hierarchy');
         } finally {
             setLoading(false);
         }
     };
 
-    //Level 3 (Operations) > Level 4 (Finishing) > Level 5 (Sewing Programming)
-    const buildBreadcrumb = (lines) => {
-        const breadcrumb = [];
-
-        // Lọc theo level
-        const level3 = lines.filter(l => l.level === 3); // Operations, Delivery
-
-        level3.forEach(mainLine => {
-            // Level 4: Children của Level 3
-            const level4Children = lines.filter(l => l.parentId === mainLine.id && l.level === 4);
-
-            level4Children.forEach(subLine => {
-                // Level 5: Children của Level 4
-                const level5Children = lines.filter(l => l.parentId === subLine.id && l.level === 5);
-
-                level5Children.forEach(wordUnit => {
-                    breadcrumb.push({
-                        level3: mainLine.name,
-                        level3Id: mainLine.id,
-                        level4: subLine.name,
-                        level4Id: subLine.id,
-                        level5: wordUnit.name,
-                        level5Id: wordUnit.id,
-                        fullPath: `${mainLine.name} > ${subLine.name} > ${wordUnit.name}`,
-                        display: `${mainLine.name} → ${subLine.name} → ${wordUnit.name}`
-                    });
-                });
-            });
-        });
-
-        return breadcrumb;
+    const toggleExpand = (lineId) => {
+        const newExpanded = new Set(expandedLines);
+        if (newExpanded.has(lineId)) {
+            newExpanded.delete(lineId);
+        } else {
+            newExpanded.add(lineId);
+        }
+        setExpandedLines(newExpanded);
     };
 
-    const handleSelectLine = (path) => {
-        onSelectLine(path);
-    };
+    const renderLineNode = (node, depth = 0) => {
+        const isExpanded = expandedLines.has(node.id);
+        const hasChildren = node.children && node.children.length > 0;
 
-    if (loading) {
         return (
-            <Box display="flex" justifyContent="center" p={2}>
-                <CircularProgress size={40} />
-            </Box>
-        );
-    }
-
-    if (error) {
-        return <Alert severity="error">{error}</Alert>;
-    }
-
-    return(
-        <Box sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 1, mb: 2 }}>
-            <Typography variant="h6" mb={2}>
-                Select Line/ SubLine/ WordUnit
-            </Typography>
-            {breadcrumbPath.length === 0 ? (
-                <Alert severity="info">Not Found Data</Alert>
-            ) : (
-                <Stack spacing={1}>
-                    {breadcrumbPath.map((path, index) => (
-                        <Box
-                            key={index}
-                            sx={{
-                                p: 2,
-                                border: '1px solid #e0e0e0',
-                                borderRadius: 1,
-                                cursor: 'pointer',
-                                bgcolor: selectedLine?.level5Id === path.level5Id ? 'primary.light' : 'background.default',
-                                '&:hover': {
-                                    bgcolor: 'action.hover',
-                                    boxShadow: 1
-                                },
-                                transition: 'all 0.2s ease'
-                            }}
-                            onClick={() => handleSelectLine(path)}
+            <div key={node.id} style={{ marginLeft: `${depth * 20}px` }} className="line-node">
+                <div className="line-item d-flex align-items-center gap-2 mb-2">
+                    {hasChildren && (
+                        <button
+                            className="btn btn-sm btn-outline-secondary"
+                            style={{ minWidth: '30px' }}
+                            onClick={() => toggleExpand(node.id)}
                         >
-                            <Breadcrumbs
-                                separator={<NavigateNextIcon fontSize="small" />}
-                                sx={{ mb: 1 }}
-                            >
-                                <Typography variant="body2" color="text.secondary">
-                                    {path.level3}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                    {path.level4}
-                                </Typography>
-                                <Typography
-                                    variant="body2"
-                                    fontWeight="bold"
-                                    color={selectedLine?.level5Id === path.level5Id ? 'primary' : 'text.primary'}
-                                >
-                                    {path.level5}
-                                </Typography>
-                            </Breadcrumbs>
+                            {isExpanded ? '|' : '--'}
+                        </button>
+                    )}
+                    {!hasChildren && <span style={{ minWidth: '30px' }}></span>}
 
-                            {selectedLine?.level5Id === path.level5Id && (
-                                <Typography variant="caption" color="success.main" sx={{ fontWeight: 'bold' }}>
-                                    Selected!
-                                </Typography>
-                            )}
-                        </Box>
-                    ))}
-                </Stack>
+                    <button
+                        className="btn btn-sm btn-outline-primary flex-grow-1 text-start"
+                        onClick={() => onLineSelected && onLineSelected(node)}
+                    >
+                        <strong>{node.name}</strong>
+                        <br />
+                        <small className="text-muted">
+                            Level {node.level} | {node.totalEmployees} employees |
+                            Manager: {node.managerName}
+                        </small>
+                    </button>
+                </div>
+
+                {hasChildren && isExpanded && (
+                    <div className="children-container">
+                        {node.children.map(child => renderLineNode(child, depth + 1))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    if (loading) return <div className="text-center p-3">Loading line hierarchy...</div>;
+    if (error) return <div className="alert alert-danger">{error}</div>;
+    if (!hierarchy) return <div className="alert alert-info">No data</div>;
+
+    return (
+        <div className="line-selector p-3 border rounded">
+            <h5>Department: {hierarchy.departmentName}</h5>
+            <hr />
+            {hierarchy.rootLines && hierarchy.rootLines.length > 0 ? (
+                <div className="lines-tree">
+                    {hierarchy.rootLines.map(rootLine => renderLineNode(rootLine))}
+                </div>
+            ) : (
+                <div className="alert alert-info">No lines available</div>
             )}
-        </Box>
+        </div>
     );
-};
+}

@@ -16,10 +16,10 @@ const PayrollRouter = () => {
             <Route path="/" element={<PayrollDashboard />} />
             <Route path="/list" element={<PayrollList />} />
             <Route path="/create" element={<CreatePayroll />} />
-            <Route path="/:payrollId" element={<PayrollDetail />} />
-            <Route path="/:payrollId/approve" element={<PayrollApproval />} />
             <Route path="/report" element={<PayrollReport />} />
             <Route path="/tax-calculator" element={<TaxCalculator />} />
+            <Route path="/:payrollId/approve" element={<PayrollApproval />} />
+            <Route path="/:payrollId" element={<PayrollDetail />} />
             <Route path="*" element={<Navigate to="/payroll" replace />} />
         </Routes>
     );

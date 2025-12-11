@@ -3,13 +3,11 @@ package fpt.aptech.springbootapp.api;
 import java.util.List;
 
 import fpt.aptech.springbootapp.dtos.response.LineDto;
+import fpt.aptech.springbootapp.dtos.response.LineHierarchyDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import fpt.aptech.springbootapp.dtos.response.ApiResponse;
 import fpt.aptech.springbootapp.entities.Core.TbLine;
@@ -28,7 +26,7 @@ public class LineController {
         this.lineService = lineService;
     }
 
-    //lấy tất cả section, subsection, ... của 1 department
+    //lấy tất cả line, subline, ... của 1 department
     @GetMapping("/department/{deptId}")
     public ResponseEntity<List<LineDto>> getLinesByDepartment(@PathVariable Integer deptId) {
         try {
@@ -81,5 +79,36 @@ public class LineController {
                     .body(ApiResponse.error("Failed to retrieve child lines: " + e.getMessage()));
         }
     }
+
+    //lay tất cả line từ line cha - sub line -> word unit
+    @GetMapping("/hierarchy")
+    public ResponseEntity<ApiResponse<LineHierarchyDto>> getLineHierarchy(
+            @RequestParam(required = false) Integer departmentId,
+            @RequestParam(required = false) Integer lineId,
+            @RequestParam(required = false) Integer parentId) {
+        try {
+            log.info("Request: Get line hierarchy - departmentId: {}, lineId: {}, parentId: {}",
+                    departmentId, lineId, parentId);
+
+            if ((departmentId == null || departmentId <= 0) &&
+                    (lineId == null || lineId <= 0) &&
+                    (parentId == null || parentId <= 0)) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("At least one parameter (departmentId, lineId, or parentId) must be provided"));
+            }
+
+            LineHierarchyDto hierarchy = lineService.getLineHierarchy(departmentId, lineId, parentId);
+            return ResponseEntity.ok(ApiResponse.success("Line hierarchy retrieved successfully", hierarchy));
+        } catch (RuntimeException ex) {
+            log.error("Error fetching line hierarchy", ex);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(ex.getMessage()));
+        } catch (Exception e) {
+            log.error("Unexpected error fetching line hierarchy", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Failed to retrieve line hierarchy: " + e.getMessage()));
+        }
+    }
+
 
 }

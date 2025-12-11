@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Form, Button, Card, Table, Row, Col, Alert, Spinner, Modal, Badge } from 'react-bootstrap';
-import axios from 'axios';
-import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+import { useEffect, useState } from 'react';
+import { Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import * as XLSX from 'xlsx';
+import { axiosInstance } from '../../../services/api';
 import '../../../styles/payroll.css';
 
-const BASE_API = 'http://localhost:9999/api';
-
-const PayrollReport = () => {
+const PayrollReport = () =>
+{
     const [reportData, setReportData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -18,28 +17,44 @@ const PayrollReport = () => {
     const [departments, setDepartments] = useState([]);
     const [exportLoading, setExportLoading] = useState(false);
 
-    useEffect(() => {
+    useEffect(() =>
+    {
         fetchDepartments();
         fetchReport();
     }, []);
 
-    useEffect(() => {
-        if (filterYear) {
+    useEffect(() =>
+    {
+        if (filterYear)
+        {
             fetchReport();
         }
     }, [filterYear, filterMonth, filterDepartment]);
 
-    const fetchDepartments = async () => {
-        try {
-            const response = await axios.get(`${BASE_API}/department`);
-            setDepartments(response.data || []);
-        } catch (err) {
+    const fetchDepartments = async () =>
+    {
+        try
+        {
+            const response = await axiosInstance.get('/department');
+            let depts = [];
+            if (Array.isArray(response.data))
+            {
+                depts = response.data;
+            } else if (response.data.data && Array.isArray(response.data.data))
+            {
+                depts = response.data.data;
+            }
+            setDepartments(depts || []);
+        } catch (err)
+        {
             console.error('Loading fail:', err);
         }
     };
 
-    const fetchReport = async () => {
-        try {
+    const fetchReport = async () =>
+    {
+        try
+        {
             setLoading(true);
             setError('');
 
@@ -49,22 +64,34 @@ const PayrollReport = () => {
             if (filterMonth) params.month = filterMonth;
             if (filterDepartment) params.departmentId = filterDepartment;
 
-            const response = await axios.get(`${BASE_API}/payroll/report`, { params });
+            const response = await axiosInstance.get('/payroll/report', { params });
 
-            if (response.data.success) {
-                setReportData(response.data.data || []);
-            } else {
-                setReportData([]);
+            // Handle both response formats
+            let data = [];
+            if (response.data.success === false)
+            {
+                setError(response.data.message || 'Failed to load report');
+            } else if (response.data.data)
+            {
+                data = response.data.data || [];
+            } else if (Array.isArray(response.data))
+            {
+                data = response.data;
             }
-        } catch (err) {
+
+            setReportData(data);
+        } catch (err)
+        {
             console.error('Error:', err);
             setError(err.response?.data?.message || 'Cannot load report data. Please try again later.');
-        } finally {
+        } finally
+        {
             setLoading(false);
         }
     };
 
-    const formatCurrency = (value) => {
+    const formatCurrency = (value) =>
+    {
         if (!value) return '0 đ';
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
@@ -73,8 +100,10 @@ const PayrollReport = () => {
         }).format(value);
     };
 
-    const exportToExcel = async () => {
-        try {
+    const exportToExcel = async () =>
+    {
+        try
+        {
             setExportLoading(true);
 
             const workbook = XLSX.utils.book_new();
@@ -95,12 +124,14 @@ const PayrollReport = () => {
             XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
 
             // Sheet 2: Chi tiết bảng lương
-            if (reportData.length > 0) {
+            if (reportData.length > 0)
+            {
                 const detailData = [
                     ['Month', 'Department', 'Total Salary', 'Status', 'Created At']
                 ];
 
-                reportData.forEach(record => {
+                reportData.forEach(record =>
+                {
                     detailData.push([
                         new Date(record.month).toLocaleDateString('vi-VN', {
                             month: 'long',
@@ -118,8 +149,10 @@ const PayrollReport = () => {
 
                 // Định dạng cột tiền tệ
                 detailSheet['C1'].z = '#,##0';
-                for (let i = 2; i <= detailData.length; i++) {
-                    if (detailSheet[`C${i}`]) {
+                for (let i = 2; i <= detailData.length; i++)
+                {
+                    if (detailSheet[`C${i}`])
+                    {
                         detailSheet[`C${i}`].z = '#,##0';
                     }
                 }
@@ -127,15 +160,19 @@ const PayrollReport = () => {
 
             const fileName = `PayrollReport_${filterYear}${filterMonth ? '_' + filterMonth : ''}`;
             XLSX.writeFile(workbook, `${fileName}.xlsx`);
-        } catch (err) {
+        } catch (err)
+        {
             setError('Error export Excel: ' + err.message);
-        } finally {
+        } finally
+        {
             setExportLoading(false);
         }
     };
 
-    const exportToPDF = async () => {
-        try {
+    const exportToPDF = async () =>
+    {
+        try
+        {
             setExportLoading(true);
 
             const pdf = new jsPDF('l', 'mm', 'a4');
@@ -166,7 +203,7 @@ const PayrollReport = () => {
             ]);
 
             pdf.autoTable({
-                head: [['Month', 'Department', 'Total Salary (VND)', 'Status', 'Creation Date']],                body: tableData,
+                head: [['Month', 'Department', 'Total Salary (VND)', 'Status', 'Creation Date']], body: tableData,
                 startY: 37,
                 theme: 'grid',
                 margin: { left: 15, right: 15 },
@@ -188,9 +225,11 @@ const PayrollReport = () => {
 
             const fileName = `PayrollReport_${filterYear}${filterMonth ? '_' + filterMonth : ''}`;
             pdf.save(`${fileName}.pdf`);
-        } catch (err) {
+        } catch (err)
+        {
             setError('Error export PDF: ' + err.message);
-        } finally {
+        } finally
+        {
             setExportLoading(false);
         }
     };
@@ -332,48 +371,48 @@ const PayrollReport = () => {
                         <div style={{ overflowX: 'auto' }}>
                             <Table striped hover responsive className="mb-0">
                                 <thead className="bg-light">
-                                <tr>
-                                    <th>Month</th>
-                                    <th>Department</th>
-                                    <th className="text-end">Total Salary</th>
-                                    <th>Status</th>
-                                    <th>Creation Date</th>
-                                </tr>
+                                    <tr>
+                                        <th>Month</th>
+                                        <th>Department</th>
+                                        <th className="text-end">Total Salary</th>
+                                        <th>Status</th>
+                                        <th>Creation Date</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
-                                {reportData.map((record, idx) => (
-                                    <tr key={idx}>
-                                        <td>
-                                            <strong>
-                                                {new Date(record.month).toLocaleDateString('vi-VN', {
-                                                    month: 'long',
-                                                    year: 'numeric'
-                                                })}
-                                            </strong>
-                                        </td>
-                                        <td>{record.departmentName}</td>
-                                        <td className="text-end font-weight-bold">
-                                            {formatCurrency(record.totalSalary)}
-                                        </td>
-                                        <td>
-                                            <Badge bg={record.status === 'approved' ? 'success' : 'warning'}>
-                                                {record.status}
-                                            </Badge>
-                                        </td>
-                                        <td>
-                                            {new Date(record.createdDate).toLocaleDateString('vi-VN')}
-                                        </td>
-                                    </tr>
-                                ))}
+                                    {reportData.map((record, idx) => (
+                                        <tr key={idx}>
+                                            <td>
+                                                <strong>
+                                                    {new Date(record.month).toLocaleDateString('vi-VN', {
+                                                        month: 'long',
+                                                        year: 'numeric'
+                                                    })}
+                                                </strong>
+                                            </td>
+                                            <td>{record.departmentName}</td>
+                                            <td className="text-end font-weight-bold">
+                                                {formatCurrency(record.totalSalary)}
+                                            </td>
+                                            <td>
+                                                <Badge bg={record.status === 'approved' ? 'success' : 'warning'}>
+                                                    {record.status}
+                                                </Badge>
+                                            </td>
+                                            <td>
+                                                {new Date(record.createdDate).toLocaleDateString('vi-VN')}
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                                 <tfoot>
-                                <tr className="bg-light">
-                                    <th colSpan="2">Total:</th>
-                                    <th className="text-end">
-                                        <strong>{formatCurrency(totalSalary)}</strong>
-                                    </th>
-                                    <th colSpan="2"></th>
-                                </tr>
+                                    <tr className="bg-light">
+                                        <th colSpan="2">Total:</th>
+                                        <th className="text-end">
+                                            <strong>{formatCurrency(totalSalary)}</strong>
+                                        </th>
+                                        <th colSpan="2"></th>
+                                    </tr>
                                 </tfoot>
                             </Table>
                         </div>

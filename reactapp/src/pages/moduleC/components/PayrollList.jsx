@@ -1,117 +1,268 @@
-import React, { useState, useEffect } from 'react';
-import { Table, Button, Badge, Card, Form, Row, Col, Pagination, Alert, Spinner } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
-import axios from 'axios';
-import '../../../styles/payroll.css';
 
-const BASE_API = 'http://localhost:9999/api';
+import { useEffect, useState } from 'react';
+import { Alert, Badge, Button, Card, Col, Form, Pagination, Row, Spinner, Table } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
+import { axiosInstance } from '../../../services/api';
+import '../../../styles/payroll.css';
+import LineSelector from './LineSelector';
 
 const PayrollList = () => {
     const [payrolls, setPayrolls] = useState([]);
     const [filteredPayrolls, setFilteredPayrolls] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [departmentsLoading, setDepartmentsLoading] = useState(true);
     const [error, setError] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
 
     const [filters, setFilters] = useState({
         status: '',
-        department: '',
+        departmentId: null,
+        departmentName: '',
+        lineId: null,
+        lineName: '',
         yearMonth: ''
     });
 
     const [departments, setDepartments] = useState([]);
+    const [showLineSelector, setShowLineSelector] = useState(false);
+    const [selectedDeptForLines, setSelectedDeptForLines] = useState(null);
 
     useEffect(() => {
-        fetchPayrolls();
         fetchDepartments();
     }, []);
 
     useEffect(() => {
+        if (filters.departmentId) {
+            fetchPayrolls();
+        } else {
+            setPayrolls([]);
+            setFilteredPayrolls([]);
+        }
+    }, [filters.departmentId, filters.lineId, currentPage, pageSize]);
+
+    //filters status và yearMonth
+    useEffect(() => {
         applyFilters();
-    }, [payrolls, filters, currentPage, pageSize]);
+    }, [payrolls, filters.status, filters.yearMonth]);
+
+    const fetchDepartments = async () => {
+        try {
+            setDepartmentsLoading(true);
+
+            const response = await axiosInstance.get('/department');
+            let departments = [];
+
+            if (Array.isArray(response.data)) {
+                departments = response.data;
+            } else if (response.data?.data && Array.isArray(response.data.data)) {
+                departments = response.data.data;
+            } else if (response.data?.content && Array.isArray(response.data.content)) {
+                departments = response.data.content;
+            }
+
+            setDepartments(departments);
+        } catch (err) {
+            setError('Unable to load departments: ' + (err.response?.data?.message || err.message));
+            setDepartments([]);
+        } finally {
+            setDepartmentsLoading(false);
+        }
+    };
 
     const fetchPayrolls = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`${BASE_API}/payroll/list`, {
-                params: { page: currentPage - 1, size: pageSize }
-            });
+            setError('');
 
-            if (response.data.success) {
-                setPayrolls(response.data.data || []);
+            const params = {
+                page: currentPage - 1,
+                size: pageSize
+            };
+
+            if (filters.departmentId) {
+                params.departmentId = filters.departmentId;
+            }
+
+            if (filters.lineId) {
+                params.lineId = filters.lineId;
+            }
+
+            const response = await axiosInstance.get('/payroll/list', { params });
+            const responseData = response.data;
+
+            let payrollData = [];
+
+            if (responseData?.success === false) {
+                setPayrolls([]);
+                const errorMsg = responseData.message || 'Failed to load payrolls';
+                setError(errorMsg);
+            } else if (Array.isArray(responseData)) {
+                payrollData = responseData;
+                setPayrolls(payrollData);
+                setError('');
+            } else if (responseData?.data && Array.isArray(responseData.data)) {
+                payrollData = responseData.data;
+                setPayrolls(payrollData);
+                setError('');
             } else {
                 setPayrolls([]);
+                setError('Unexpected response format from server');
             }
         } catch (err) {
             console.error('Error loading payroll:', err);
-            setError('Unable to load payroll list');
+            console.error('Error details:', {
+                message: err.message,
+                response: err.response?.data,
+                status: err.response?.status
+            });
+
+            let errorMsg = 'Unable to load payroll list';
+
+            if (err.response?.status === 401) {
+                errorMsg = 'Unauthorized: Please log in again';
+            } else if (err.response?.status === 403) {
+                errorMsg = 'Forbidden: You do not have permission to access payrolls';
+            } else if (err.response?.status === 400) {
+                errorMsg = 'Bad request: ' + (err.response?.data?.message || 'Invalid parameters');
+            } else if (err.response?.status === 500) {
+                errorMsg = 'Server error: ' + (err.response?.data?.message || 'Please try again later');
+            } else if (err.message === 'Network Error') {
+                errorMsg = 'Network error: Cannot connect to server';
+            }
+
+            setError(errorMsg);
             setPayrolls([]);
         } finally {
             setLoading(false);
         }
     };
 
-    const fetchDepartments = async () => {
-        try {
-            const response = await axios.get(`${BASE_API}/department`);
-            setDepartments(response.data || []);
-        } catch (err) {
-            console.error('Error loading department:', err);
-        }
-    };
-
     const applyFilters = () => {
-        let filtered = payrolls;
+        let filtered = [...payrolls];
 
+        // Filter by status
         if (filters.status) {
-            filtered = filtered.filter(p => p.status === filters.status);
+            filtered = filtered.filter(p => {
+                const status = (p.status || '').toLowerCase();
+                return status === filters.status.toLowerCase();
+            });
         }
 
-        if (filters.department) {
-            filtered = filtered.filter(p => p.departmentName === filters.department);
-        }
-
+        // Filter by year-month
         if (filters.yearMonth) {
-            filtered = filtered.filter(p =>
-                p.month && p.month.startsWith(filters.yearMonth)
-            );
+            filtered = filtered.filter(p => {
+                if (p.month) {
+                    const payrollMonth = new Date(p.month).toISOString().substring(0, 7);
+                    return payrollMonth === filters.yearMonth;
+                }
+                return false;
+            });
         }
+
+        console.log('After applying filters:', {
+            original: payrolls.length,
+            filtered: filtered.length,
+            filters
+        });
 
         setFilteredPayrolls(filtered);
     };
 
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
+    const handleStatusFilterChange = (e) => {
+        const { value } = e.target;
         setFilters(prev => ({
             ...prev,
-            [name]: value
+            status: value
         }));
         setCurrentPage(1);
     };
 
+    const handleDepartmentChange = (e) => {
+        const selectedId = parseInt(e.target.value);
+        if (selectedId) {
+            const dept = departments.find(d => d.id === selectedId);
+            console.log('Selected department:', dept);
+            setFilters(prev => ({
+                ...prev,
+                departmentId: selectedId,
+                departmentName: dept?.name || '',
+                lineId: null,
+                lineName: ''
+            }));
+            setSelectedDeptForLines(selectedId);
+            setShowLineSelector(true);
+            setCurrentPage(1);
+        } else {
+            setFilters(prev => ({
+                ...prev,
+                departmentId: null,
+                departmentName: '',
+                lineId: null,
+                lineName: ''
+            }));
+            setShowLineSelector(false);
+            setCurrentPage(1);
+        }
+    };
+
+    const handleLineSelected = (lineNode) => {
+        console.log('Selected line:', lineNode);
+        setFilters(prev => ({
+            ...prev,
+            lineId: lineNode.id,
+            lineName: lineNode.name
+        }));
+        setShowLineSelector(false);
+        setCurrentPage(1);
+    };
+
+    const handleYearMonthChange = (e) => {
+        const { value } = e.target;
+        setFilters(prev => ({
+            ...prev,
+            yearMonth: value
+        }));
+        setCurrentPage(1);
+    };
+
+    const clearFilters = () => {
+        setFilters({
+            status: '',
+            departmentId: null,
+            departmentName: '',
+            lineId: null,
+            lineName: '',
+            yearMonth: ''
+        });
+        setShowLineSelector(false);
+        setCurrentPage(1);
+    };
+
     const getStatusBadge = (status) => {
+        const statusStr = (status || '').toLowerCase();
         const statusMap = {
             pending: 'warning',
             balanced: 'info',
             approved: 'success',
             rejected: 'danger'
         };
-        return statusMap[status] || 'secondary';
+        return statusMap[statusStr] || 'secondary';
     };
 
     const getStatusLabel = (status) => {
+        const statusStr = (status || '').toLowerCase();
         const labels = {
             pending: 'Pending',
             balanced: 'Balance',
             approved: 'Approved',
             rejected: 'Reject'
         };
-        return labels[status] || status;
+        return labels[statusStr] || status;
     };
 
     const formatCurrency = (value) => {
-        if (!value) return '0 đ';
+        if (!value || isNaN(value)) return '0 đ';
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
             currency: 'VND',
@@ -121,42 +272,71 @@ const PayrollList = () => {
 
     const formatDate = (dateString) => {
         if (!dateString) return '';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('vi-VN');
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('vi-VN');
+        } catch (e) {
+            return dateString;
+        }
     };
 
+    // Paginate the filtered results
     const paginatedPayrolls = filteredPayrolls.slice(
         (currentPage - 1) * pageSize,
         currentPage * pageSize
     );
 
-    const totalPages = Math.ceil(filteredPayrolls.length / pageSize);
+    const filteredTotalPages = Math.ceil(filteredPayrolls.length / pageSize);
 
     return (
         <div className="payroll-list-container p-4">
             <div className="d-flex justify-content-between align-items-center mb-4">
-                <h2> Payroll List</h2>
+                <h2>📋 Payroll List</h2>
                 <Link to="/payroll/create" className="btn btn-primary">
                     ➕ Create new
                 </Link>
             </div>
 
-            {error && <Alert variant="danger">{error}</Alert>}
+            {error && <Alert variant={error.includes('No payrolls') ? 'info' : 'danger'}>{error}</Alert>}
 
             {/* Filters */}
             <Card className="mb-4 shadow-sm">
                 <Card.Header className="bg-light">
-                    <h6 className="mb-0"> Filters</h6>
+                    <h6 className="mb-0">🔍 Filters</h6>
                 </Card.Header>
                 <Card.Body>
                     <Row>
                         <Col md={3}>
                             <Form.Group>
+                                <Form.Label>Department <span className="text-danger">*</span></Form.Label>
+                                {departmentsLoading ? (
+                                    <Spinner animation="border" size="sm" />
+                                ) : (
+                                    <Form.Select
+                                        value={filters.departmentId || ''}
+                                        onChange={handleDepartmentChange}
+                                        disabled={departmentsLoading}
+                                    >
+                                        <option value="">-- Select Department --</option>
+                                        {departments.length > 0 ? (
+                                            departments.map(dept => (
+                                                <option key={dept.id} value={dept.id}>
+                                                    {dept.name}
+                                                </option>
+                                            ))
+                                        ) : (
+                                            <option disabled>No departments available</option>
+                                        )}
+                                    </Form.Select>
+                                )}
+                            </Form.Group>
+                        </Col>
+                        <Col md={3}>
+                            <Form.Group>
                                 <Form.Label>Status</Form.Label>
                                 <Form.Select
-                                    name="status"
                                     value={filters.status}
-                                    onChange={handleFilterChange}
+                                    onChange={handleStatusFilterChange}
                                 >
                                     <option value="">All</option>
                                     <option value="pending">Pending</option>
@@ -168,29 +348,11 @@ const PayrollList = () => {
                         </Col>
                         <Col md={3}>
                             <Form.Group>
-                                <Form.Label>Department</Form.Label>
-                                <Form.Select
-                                    name="department"
-                                    value={filters.department}
-                                    onChange={handleFilterChange}
-                                >
-                                    <option value="">All</option>
-                                    {departments.map(dept => (
-                                        <option key={dept.id} value={dept.name}>
-                                            {dept.name}
-                                        </option>
-                                    ))}
-                                </Form.Select>
-                            </Form.Group>
-                        </Col>
-                        <Col md={3}>
-                            <Form.Group>
-                                <Form.Label>Year month</Form.Label>
+                                <Form.Label>Year-Month</Form.Label>
                                 <Form.Control
                                     type="month"
-                                    name="yearMonth"
                                     value={filters.yearMonth}
-                                    onChange={handleFilterChange}
+                                    onChange={handleYearMonthChange}
                                 />
                             </Form.Group>
                         </Col>
@@ -200,39 +362,91 @@ const PayrollList = () => {
                                 <Button
                                     variant="outline-secondary"
                                     className="w-100"
-                                    onClick={() => {
-                                        setFilters({ status: '', department: '', yearMonth: '' });
-                                        setCurrentPage(1);
-                                    }}
+                                    onClick={clearFilters}
                                 >
                                     Clear filters
                                 </Button>
                             </Form.Group>
                         </Col>
                     </Row>
+
+                    {/* Line selector - shows when department is selected */}
+                    {showLineSelector && selectedDeptForLines && (
+                        <div className="mt-4 border-top pt-4">
+                            <LineSelector
+                                departmentId={selectedDeptForLines}
+                                onLineSelected={handleLineSelected}
+                            />
+                        </div>
+                    )}
+
+                    {/* Selected line display */}
+                    {filters.lineId && (
+                        <div className="mt-3 p-3 bg-info bg-opacity-10 rounded">
+                            <Row className="align-items-center">
+                                <Col>
+                                    <p className="mb-0">
+                                        <strong>📌 Selected Line:</strong> {filters.lineName}
+                                    </p>
+                                </Col>
+                                <Col xs="auto">
+                                    <Button
+                                        variant="sm"
+                                        size="sm"
+                                        onClick={() => setFilters(prev => ({
+                                            ...prev,
+                                            lineId: null,
+                                            lineName: ''
+                                        }))}
+                                    >
+                                        ✕ Clear
+                                    </Button>
+                                </Col>
+                            </Row>
+                        </div>
+                    )}
                 </Card.Body>
             </Card>
 
             {/* Table */}
             <Card className="shadow-sm">
                 <Card.Body className="p-0">
-                    {loading ? (
+                    {departmentsLoading ? (
                         <div className="text-center p-5">
                             <Spinner animation="border" role="status">
-                                <span className="visually-hidden">Loading...</span>
+                                <span className="visually-hidden">Loading departments...</span>
                             </Spinner>
+                        </div>
+                    ) : departments.length === 0 ? (
+                        <div className="alert alert-danger m-3">
+                            ❌ No departments found. Please check your connection or contact administrator.
+                        </div>
+                    ) : loading && filters.departmentId ? (
+                        <div className="text-center p-5">
+                            <Spinner animation="border" role="status">
+                                <span className="visually-hidden">Loading payrolls...</span>
+                            </Spinner>
+                        </div>
+                    ) : !filters.departmentId ? (
+                        <div className="alert alert-warning m-3">
+                            ⚠️ Please select a department to view payrolls
+                        </div>
+                    ) : payrolls.length === 0 ? (
+                        <div className="alert alert-info m-3">
+                            ℹ️ No payrolls found for the selected department. Please create a new payroll to get started.
                         </div>
                     ) : paginatedPayrolls.length === 0 ? (
                         <div className="alert alert-info m-3">
-                            No payrolls found. Please create a new payroll to get started.
+                            ℹ️ No payrolls match the selected filters.
                         </div>
                     ) : (
                         <Table striped hover responsive className="mb-0">
                             <thead className="bg-light">
                             <tr>
+                                <th>ID</th>
                                 <th>Month</th>
                                 <th>Department</th>
-                                <th>Total Salary</th>
+                                <th className="text-end">Total Salary</th>
                                 <th>Status</th>
                                 <th>Create At</th>
                                 <th>Action</th>
@@ -240,16 +454,24 @@ const PayrollList = () => {
                             </thead>
                             <tbody>
                             {paginatedPayrolls.map(payroll => (
-                                <tr key={payroll.payrollId}>
+                                <tr key={payroll.id}>
+                                    <td>
+                                        <small className="text-muted">#{payroll.id}</small>
+                                    </td>
                                     <td>
                                         <strong>
-                                            {new Date(payroll.month).toLocaleDateString('vi-VN', {
-                                                month: 'long',
-                                                year: 'numeric'
-                                            })}
+                                            {payroll.month
+                                                ? new Date(payroll.month).toLocaleDateString('vi-VN', {
+                                                    month: 'long',
+                                                    year: 'numeric'
+                                                })
+                                                : 'N/A'
+                                            }
                                         </strong>
                                     </td>
-                                    <td>{payroll.departmentName}</td>
+                                    <td>
+                                        {payroll.department?.name || 'N/A'}
+                                    </td>
                                     <td className="text-end">
                                         <strong>{formatCurrency(payroll.totalSalary)}</strong>
                                     </td>
@@ -258,20 +480,20 @@ const PayrollList = () => {
                                             {getStatusLabel(payroll.status)}
                                         </Badge>
                                     </td>
-                                    <td>{formatDate(payroll.createdDate)}</td>
+                                    <td>{formatDate(payroll.createdAt)}</td>
                                     <td>
                                         <Link
-                                            to={`/payroll/${payroll.payrollId}`}
+                                            to={`/payroll/${payroll.id}`}
                                             className="btn btn-sm btn-info me-2"
                                         >
-                                            ️ View
+                                            👁️ View
                                         </Link>
-                                        {payroll.status === 'pending' && (
+                                        {payroll.status && payroll.status.toLowerCase() === 'pending' && (
                                             <Link
-                                                to={`/payroll/${payroll.payrollId}/approve`}
+                                                to={`/payroll/${payroll.id}/approve`}
                                                 className="btn btn-sm btn-success"
                                             >
-                                                Approved
+                                                ✓ Approve
                                             </Link>
                                         )}
                                     </td>
@@ -284,7 +506,7 @@ const PayrollList = () => {
             </Card>
 
             {/* Pagination */}
-            {totalPages > 1 && (
+            {filteredTotalPages > 1 && (
                 <div className="d-flex justify-content-center mt-4">
                     <Pagination>
                         <Pagination.First
@@ -295,7 +517,10 @@ const PayrollList = () => {
                             disabled={currentPage === 1}
                             onClick={() => setCurrentPage(currentPage - 1)}
                         />
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        {Array.from({ length: Math.min(filteredTotalPages, 5) }, (_, i) => {
+                            const startPage = Math.max(1, currentPage - 2);
+                            return startPage + i;
+                        }).map(page => (
                             <Pagination.Item
                                 key={page}
                                 active={page === currentPage}
@@ -305,12 +530,12 @@ const PayrollList = () => {
                             </Pagination.Item>
                         ))}
                         <Pagination.Next
-                            disabled={currentPage === totalPages}
+                            disabled={currentPage === filteredTotalPages}
                             onClick={() => setCurrentPage(currentPage + 1)}
                         />
                         <Pagination.Last
-                            disabled={currentPage === totalPages}
-                            onClick={() => setCurrentPage(totalPages)}
+                            disabled={currentPage === filteredTotalPages}
+                            onClick={() => setCurrentPage(filteredTotalPages)}
                         />
                     </Pagination>
                 </div>

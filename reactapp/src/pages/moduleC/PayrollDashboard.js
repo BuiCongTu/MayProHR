@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Alert, Spinner, Badge } from 'react-bootstrap';
+import { useEffect, useState } from 'react';
+import { Alert, Badge, Card, Col, Container, Row, Spinner } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { axiosInstance } from '../../services/api';
 import '../../styles/payroll.css';
 
-const BASE_API = 'http://localhost:9999/api';
-
-const PayrollDashboard = () => {
+const PayrollDashboard = () =>
+{
     const [stats, setStats] = useState({
         totalPayroll: 0,
         approvedPayroll: 0,
@@ -19,35 +18,64 @@ const PayrollDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    useEffect(() => {
+    useEffect(() =>
+    {
         fetchDashboardData();
     }, []);
 
-    const fetchDashboardData = async () => {
-        try {
+    const fetchDashboardData = async () =>
+    {
+        try
+        {
             setLoading(true);
             setError('');
 
             // Fetch statistics
-            const statsResponse = await axios.get(`${BASE_API}/payroll/statistics`);
-            if (statsResponse.data.success) {
-                setStats(statsResponse.data.data);
+            const statsResponse = await axiosInstance.get('/payroll/statistics');
+            let statsData = null;
+            if (statsResponse.data.success === false)
+            {
+                // Error response
+            } else if (statsResponse.data.data)
+            {
+                statsData = statsResponse.data.data;
+            } else if (statsResponse.data.totalPayroll)
+            {
+                // Direct response
+                statsData = statsResponse.data;
+            }
+
+            if (statsData)
+            {
+                setStats(statsData);
             }
 
             // Fetch recent payrolls
-            const recentResponse = await axios.get(`${BASE_API}/payroll/recent?limit=5`);
-            if (recentResponse.data.success) {
-                setRecentPayrolls(recentResponse.data.data || []);
+            const recentResponse = await axiosInstance.get('/payroll/recent?limit=5');
+            let recentData = [];
+            if (recentResponse.data.success !== false)
+            {
+                if (recentResponse.data.data)
+                {
+                    recentData = recentResponse.data.data || [];
+                } else if (Array.isArray(recentResponse.data))
+                {
+                    recentData = recentResponse.data;
+                }
             }
-        } catch (err) {
+            setRecentPayrolls(recentData);
+        } catch (err)
+        {
             console.error('Failed to load dashboard:', err);
             setError(err.response?.data?.message || 'Unable to load dashboard data');
-        } finally {
+        } finally
+        {
             setLoading(false);
         }
     };
 
-    const formatCurrency = (value) => {
+    const formatCurrency = (value) =>
+    {
         if (!value) return '0 ₫';
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
@@ -63,7 +91,8 @@ const PayrollDashboard = () => {
         { name: 'Pending', value: stats.pendingPayroll, color: '#ffc107' }
     ];
 
-    if (loading) {
+    if (loading)
+    {
         return (
             <div className="text-center p-5">
                 <Spinner animation="border" role="status">
@@ -121,15 +150,6 @@ const PayrollDashboard = () => {
                     </Card>
                 </Col>
 
-                <Col lg={3} md={6} className="mb-3">
-                    <Card className="shadow-sm stat-card">
-                        <Card.Body className="text-center">
-                            <h6 className="text-muted">Total Salary Expense</h6>
-                            <h5 className="text-danger">{formatCurrency(stats.totalSalaryExpense)}</h5>
-                            <small>this Month</small>
-                        </Card.Body>
-                    </Card>
-                </Col>
             </Row>
 
             {/* Charts */}
@@ -239,44 +259,44 @@ const PayrollDashboard = () => {
                         <div style={{ overflowX: 'auto' }}>
                             <table className="table table-hover mb-0">
                                 <thead className="bg-light">
-                                <tr>
-                                    <th>Month</th>
-                                    <th>Department</th>
-                                    <th className="text-end">Total Salary</th>
-                                    <th>Status</th>
-                                    <th>Action</th>
-                                </tr>
+                                    <tr>
+                                        <th>Month</th>
+                                        <th>Department</th>
+                                        <th className="text-end">Total Salary</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
-                                {recentPayrolls.map(payroll => (
-                                    <tr key={payroll.payrollId}>
-                                        <td>
-                                            <strong>
-                                                {new Date(payroll.month).toLocaleDateString('vi-VN', {
-                                                    month: 'long',
-                                                    year: 'numeric'
-                                                })}
-                                            </strong>
-                                        </td>
-                                        <td>{payroll.departmentName}</td>
-                                        <td className="text-end">{formatCurrency(payroll.totalSalary)}</td>
-                                        <td>
-                                            <Badge
-                                                bg={payroll.status === 'approved' ? 'success' : 'warning'}
-                                            >
-                                                {payroll.status}
-                                            </Badge>
-                                        </td>
-                                        <td>
-                                            <Link
-                                                to={`/payroll/${payroll.payrollId}`}
-                                                className="btn btn-sm btn-info"
-                                            >
-                                                View
-                                            </Link>
-                                        </td>
-                                    </tr>
-                                ))}
+                                    {recentPayrolls.map(payroll => (
+                                        <tr key={payroll.payrollId}>
+                                            <td>
+                                                <strong>
+                                                    {new Date(payroll.month).toLocaleDateString('vi-VN', {
+                                                        month: 'long',
+                                                        year: 'numeric'
+                                                    })}
+                                                </strong>
+                                            </td>
+                                            <td>{payroll.departmentName}</td>
+                                            <td className="text-end">{formatCurrency(payroll.totalSalary)}</td>
+                                            <td>
+                                                <Badge
+                                                    bg={payroll.status === 'approved' ? 'success' : 'warning'}
+                                                >
+                                                    {payroll.status}
+                                                </Badge>
+                                            </td>
+                                            <td>
+                                                <Link
+                                                    to={`/payroll/${payroll.payrollId}`}
+                                                    className="btn btn-sm btn-info"
+                                                >
+                                                    View
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>

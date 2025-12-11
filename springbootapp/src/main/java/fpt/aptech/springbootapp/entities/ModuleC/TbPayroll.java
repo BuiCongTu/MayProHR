@@ -28,7 +28,7 @@ import java.util.*;
 public class TbPayroll {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id", nullable = false)
+    @Column(name = "payroll_id", nullable = false)
     private Integer id;
 
     @NotNull
@@ -61,7 +61,7 @@ public class TbPayroll {
     @JoinColumn(name = "created_by", nullable = false)
     private TbUser createdBy;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "approved_by")
     private TbUser approvedBy;
 
