@@ -23,6 +23,7 @@ import Profile from "./pages/profile/Profile";
 import {setupAxiosInterceptors} from "./services/authService";
 import {WebSocketProvider} from './contexts/WebSocketContext';
 import PayrollRouter from "./pages/moduleC/PayrollRouter";
+import UserList from "./pages/users/UserList";
 
 
 function App() {
@@ -61,6 +62,8 @@ function App() {
                             <Route path="/profile" element={<Profile/>}/>
 
                             <Route path="/payroll/*" element={<PayrollRouter/>}/>
+
+                            <Route path="/users" element={<UserList/>}/>
 
                             {/* Ticket Routes */}
                             <Route path="/overtime-ticket" element={<OvertimeTicketList/>}/>

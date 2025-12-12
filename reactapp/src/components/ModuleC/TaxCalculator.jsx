@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Button, Card, Row, Col, Alert, Spinner } from 'react-bootstrap';
 import axios from 'axios';
-import '../../../styles/payroll.css';
+import '../../styles/payroll.css';
 
 const BASE_API = 'http://localhost:9999/api';
 

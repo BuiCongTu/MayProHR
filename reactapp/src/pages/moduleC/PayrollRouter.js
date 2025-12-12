@@ -2,12 +2,12 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import PayrollDashboard from './PayrollDashboard';
-import PayrollList from './components/PayrollList';
-import PayrollDetail from './components/PayrollDetail';
-import PayrollApproval from './components/PayrollApproval';
-import PayrollReport from './components/PayrollReport';
-import TaxCalculator from './components/TaxCalculator';
-import CreatePayroll from './components/CreatePayroll';
+import PayrollList from '../../components/ModuleC/PayrollList';
+import PayrollDetail from '../../components/ModuleC/PayrollDetail';
+import PayrollApproval from '../../components/ModuleC/PayrollApproval';
+import PayrollReport from '../../components/ModuleC/PayrollReport';
+import TaxCalculator from '../../components/ModuleC/TaxCalculator';
+import CreatePayroll from '../../components/ModuleC/CreatePayroll';
 
 
 const PayrollRouter = () => {

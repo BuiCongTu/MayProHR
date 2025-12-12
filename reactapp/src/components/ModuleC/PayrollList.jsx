@@ -2,8 +2,8 @@
 import { useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Form, Pagination, Row, Spinner, Table } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import { axiosInstance } from '../../../services/api';
-import '../../../styles/payroll.css';
+import { axiosInstance } from '../../services/api';
+import '../../styles/payroll.css';
 import LineSelector from './LineSelector';
 
 const PayrollList = () => {
@@ -291,9 +291,9 @@ const PayrollList = () => {
     return (
         <div className="payroll-list-container p-4">
             <div className="d-flex justify-content-between align-items-center mb-4">
-                <h2>📋 Payroll List</h2>
+                <h2>Payroll List</h2>
                 <Link to="/payroll/create" className="btn btn-primary">
-                    ➕ Create new
+                    + Create new
                 </Link>
             </div>
 
@@ -386,7 +386,7 @@ const PayrollList = () => {
                             <Row className="align-items-center">
                                 <Col>
                                     <p className="mb-0">
-                                        <strong>📌 Selected Line:</strong> {filters.lineName}
+                                        <strong>Selected Line:</strong> {filters.lineName}
                                     </p>
                                 </Col>
                                 <Col xs="auto">
@@ -419,7 +419,7 @@ const PayrollList = () => {
                         </div>
                     ) : departments.length === 0 ? (
                         <div className="alert alert-danger m-3">
-                            ❌ No departments found. Please check your connection or contact administrator.
+                            No departments found. Please check your connection or contact administrator.
                         </div>
                     ) : loading && filters.departmentId ? (
                         <div className="text-center p-5">
@@ -433,11 +433,11 @@ const PayrollList = () => {
                         </div>
                     ) : payrolls.length === 0 ? (
                         <div className="alert alert-info m-3">
-                            ℹ️ No payrolls found for the selected department. Please create a new payroll to get started.
+                            No payrolls found for the selected department. Please create a new payroll to get started.
                         </div>
                     ) : paginatedPayrolls.length === 0 ? (
                         <div className="alert alert-info m-3">
-                            ℹ️ No payrolls match the selected filters.
+                            No payrolls match the selected filters.
                         </div>
                     ) : (
                         <Table striped hover responsive className="mb-0">
@@ -486,7 +486,7 @@ const PayrollList = () => {
                                             to={`/payroll/${payroll.id}`}
                                             className="btn btn-sm btn-info me-2"
                                         >
-                                            👁️ View
+                                            View
                                         </Link>
                                         {payroll.status && payroll.status.toLowerCase() === 'pending' && (
                                             <Link

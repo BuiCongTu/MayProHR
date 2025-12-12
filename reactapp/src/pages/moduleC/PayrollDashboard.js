@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, Badge, Card, Col, Container, Row, Spinner } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import { CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { axiosInstance } from '../../services/api';
 import '../../styles/payroll.css';
 
@@ -84,13 +83,6 @@ const PayrollDashboard = () =>
         }).format(value);
     };
 
-    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
-
-    const statusData = [
-        { name: 'Approved', value: stats.approvedPayroll, color: '#28a745' },
-        { name: 'Pending', value: stats.pendingPayroll, color: '#ffc107' }
-    ];
-
     if (loading)
     {
         return (
@@ -152,71 +144,7 @@ const PayrollDashboard = () =>
 
             </Row>
 
-            {/* Charts */}
-            <Row className="mb-4">
-                <Col lg={8}>
-                    <Card className="shadow-sm">
-                        <Card.Header className="bg-light">
-                            <h6 className="mb-0"> Monthly Salary Expense Trend</h6>
-                        </Card.Header>
-                        <Card.Body>
-                            {stats.monthlyTrend && stats.monthlyTrend.length > 0 ? (
-                                <ResponsiveContainer width="100%" height={300}>
-                                    <LineChart data={stats.monthlyTrend}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="month" />
-                                        <YAxis />
-                                        <Tooltip formatter={(value) => formatCurrency(value)} />
-                                        <Legend />
-                                        <Line
-                                            type="monotone"
-                                            dataKey="totalSalary"
-                                            stroke="#0088FE"
-                                            name="Salary Expense"
-                                            strokeWidth={2}
-                                        />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="text-center text-muted">No data available</div>
-                            )}
-                        </Card.Body>
-                    </Card>
-                </Col>
-
-                <Col lg={4}>
-                    <Card className="shadow-sm">
-                        <Card.Header className="bg-light">
-                            <h6 className="mb-0"> Payroll Status</h6>
-                        </Card.Header>
-                        <Card.Body>
-                            {statusData.some(s => s.value > 0) ? (
-                                <ResponsiveContainer width="100%" height={250}>
-                                    <PieChart>
-                                        <Pie
-                                            data={statusData}
-                                            cx="50%"
-                                            cy="50%"
-                                            labelLine={false}
-                                            label={({ name, value }) => `${name}: ${value}`}
-                                            outerRadius={80}
-                                            fill="#8884d8"
-                                            dataKey="value"
-                                        >
-                                            {statusData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.color} />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="text-center text-muted">No data available</div>
-                            )}
-                        </Card.Body>
-                    </Card>
-                </Col>
-            </Row>
+            {/* Charts removed to improve performance */}
 
             {/* Quick Actions */}
             <Row className="mb-4">

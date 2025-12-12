@@ -3,8 +3,8 @@ import 'jspdf-autotable';
 import { useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
 import * as XLSX from 'xlsx';
-import { axiosInstance } from '../../../services/api';
-import '../../../styles/payroll.css';
+import { axiosInstance } from '../../services/api';
+import '../../styles/payroll.css';
 
 const PayrollReport = () =>
 {

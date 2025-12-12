@@ -2,8 +2,8 @@
 import { useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Form, Modal, Row, Spinner, Table } from 'react-bootstrap';
 import { useNavigate, useParams } from 'react-router-dom';
-import { axiosInstance } from '../../../services/api';
-import '../../../styles/payroll.css';
+import { axiosInstance } from '../../services/api';
+import '../../styles/payroll.css';
 
 const PayrollApproval = () => {
     const { payrollId } = useParams();

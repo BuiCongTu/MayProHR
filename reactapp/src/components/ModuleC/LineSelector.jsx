@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { axiosInstance } from "../../../services/api";
+import { axiosInstance } from "../../services/api";
 export default function LineSelector({ departmentId, onLineSelected }) {
     const [hierarchy, setHierarchy] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -55,9 +55,11 @@ export default function LineSelector({ departmentId, onLineSelected }) {
         setExpandedLines(newExpanded);
     };
 
-    const renderLineNode = (node, depth = 0) => {
+    const renderLineNode = (node, depth = 0, path = []) => {
         const isExpanded = expandedLines.has(node.id);
         const hasChildren = node.children && node.children.length > 0;
+
+        const currentPath = [...path, node];
 
         return (
             <div key={node.id} style={{ marginLeft: `${depth * 20}px` }} className="line-node">
@@ -68,14 +70,14 @@ export default function LineSelector({ departmentId, onLineSelected }) {
                             style={{ minWidth: '30px' }}
                             onClick={() => toggleExpand(node.id)}
                         >
-                            {isExpanded ? '|' : '--'}
+                            {isExpanded ? '|' : '-'}
                         </button>
                     )}
                     {!hasChildren && <span style={{ minWidth: '30px' }}></span>}
 
                     <button
                         className="btn btn-sm btn-outline-primary flex-grow-1 text-start"
-                        onClick={() => onLineSelected && onLineSelected(node)}
+                        onClick={() => onLineSelected && onLineSelected(node, currentPath)}
                     >
                         <strong>{node.name}</strong>
                         <br />
@@ -88,7 +90,7 @@ export default function LineSelector({ departmentId, onLineSelected }) {
 
                 {hasChildren && isExpanded && (
                     <div className="children-container">
-                        {node.children.map(child => renderLineNode(child, depth + 1))}
+                        {node.children.map(child => renderLineNode(child, depth + 1, currentPath))}
                     </div>
                 )}
             </div>
@@ -105,7 +107,7 @@ export default function LineSelector({ departmentId, onLineSelected }) {
             <hr />
             {hierarchy.rootLines && hierarchy.rootLines.length > 0 ? (
                 <div className="lines-tree">
-                    {hierarchy.rootLines.map(rootLine => renderLineNode(rootLine))}
+                    {hierarchy.rootLines.map(rootLine => renderLineNode(rootLine, 0, []))}
                 </div>
             ) : (
                 <div className="alert alert-info">No lines available</div>
