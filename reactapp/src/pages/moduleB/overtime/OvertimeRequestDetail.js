@@ -2,7 +2,7 @@ import React, {useState, useEffect, useMemo} from 'react';
 import {useParams, useNavigate} from 'react-router-dom';
 import {
     approveOvertimeRequest,
-    getOvertimeRequestById
+    getOvertimeRequestById, rejectOvertimeRequest
 } from '../../../services/moduleB/overtimeService';
 import { getLinesByDepartment } from '../../../services/departmentService';
 import {getCurrentUser} from '../../../services/authService';
@@ -10,6 +10,7 @@ import RequestStatusTracker from '../../../components/moduleB/RequestStatusTrack
 import EmployeeListTable from './EmployeeList';
 import RequestTicketList from './RequestTicketList';
 import {useWebSocket} from '../../../contexts/WebSocketContext';
+import ActionReasonModal from "./ActionReasonModal";
 
 import {
     Box, CircularProgress, Typography, Alert, Button, Container,
@@ -287,6 +288,19 @@ export default function OvertimeRequestDetail() {
         setRejectTarget({ type: 'request', id: request.id });
         setRejectModalOpen(true);
     }
+
+    const handleRejectSubmit = async (reason) => {
+        try {
+            if (rejectTarget.type === 'request') {
+                await rejectOvertimeRequest(rejectTarget.id, reason);
+                alert("Request rejected successfully");
+                loadData();
+            }
+            setRejectModalOpen(false);
+        } catch (err) {
+            alert("Error rejecting: " + (err.message || err));
+        }
+    };
 
     const handleViewEmployees = (list) => {
         setSelectedEmployeeList(list || []);
@@ -600,6 +614,16 @@ export default function OvertimeRequestDetail() {
                     <EmployeeListTable employees={selectedEmployeeList} />
                 </DialogContent>
             </Dialog>
+
+            <ActionReasonModal
+                open={rejectModalOpen}
+                onClose={() => setRejectModalOpen(false)}
+                onSubmit={handleRejectSubmit}
+                title="Reject Request"
+                label="Reason for rejection"
+                submitText="Confirm Reject"
+                submitColor="error"
+            />
         </Container>
     );
 }
