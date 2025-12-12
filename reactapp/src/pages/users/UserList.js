@@ -236,7 +236,7 @@ const UserList = () =>
     handleLineSelected(null);
   };
 
-  // Breadcrumb hiển thị vị trí hiện tại: Department / Line / SubLine / WorkUnit
+  //hiển thị vị trí hiện tại: Department / Line / SubLine / WorkUnit
   const linePath = deptLineFilters.linePath || [];
 
   const currentLineName = linePath[0]?.name || '-';

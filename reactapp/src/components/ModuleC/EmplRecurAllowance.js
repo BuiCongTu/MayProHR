@@ -4,12 +4,12 @@ import { getAllDepartments } from '../../services/departmentService';
 import { getUsersByDepartment } from '../../services/userService';
 
 import
-    {
-        createRecurringAllowance,
-        getRecurringAllowancesByUser,
-        toggleAllowance,
-        updateRecurringAllowance
-    } from '../../services/moduleC/payrollService';
+{
+    createRecurringAllowance,
+    getRecurringAllowancesByUser,
+    toggleAllowance,
+    updateRecurringAllowance
+} from '../../services/moduleC/payrollService';
 import '../../styles/payroll.css';
 
 const EmplRecurAllowance = () =>
@@ -166,11 +166,39 @@ const EmplRecurAllowance = () =>
             return;
         }
 
+        const actionLabel = editingId == null ? 'create' : 'update';
+        const confirmed = window.confirm(`Are you sure you want to ${actionLabel} this recurring allowance?`);
+        if (!confirmed)
+        {
+            return;
+        }
+
         try
         {
             setSaving(true);
             setError('');
             setInfo('');
+
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth() + 1;
+
+            let effectiveIsActive = form.isActive;
+
+            if (form.endMonth)
+            {
+                const [endYearStr, endMonthStr] = form.endMonth.split('-');
+                const endYear = Number(endYearStr);
+                const endMonth = Number(endMonthStr);
+
+                if (!Number.isNaN(endYear) && !Number.isNaN(endMonth))
+                {
+                    if (endYear < currentYear || (endYear === currentYear && endMonth < currentMonth))
+                    {
+                        effectiveIsActive = false;
+                    }
+                }
+            }
 
             const payload = {
                 amount: Number(form.amount),
@@ -178,7 +206,7 @@ const EmplRecurAllowance = () =>
                 startMonth: form.startMonth + '-01',
                 endMonth: form.endMonth ? form.endMonth + '-01' : null,
                 reason: form.reason,
-                isActive: form.isActive
+                isActive: effectiveIsActive
             };
 
             if (editingId == null)
@@ -220,6 +248,13 @@ const EmplRecurAllowance = () =>
     const handleToggle = async (allowanceId) =>
     {
         if (!selectedUserId) return;
+
+        const confirmed = window.confirm('Are you sure you want to change active status for this allowance?');
+        if (!confirmed)
+        {
+            return;
+        }
+
         try
         {
             setError('');
@@ -234,7 +269,7 @@ const EmplRecurAllowance = () =>
         }
     };
 
-    // Khi click vào row -> đổ data lên form để xem / edit
+    //đổ data lên form để xem / edit
     const handleRowClick = (a) =>
     {
         setEditingId(a.id);
@@ -280,7 +315,7 @@ const EmplRecurAllowance = () =>
                     <Row className="gy-3">
                         <Col md={4}>
                             <Form.Group>
-                                <Form.Label>Department</Form.Label>
+                                <Form.Label>Select Department <span style={{ color: 'red' }}>*</span> </Form.Label>
                                 {departmentsLoading ? (
                                     <Spinner animation="border" size="sm" />
                                 ) : (
@@ -306,7 +341,7 @@ const EmplRecurAllowance = () =>
 
                         <Col md={4}>
                             <Form.Group>
-                                <Form.Label>Employee</Form.Label>
+                                <Form.Label>Select Employee <span style={{ color: 'red' }}>*</span> </Form.Label>
                                 {employeesLoading ? (
                                     <Spinner animation="border" size="sm" />
                                 ) : (
@@ -343,7 +378,7 @@ const EmplRecurAllowance = () =>
                                 <Row className="gy-3">
                                     <Col md={3}>
                                         <Form.Group>
-                                            <Form.Label>Type</Form.Label>
+                                            <Form.Label>Type <span style={{ color: 'red' }}>*</span> </Form.Label>
                                             <Form.Select
                                                 name="type"
                                                 value={form.type}
@@ -360,7 +395,7 @@ const EmplRecurAllowance = () =>
                                     </Col>
                                     <Col md={3}>
                                         <Form.Group>
-                                            <Form.Label>Amount</Form.Label>
+                                            <Form.Label>Amount <span style={{ color: 'red' }}>*</span> </Form.Label>
                                             <Form.Control
                                                 type="number"
                                                 name="amount"
@@ -374,7 +409,7 @@ const EmplRecurAllowance = () =>
                                     </Col>
                                     <Col md={3}>
                                         <Form.Group>
-                                            <Form.Label>Start month</Form.Label>
+                                            <Form.Label>Start month <span style={{ color: 'red' }}>*</span> </Form.Label>
                                             <Form.Control
                                                 type="month"
                                                 name="startMonth"
