@@ -12,7 +12,7 @@ const UserList = () =>
     departments,
     departmentsLoading,
     departmentsError,
-    filters: deptLineFilters,              // { departmentId, departmentName, lineId, lineName }
+    filters: deptLineFilters,
     handleDepartmentChange,
     handleLineSelected,
     clearDepartmentLineFilters,

@@ -8,6 +8,7 @@ import PayrollApproval from '../../components/ModuleC/PayrollApproval';
 import PayrollReport from '../../components/ModuleC/PayrollReport';
 import TaxCalculator from '../../components/ModuleC/TaxCalculator';
 import CreatePayroll from '../../components/ModuleC/CreatePayroll';
+import EmplRecurAllowance from '../../components/ModuleC/EmplRecurAllowance';
 
 
 const PayrollRouter = () => {
@@ -18,6 +19,8 @@ const PayrollRouter = () => {
             <Route path="/create" element={<CreatePayroll />} />
             <Route path="/report" element={<PayrollReport />} />
             <Route path="/tax-calculator" element={<TaxCalculator />} />
+            <Route path="/allowances/recurring" element={<EmplRecurAllowance />} />
+
             <Route path="/:payrollId/approve" element={<PayrollApproval />} />
             <Route path="/:payrollId" element={<PayrollDetail />} />
             <Route path="*" element={<Navigate to="/payroll" replace />} />

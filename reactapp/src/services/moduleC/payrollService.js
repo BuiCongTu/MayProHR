@@ -12,6 +12,90 @@ const extractData = (response) =>
     }
     return response.data;
 };
+//==========Allowances=======
+//tạo trợ cấp dài hạn cho employee
+export const createRecurringAllowance = async (userId, payload) =>
+{
+    try
+    {
+        const response = await axiosInstance.post(
+            `${API_BASE}/allowances/recurring`,
+            { userId, ...payload }
+        );
+        return extractData(response);
+    } catch (error)
+    {
+        console.error('Error creating recurring allowance:', error);
+        throw error;
+    }
+};
+//edit allowance
+export const updateRecurringAllowance = async (allowanceId, payload) =>
+{
+    try
+    {
+        const response = await axiosInstance.put(
+            `${API_BASE}/allowances/recurring/${allowanceId}`,
+            payload
+        );
+        return extractData(response);
+    } catch (error)
+    {
+        console.error('Error updating recurring allowance:', error);
+        throw error;
+    }
+};
+
+// Lấy danh sách trợ cấp RECURRING của 1 employee
+export const getRecurringAllowancesByUser = async (userId) =>
+{
+    try
+    {
+        const response = await axiosInstance.get(
+            `${API_BASE}/allowances/recurring`,
+            { params: { userId } }
+        );
+        return extractData(response);
+    } catch (error)
+    {
+        console.error('Error fetching recurring allowances:', error);
+        throw error;
+    }
+};
+//toggle cho Recurring
+export const toggleAllowance = async (allowanceId) =>
+{
+    try
+    {
+        const response = await axiosInstance.post(
+            `${API_BASE}/allowances/${allowanceId}/toggle`
+        );
+        return extractData(response);
+    } catch (error)
+    {
+        console.error('Error toggling allowance:', error);
+        throw error;
+    }
+};
+
+
+// Thêm trợ cấp ONE_TIME cho 1 employeePayroll trong payroll cụ thể
+export const addOneTimeAllowance = async (payrollId, employeePayrollId, payload) =>
+{
+    try
+    {
+        const response = await axiosInstance.post(
+            `${API_BASE}/${payrollId}/employee/${employeePayrollId}/allowances`,
+            payload
+        );
+        return extractData(response);
+    } catch (error)
+    {
+        console.error('Error adding one-time allowance:', error);
+        throw error;
+    }
+};
+//===========
 
 //Tính lương đầy đủ cho 1 nhân viên
 export const calculateEmployeeSalary = async (userId, month, allowance = 0) =>
@@ -305,5 +389,9 @@ export default {
     getPayrollReport,
     exportPayrollToExcel,
     getDepartmentLines,
-    getChildLines
+    getChildLines,
+    createRecurringAllowance,
+    getRecurringAllowancesByUser,
+    addOneTimeAllowance,
+    toggleAllowance
 };

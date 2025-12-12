@@ -1,7 +1,9 @@
 package fpt.aptech.springbootapp.entities.ModuleC;
 
+import fpt.aptech.springbootapp.entities.Core.TbUser;
 import jakarta.persistence.*;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import org.hibernate.annotations.*;
 
@@ -20,20 +22,59 @@ public class TbPayrollAllowance {
     @Column(name = "id")
     private Integer id;
 
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private TbUser user;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "employee_payroll_id", nullable = false)
+    @JoinColumn(name = "employee_payroll_id")
     private TbEmployeePayroll employeePayroll;
 
-    @Column(name = "allowance_type", length = 100)
-    private String allowanceType;  // "Phụ cấp gia đình", "Phụ cấp vị trí", etc.
+    @NotNull
+    @Column(name = "amount", nullable = false, precision = 15, scale = 2)
+    private BigDecimal amount;
 
-    @Column(name = "allowance_amount", precision = 15, scale = 2)
-    private BigDecimal allowanceAmount;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", length = 50)
+    private AllowanceType type;
 
-    @Column(name = "description")
-    private String description;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "scope", length = 20)
+    private AllowanceScope scope = AllowanceScope.RECURRING;
+
+    @NotNull
+    @Column(name = "start_month", nullable = false)
+    private LocalDate startMonth;
+
+    @Column(name = "end_month")
+    private LocalDate endMonth;
+
+    @Lob
+    @Column(name = "reason")
+    private String reason;
+
+    @ColumnDefault("1")
+    @Column(name = "is_active")
+    private Boolean isActive = true;
 
     @ColumnDefault("getdate()")
     @Column(name = "created_at")
     private Instant createdAt;
+
+    public enum AllowanceType {
+        CHILD_CARE,      // trợ cấp nuôi con nhỏ
+        HAZARD,          // độc hại
+        POSITION,        // chức vụ
+        SENIORITY,       // thâm niên
+        TRAVEL,          // công tác
+        OTHER
+    }
+
+    public enum AllowanceScope {
+        RECURRING, // dài hạn
+        ONE_TIME
+    }
+
+
 }
