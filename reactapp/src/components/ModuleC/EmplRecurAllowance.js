@@ -4,12 +4,12 @@ import { getAllDepartments } from '../../services/departmentService';
 import { getUsersByDepartment } from '../../services/userService';
 
 import
-{
-    createRecurringAllowance,
-    getRecurringAllowancesByUser,
-    toggleAllowance,
-    updateRecurringAllowance
-} from '../../services/moduleC/payrollService';
+    {
+        createRecurringAllowance,
+        getRecurringAllowancesByUser,
+        toggleAllowance,
+        updateRecurringAllowance
+    } from '../../services/moduleC/payrollService';
 import '../../styles/payroll.css';
 
 const EmplRecurAllowance = () =>
