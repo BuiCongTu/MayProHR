@@ -1416,4 +1416,34 @@ FROM tbUser
 WHERE department_id=@DeptFinishing
   AND role_id IN (SELECT role_id FROM @roleIds);
 
-PRINT 'DONE — Seed payroll + attendance + overtime for Finishing Center';
+
+SELECT TOP 50 payroll_id, department_id, month, total_salary
+FROM tbPayroll
+ORDER BY payroll_id DESC;
+
+CREATE TABLE tbPayrollAllowance (
+    id                  INT IDENTITY(1,1) PRIMARY KEY,
+    user_id             INT NOT NULL,
+    employee_payroll_id INT NULL,
+    amount              DECIMAL(15, 2) NOT NULL,
+    type                VARCHAR(50) NULL,          -- AllowanceType (enum as string)
+    scope               VARCHAR(20) NULL DEFAULT 'RECURRING', -- AllowanceScope
+    start_month         DATE NOT NULL,
+    end_month           DATE NULL,
+    reason              NVARCHAR(MAX) NULL,
+    is_active           BIT NOT NULL CONSTRAINT DF_tbPayrollAllowance_is_active DEFAULT (1),
+    created_at          DATETIME2(0) NULL CONSTRAINT DF_tbPayrollAllowance_created_at DEFAULT (GETDATE())
+);
+GO
+
+ALTER TABLE tbPayrollAllowance
+ADD CONSTRAINT FK_tbPayrollAllowance_user
+    FOREIGN KEY (user_id)
+    REFERENCES tbUser(user_id);
+GO
+
+ALTER TABLE tbPayrollAllowance
+ADD CONSTRAINT FK_tbPayrollAllowance_employeePayroll
+    FOREIGN KEY (employee_payroll_id)
+    REFERENCES tbEmployeePayroll(id);
+GO

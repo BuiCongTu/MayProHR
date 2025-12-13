@@ -1,11 +1,9 @@
 // factory directory duyet
-import React, { useState, useEffect } from 'react';
-import { Form, Button, Card, Table, Alert, Modal, Spinner, Badge, Row, Col } from 'react-bootstrap';
-import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import '../../../styles/payroll.css';
-
-const BASE_API = 'http://localhost:9999/api';
+import { useEffect, useState } from 'react';
+import { Alert, Badge, Button, Card, Col, Form, Modal, Row, Spinner, Table } from 'react-bootstrap';
+import { useNavigate, useParams } from 'react-router-dom';
+import { axiosInstance } from '../../services/api';
+import '../../styles/payroll.css';
 
 const PayrollApproval = () => {
     const { payrollId } = useParams();
@@ -27,12 +25,22 @@ const PayrollApproval = () => {
     const fetchPayrollDetails = async () => {
         try {
             setLoading(true);
-            const response = await axios.get(`${BASE_API}/payroll/${payrollId}`);
+            const response = await axiosInstance.get(`/payroll/${payrollId}`);
 
-            if (response.data.success) {
-                setPayroll(response.data.data);
-            } else {
-                setError(response.data.message || 'Not Loadding Payroll Details. Please try again later.');
+            // Handle both response formats
+            let payrollData = null;
+            if (response.data.success === false) {
+                setError(response.data.message || 'Failed to load payroll details');
+            } else if (response.data.data) {
+                payrollData = response.data.data;
+            } else if (response.data.id) {
+                // Direct response without wrapper
+                payrollData = response.data;
+            }
+
+            if (payrollData) {
+                setPayroll(payrollData);
+                setError('');
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Error loading payroll details: '
@@ -45,20 +53,21 @@ const PayrollApproval = () => {
     const handleApprove = async () => {
         try {
             setLoading(true);
-            const response = await axios.post(
-                `${BASE_API}/payroll/${payrollId}/approve`,
+            const response = await axiosInstance.post(
+                `/payroll/${payrollId}/approve`,
                 {
                     approverNote: approveNote
                 }
             );
 
-            if (response.data.success) {
+           
+            if (response.data.success === false) {
+                setError(response.data.message || 'Approve failed');
+            } else {
                 setShowModal(false);
                 navigate('/payroll', {
                     state: { message: 'Approve payroll successfully.' }
                 });
-            } else {
-                setError(response.data.message || 'Approve failed');
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Error during approval');
@@ -71,20 +80,21 @@ const PayrollApproval = () => {
         try {
             setLoading(true);
             // Assuming there's a reject endpoint
-            const response = await axios.post(
-                `${BASE_API}/payroll/${payrollId}/reject`,
+            const response = await axiosInstance.post(
+                `/payroll/${payrollId}/reject`,
                 {
                     rejectReason: approveNote
                 }
             );
 
-            if (response.data.success) {
+            // Handle both response formats
+            if (response.data.success === false) {
+                setError(response.data.message || 'Reject failed');
+            } else {
                 setShowModal(false);
                 navigate('/payroll', {
                     state: { message: 'Payroll rejected successfully!' }
                 });
-            } else {
-                setError(response.data.message || 'Reject failed');
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Error while rejecting');

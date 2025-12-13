@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Button, Card, Row, Col, Alert, Spinner } from 'react-bootstrap';
 import axios from 'axios';
-import '../../../styles/payroll.css';
+import '../../styles/payroll.css';
 
 const BASE_API = 'http://localhost:9999/api';
 
@@ -54,10 +54,22 @@ export default function TaxCalculator({userId = null}) {
                 }
             });
 
-            if (response.data.success) {
-                setResult(response.data.data);
-            } else {
+            
+            let result = null;
+            if (response.data.success === false) {
                 setError(response.data.message || 'Calculator failed. Please try again.');
+            } else if (response.data.data) {
+                result = response.data.data;
+            } else if (response.data.taxTaxable || response.data.personalIncomeTax) {
+                
+                result = response.data;
+            }
+
+            if (result) {
+                setResult(result);
+                setError('');
+            } else if (response.data.success !== false) {
+                setError('Failed to calculate tax');
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Error calculating tax: ' + err.message);

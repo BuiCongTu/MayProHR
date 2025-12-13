@@ -2,6 +2,8 @@ package fpt.aptech.springbootapp.services.System;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -284,6 +286,43 @@ public class UserServiceImp implements UserService {
 
     //Anh Tú có thể dùng UserMapper - ddúng zị, dùng nào cũng đc
     private UserResponseDto buildUserResponseDto(TbUser user) {
+        TbLine userLine = user.getLine();
+
+        Integer lineId = null;
+        String lineName = null;
+        Integer subLineId = null;
+        String subLineName = null;
+        Integer workUnitId = null;
+        String workUnitName = null;
+
+        if (userLine != null) {
+            lineId = userLine.getId();
+            lineName = userLine.getName();
+
+            // Xây dựng chuỗi line từ gốc tới lá để suy ra WorkUnit / SubLine
+            List<TbLine> chain = new ArrayList<>();
+            TbLine current = userLine;
+            while (current != null) {
+                chain.add(current);
+                current = current.getParent();
+            }
+            Collections.reverse(chain);
+
+            if (!chain.isEmpty()) {
+                // node gốc được xem như WorkUnit
+                TbLine root = chain.get(0);
+                workUnitId = root.getId();
+                workUnitName = root.getName();
+
+                // nếu có từ 3 cấp trở lên thì cấp sâu nhất coi như SubLine
+                if (chain.size() >= 3) {
+                    TbLine leaf = chain.get(chain.size() - 1);
+                    subLineId = leaf.getId();
+                    subLineName = leaf.getName();
+                }
+            }
+        }
+
         return UserResponseDto.builder()
                 .id(user.getId())
                 .fullName(user.getFullName())
@@ -294,8 +333,12 @@ public class UserServiceImp implements UserService {
                 .roleName(user.getRole() != null ? user.getRole().getName() : null)
                 .departmentId(user.getDepartment() != null ? user.getDepartment().getId() : null)
                 .departmentName(user.getDepartment() != null ? user.getDepartment().getName() : null)
-                .lineId(user.getLine() != null ? user.getLine().getId() : null)
-                .lineName(user.getLine() != null ? user.getLine().getName() : null)
+                .lineId(lineId)
+                .lineName(lineName)
+                .subLineId(subLineId)
+                .subLineName(subLineName)
+                .workUnitId(workUnitId)
+                .workUnitName(workUnitName)
                 .skillLevelId(user.getSkillLevel() != null ? user.getSkillLevel().getId() : null)
                 .skillLevelName(user.getSkillLevel() != null ? user.getSkillLevel().getName() : null)
                 .salaryType(user.getSalaryType())
@@ -529,7 +572,7 @@ public class UserServiceImp implements UserService {
             System.out.println("DEBUG: Checking Factory Manager with departmentId=" + departmentId);
             usersWithRole = userRepo.findAll().stream()
                     .filter(u -> u.getRole() != null && u.getRole().getId().equals(roleId)
-                            && u.getDepartment() != null && u.getDepartment().getId().equals(departmentId))
+                    && u.getDepartment() != null && u.getDepartment().getId().equals(departmentId))
                     .collect(Collectors.toList());
             System.out.println("DEBUG: Found " + usersWithRole.size() + " Factory Manager users in this department");
             if (!usersWithRole.isEmpty()) {
@@ -538,7 +581,6 @@ public class UserServiceImp implements UserService {
             }
             return null;
         }
-
 
         // Các role khác
         usersWithRole = userRepo.findAll().stream()

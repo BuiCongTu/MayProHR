@@ -28,7 +28,7 @@ import java.time.*;
 public class TbEmployeePayroll {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "detail_id", nullable = false)
+    @Column(name = "id", nullable = false)
     private Integer id;
 
     @NotNull
