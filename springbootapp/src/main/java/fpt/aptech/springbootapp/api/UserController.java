@@ -2,6 +2,8 @@ package fpt.aptech.springbootapp.api;
 
 import java.util.List;
 
+import fpt.aptech.springbootapp.entities.Core.TbUser;
+import fpt.aptech.springbootapp.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -24,10 +26,19 @@ import fpt.aptech.springbootapp.services.System.UserService;
 public class UserController {
 
     final private UserService userService;
+    final private UserRepository userRepository;
 
     @Autowired
-    public UserController(UserService userService) {
+    public UserController(UserService userService, UserRepository userRepository)
+    {
         this.userService = userService;
+        this.userRepository = userRepository;
+    }
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<TbUser>>> getAllUsers() {
+        List<TbUser> users = userRepository.findAll();
+        return ResponseEntity.ok(ApiResponse.success(users));
     }
 
     @GetMapping("/department/{deptId}")

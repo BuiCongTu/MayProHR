@@ -66,6 +66,19 @@ public class FaceRecognitionService {
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 Map<String, Object> result = response.getBody();
+
+                // Nếu Python trả về thành công và có embedding, lưu vào TbUser.faceData
+                if (Boolean.TRUE.equals(result.get("success")) && result.get("embedding") != null) {
+                    try {
+                        String embeddingJson = objectMapper.writeValueAsString(result.get("embedding"));
+                        user.setFaceData(embeddingJson);
+                        userRepository.save(user);
+                        log.info("Saved face embedding to TbUser.faceData for userId: {}", userId);
+                    } catch (Exception ex) {
+                        log.warn("Failed to save faceData for user {}: {}", userId, ex.getMessage());
+                    }
+                }
+
                 log.info("Face registered successfully for user: {}", userId);
                 return result;
             } else {
