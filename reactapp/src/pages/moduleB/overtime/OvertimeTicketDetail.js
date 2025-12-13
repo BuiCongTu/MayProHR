@@ -121,7 +121,7 @@ export default function OvertimeTicketDetail() {
             <Paper elevation={2} sx={{p: 3, mb: 3, borderRadius: 2, borderTop: '4px solid #1976d2'}}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                     <Button startIcon={<ArrowBackIcon/>} onClick={() => navigate('/overtime-ticket')} sx={{color: 'text.secondary'}}>Back</Button>
-                    <Button variant="outlined" startIcon={<HistoryIcon/>} onClick={() => setDrawerOpen(true)}>History</Button>
+                    {/*<Button variant="outlined" startIcon={<HistoryIcon/>} onClick={() => setDrawerOpen(true)}>History</Button>*/}
                 </Stack>
                 <Divider sx={{mb: 2}}/>
                 <Grid container spacing={2} alignItems="center">
@@ -215,16 +215,16 @@ export default function OvertimeTicketDetail() {
                 <Alert severity="warning">No employees found in this ticket.</Alert>
             )}
 
-            <Drawer anchor="right" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
-                <Box sx={{width: 350, p: 3}}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                        <Typography variant="h6" fontWeight="bold">Status Tracker</Typography>
-                        <IconButton onClick={() => setDrawerOpen(false)}><CloseIcon/></IconButton>
-                    </Box>
-                    <Divider sx={{mb: 3}}/>
-                    <TicketStatusTracker status={ticket.status} orientation="vertical"/>
-                </Box>
-            </Drawer>
+            {/*<Drawer anchor="right" open={drawerOpen} onClose={() => setDrawerOpen(false)}>*/}
+            {/*    <Box sx={{width: 350, p: 3}}>*/}
+            {/*        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>*/}
+            {/*            <Typography variant="h6" fontWeight="bold">Status Tracker</Typography>*/}
+            {/*            <IconButton onClick={() => setDrawerOpen(false)}><CloseIcon/></IconButton>*/}
+            {/*        </Box>*/}
+            {/*        <Divider sx={{mb: 3}}/>*/}
+            {/*        <TicketStatusTracker status={ticket.status} orientation="vertical"/>*/}
+            {/*    </Box>*/}
+            {/*</Drawer>*/}
         </Container>
     );
 }
