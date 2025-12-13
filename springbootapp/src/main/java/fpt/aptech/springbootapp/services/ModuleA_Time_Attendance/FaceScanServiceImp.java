@@ -1,21 +1,27 @@
 package fpt.aptech.springbootapp.services.ModuleA_Time_Attendance;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+
 import fpt.aptech.springbootapp.entities.Core.TbFaceScanLog;
 import fpt.aptech.springbootapp.entities.Core.TbUser;
 import fpt.aptech.springbootapp.entities.ModuleA.TbAttendance;
-import fpt.aptech.springbootapp.repositories.ModuleA_Time_Attendance.*;
-import fpt.aptech.springbootapp.repositories.*;
-import lombok.*;
+import fpt.aptech.springbootapp.repositories.ModuleA_Time_Attendance.AttendanceRepository;
+import fpt.aptech.springbootapp.repositories.ModuleA_Time_Attendance.FaceScanLogRepository;
+import fpt.aptech.springbootapp.repositories.UserRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.*;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.*;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
-
-import java.math.BigDecimal;
-import java.time.*;
-import java.util.*;
 
 @Service
 @Slf4j
@@ -47,19 +53,23 @@ public class FaceScanServiceImp implements FaceScanService {
     @Override
     public TbFaceScanLog scanFaceAndAttendance(String imageBase64, TbFaceScanLog.ScanType scanType) {
         try {
-            Map<String, String> request = new HashMap<>();
-            request.put("image_base64", imageBase64);
+            // Gửi đúng format body cho Python Flask /api/face/recognize
+            Map<String, Object> request = new HashMap<>();
+            request.put("imageBase64", imageBase64);
+            request.put("scanType", scanType != null ? scanType.name() : "CHECK_IN");
 
             Map<String, Object> responseData = webClient.post()
-                    .uri("/api/face/scan")
+                    .uri("/api/face/recognize")
                     .bodyValue(request)
-                    .retrieve()
-                    .bodyToMono(Map.class)
+                    .exchangeToMono(response
+                            -> response.bodyToMono(Map.class)
+                            .defaultIfEmpty(new HashMap<>())
+                            .map(body -> {
+                                body.put("_status", response.statusCode().value());
+                                return body;
+                            })
+                    )
                     .timeout(java.time.Duration.ofSeconds(30))
-                    .onErrorMap(WebClientResponseException.class, ex -> {
-                        log.error("Python service error: {}", ex.getMessage());
-                        return new RuntimeException("Python service error: " + ex.getMessage());
-                    })
                     .block();
 
             TbFaceScanLog scanLog = new TbFaceScanLog();
@@ -69,11 +79,17 @@ public class FaceScanServiceImp implements FaceScanService {
             scanLog.setIsMatched(false);
 
             if (responseData != null) {
-                Integer matchedUserId = (Integer) responseData.get("user_id");
-                Double confidence = (Double) responseData.get("confidence");
-                Integer faceId = (Integer) responseData.get("face_id");
+                Object statusObj = responseData.get("_status");
+                Integer statusCode = statusObj instanceof Number ? ((Number) statusObj).intValue() : 200;
 
-                if (confidence != null && confidence >= confidenceThreshold) {
+                Boolean success = (Boolean) responseData.get("success");
+                Object confObj = responseData.get("confidence");
+                Double confidence = confObj instanceof Number ? ((Number) confObj).doubleValue() : null;
+                Integer matchedUserId = (Integer) responseData.get("userId");
+                Object message = responseData.get("message");
+
+                if (statusCode >= 200 && statusCode < 300 && Boolean.TRUE.equals(success)
+                        && confidence != null && confidence >= confidenceThreshold) {
                     scanLog.setIsMatched(true);
                     scanLog.setIsRecognized(true);
                     scanLog.setMatchedConfidence(new BigDecimal(confidence));
@@ -87,11 +103,16 @@ public class FaceScanServiceImp implements FaceScanService {
                         handleAttendance(scanLog, matchedUserId, scanType);
                     }
                 } else {
-                    log.warn("Confidence below threshold or null. Confidence: {}", confidence);
+                    // 4xx từ Python (ví dụ: Face not recognized, confidence too low, ambiguous match, ...)
+                    // sẽ vào nhánh này và KHÔNG ném exception nữa, chỉ log là không match.
+                    log.warn("Face not recognized or below threshold. status={}, success={}, confidence={}, message={}",
+                            statusCode, success, confidence, message);
                     scanLog.setIsMatched(false);
+                    scanLog.setIsRecognized(false);
                 }
             } else {
                 scanLog.setIsMatched(false);
+                scanLog.setIsRecognized(false);
             }
 
             TbFaceScanLog saved = faceScanLogRepository.save(scanLog);

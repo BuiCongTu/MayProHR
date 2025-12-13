@@ -13,6 +13,7 @@ import HolidayManagement from "../../components/ModuleC/HolidayManagement";
 import TaxDeductionManagement from "../../components/ModuleC/TaxDeductionManagement";
 import TaxBracketManagement from "../../components/ModuleC/TaxBracketManagement";
 import ProductionManagement from "../../components/ModuleC/ProductionManagement";
+import ProductionLineManagement from "../../components/ModuleC/ProductionLineManagement";
 
 const PayrollRouter = () => {
     return (
@@ -27,6 +28,8 @@ const PayrollRouter = () => {
             <Route path="/tax-deduction" element={<TaxDeductionManagement />} />
             <Route path="/tax-bracket" element={<TaxBracketManagement />} />
             <Route path="/production" element={<ProductionManagement />} />
+            <Route path="/production-line" element={<ProductionLineManagement />} />
+
 
             <Route path="/:payrollId/approve" element={<PayrollApproval />} />
             <Route path="/:payrollId" element={<PayrollDetail />} />

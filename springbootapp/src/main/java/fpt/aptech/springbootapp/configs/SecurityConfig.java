@@ -3,12 +3,12 @@ package fpt.aptech.springbootapp.configs;
 import java.util.Arrays;
 import java.util.Collections; // Added this import
 
-import fpt.aptech.springbootapp.securities.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.Ordered; // Added this import
+import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order; // Added this import
+import org.springframework.http.HttpMethod; // Added this import
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -23,9 +23,10 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.filter.CorsFilter; // Added this import
+import org.springframework.web.filter.CorsFilter;
 
-import fpt.aptech.springbootapp.securities.JwtAuthenticationFilter;
+import fpt.aptech.springbootapp.securities.JwtAuthenticationFilter; // Added this import
+import fpt.aptech.springbootapp.securities.JwtUtils;
 import fpt.aptech.springbootapp.services.implementations.CustomUserDetailsService;
 
 @Configuration
@@ -90,43 +91,44 @@ public class SecurityConfig {
 
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                // .cors(...) is removed because we injected the CorsFilter bean above
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        // Public Resources
-                        .requestMatchers(
-                                "/", "/error", "/favicon.ico", "/logo192.png", "/logo512.png",
-                                "/manifest.json", "/robots.txt", "/attendance/**"
-                        ).permitAll()
-                        // Public APIs
-                        .requestMatchers(
-                                "/api/auth/**",
-                                "/socket/**",
-                                "/api/overtime/**",
-                                "/api/proposal/**",
-                                "/api/payroll/**",
-                                "/api/department/**",
-                                "/api/face-scan/attendance",
-                                "/actuator/health",
-                                "/api/lines/**",
-                                "/api/line/**",
-                                "/api/user/**",
-                                "/api/form-data/**"
-                        ).permitAll()
-                        // Protected APIs
-                        .requestMatchers(
-                                "/api/face-scan/**",
-                                "/api/face-training/**",
-                                "/api/attendance/**",
-                                "/api/leave/**",
-                                "/api/app/overtime/**",
-                                "/api/overtime-request/**",
-                                "/api/overtime-ticket/**",
-                                "/api/notifications/**"
-                        ).authenticated()
-                        .anyRequest().authenticated()
+                // Allow CORS preflight 
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                // Public Resources
+                .requestMatchers(
+                        "/", "/error", "/favicon.ico", "/logo192.png", "/logo512.png",
+                        "/manifest.json", "/robots.txt", "/attendance/**"
+                ).permitAll()
+                // Public APIs
+                .requestMatchers(
+                        "/api/auth/**",
+                        "/socket/**",
+                        "/api/overtime/**",
+                        "/api/proposal/**",
+                        "/api/payroll/**",
+                        "/api/department/**",
+                        "/api/face-scan/attendance",
+                        "/actuator/health",
+                        "/api/lines/**",
+                        "/api/line/**",
+                        "/api/user/**",
+                        "/api/form-data/**"
+                ).permitAll()
+                // Protected APIs
+                .requestMatchers(
+                        "/api/face-scan/**",
+                        "/api/face-training/**",
+                        "/api/attendance/**",
+                        "/api/leave/**",
+                        "/api/app/overtime/**",
+                        "/api/overtime-request/**",
+                        "/api/overtime-ticket/**",
+                        "/api/notifications/**"
+                ).authenticated()
+                .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
                 .userDetailsService(userDetailsService)

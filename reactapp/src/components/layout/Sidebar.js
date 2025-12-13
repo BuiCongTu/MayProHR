@@ -49,7 +49,7 @@ const getSidebarLinks = (roleName) =>
         { title: 'Dashboard', path: '/dashboard', icon: <Dashboard /> },
         { title: 'Employees List', path: '/users', icon: <People /> },
           {title: 'Pay Management', path: '/payroll'},
-        { title: 'Attendance', path: '/attendance', icon: <CalendarToday /> },
+        { title: 'Attendance', path: '/attendance/register-face', icon: <CalendarToday /> },
         { title: 'Leave Requests', path: '/leave-requests', icon: <RequestPage /> },
         { title: 'Overtime Requests', path: '/overtime-request', icon: <AccessTime /> },
       ];

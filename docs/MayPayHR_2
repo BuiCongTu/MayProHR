@@ -1,3 +1,21 @@
+13/12
+# Face Attendance System - Environment Setup
+
+MacOs/Linux chạy:
+cd face_attendant_svm
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements_api.txt
+bash startPythonApi.sh
+
+
+Windown chạy:
+cd face_attendant_svm
+python3 -m venv venv
+venv\Scripts\activate
+pip install -r requirements_api.txt
+bash startPythonApi.sh
+
 9/12
 Ví dụ cách tính thuế TNCN 2026 đối với cá nhân cư trú có ký HĐLĐ trên 03 tháng:
 
