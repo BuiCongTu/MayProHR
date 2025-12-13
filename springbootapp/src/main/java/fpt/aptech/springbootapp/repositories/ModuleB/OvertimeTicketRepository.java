@@ -35,7 +35,7 @@ public interface OvertimeTicketRepository extends JpaRepository<TbOvertimeTicket
             "WHERE ote.overtimeTicket.overtimeRequest.id = :requestId " +
             "AND ote.line.id = :lineId " +
             "AND ote.overtimeTicket.status != 'rejected' " +
-            "AND ote.status = 'accepted'")
+            "AND ote.status IN ('accepted', 'pending')")
     long countAssignedEmployeesByLine(@Param("requestId") Integer requestId,
                                       @Param("lineId") Integer lineId);
 

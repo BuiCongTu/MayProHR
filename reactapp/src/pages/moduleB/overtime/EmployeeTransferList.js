@@ -16,9 +16,8 @@ import LockIcon from '@mui/icons-material/Lock';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
-import WarningIcon from '@mui/icons-material/Warning';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import BlockIcon from '@mui/icons-material/Block';
 
 // --- HELPER FUNCTIONS ---
 function intersection(a, b) {
@@ -67,7 +66,7 @@ export default function EmployeeTransferList({
                                                  allEmployees = [],
                                                  initialSelected = [],
                                                  unavailableEmployees = new Map(),
-                                                 requestedCount = 0,
+                                                 requestedCount = 0, // THIS IS NOW THE HARD GAP LIMIT
                                                  targetLineId = null,
                                                  onSave
                                              }) {
@@ -91,30 +90,33 @@ export default function EmployeeTransferList({
         }
     }, [open, initialSelected]);
 
-    // --- SOFT LIMIT LOGIC ---
+    // --- STRICT LIMIT LOGIC ---
     const targetCount = requestedCount || 0;
     const selectedCount = right.length;
-    const softLimit = targetCount * 2; // Warning threshold (e.g. 200% staffing)
+    const remainingSlots = Math.max(0, targetCount - selectedCount);
+    const isFull = selectedCount >= targetCount;
 
     // Determine Status Bar Color
-    let statusColor = 'primary';
+    let statusColor = 'info';
     let statusIcon = <AssignmentIndIcon fontSize="small" sx={{ mr: 1 }} />;
-    let statusText = `Selected: ${selectedCount} / ${targetCount}`;
+    let statusText = `Filling Gap: ${selectedCount} / ${targetCount}`;
 
     if (targetCount > 0) {
         if (selectedCount === targetCount) {
             statusColor = 'success';
             statusIcon = <CheckCircleIcon fontSize="small" sx={{ mr: 1 }} />;
-            statusText = `Target Met: ${selectedCount} / ${targetCount}`;
-        } else if (selectedCount > targetCount && selectedCount <= softLimit) {
-            statusColor = 'warning';
-            statusIcon = <WarningIcon fontSize="small" sx={{ mr: 1 }} />;
-            statusText = `Overstaffing: ${selectedCount} / ${targetCount}`;
-        } else if (selectedCount > softLimit) {
+            statusText = `Gap Filled: ${selectedCount} / ${targetCount}`;
+        } else if (selectedCount > targetCount) {
+            // Should not happen with buttons disabled, but as a safeguard
             statusColor = 'error';
-            statusIcon = <ErrorOutlineIcon fontSize="small" sx={{ mr: 1 }} />;
-            statusText = `Excessive: ${selectedCount} / ${targetCount} (>2x)`;
+            statusIcon = <BlockIcon fontSize="small" sx={{ mr: 1 }} />;
+            statusText = `Over Limit: ${selectedCount} / ${targetCount}`;
         }
+    } else {
+        // Gap is 0 (Line Full)
+        statusColor = 'success';
+        statusIcon = <CheckCircleIcon fontSize="small" sx={{ mr: 1 }} />;
+        statusText = "Line is Full (0 Slots)";
     }
 
     // --- FILTERING LOGIC ---
@@ -129,7 +131,6 @@ export default function EmployeeTransferList({
 
             if (!matchesSearch) return false;
 
-            // "View Available" toggle hides unavailable users from source list
             if (isSourceList && viewFilter === 'available') {
                 return !unavailableEmployees.has(u.id);
             }
@@ -141,12 +142,11 @@ export default function EmployeeTransferList({
     const leftFiltered = filterList(left, true);
     const rightFiltered = filterList(right, false);
 
-    // --- GROUPING LOGIC (Native vs Foreign) ---
+    // --- GROUPING LOGIC ---
     const { priorityList, otherList } = useMemo(() => {
         const priority = [];
         const others = [];
         leftFiltered.forEach(emp => {
-            // Priority: Employees belonging to the Target Line (Native)
             if (targetLineId && (emp.lineId === targetLineId)) {
                 priority.push(emp);
             } else {
@@ -162,7 +162,6 @@ export default function EmployeeTransferList({
     // --- HANDLERS ---
 
     const handleToggle = (value) => () => {
-        // Prevent toggling disabled items in source list
         if (unavailableEmployees.has(value.id) && left.includes(value)) return;
 
         const currentIndex = checked.indexOf(value);
@@ -173,6 +172,9 @@ export default function EmployeeTransferList({
     };
 
     const handleCheckedRight = () => {
+        // STRICT CHECK: Ensure we don't exceed the gap
+        if (leftChecked.length > remainingSlots) return;
+
         setRight(right.concat(leftChecked));
         setChecked(not(checked, leftChecked));
     };
@@ -183,10 +185,8 @@ export default function EmployeeTransferList({
     };
 
     const handleAllRight = () => {
-        // 1. Get all valid candidates
         let candidates = leftFiltered.filter(u => !unavailableEmployees.has(u.id));
 
-        // 2. Sort candidates: Native (Priority) first, then others
         if (targetLineId) {
             candidates.sort((a, b) => {
                 const aIsLine = a.lineId === targetLineId;
@@ -197,21 +197,8 @@ export default function EmployeeTransferList({
             });
         }
 
-        const currentCount = right.length;
-        const target = requestedCount || 0;
-        const limit = target * 2;
-
-        let numberToAdd = 0;
-
-        if (currentCount < target) {
-            numberToAdd = target - currentCount;
-        } else if (currentCount < limit) {
-            numberToAdd = limit - currentCount;
-        } else {
-            numberToAdd = 0;
-        }
-
-        const itemsToMove = candidates.slice(0, numberToAdd);
+        // STRICT CHECK: Only take what fits in the remaining slots
+        const itemsToMove = candidates.slice(0, remainingSlots);
 
         if (itemsToMove.length > 0) {
             setRight(right.concat(itemsToMove));
@@ -304,7 +291,6 @@ export default function EmployeeTransferList({
                 overflow: 'hidden'
             }}
         >
-            {/* Header */}
             <Box sx={{
                 py: 1,
                 px: 2,
@@ -320,7 +306,6 @@ export default function EmployeeTransferList({
 
             <Divider />
 
-            {/* List Body */}
             <List
                 dense
                 component="div"
@@ -347,7 +332,6 @@ export default function EmployeeTransferList({
                     </Box>
                 )}
 
-                {/* SOURCE LIST: WITH GROUPING */}
                 {type === 'source' && priorityList.length > 0 && (
                     <ListSubheader sx={{ bgcolor: '#e3f2fd', lineHeight: '30px', fontWeight: 'bold', color: 'primary.main' }}>
                         ★ Recommended (Current Line)
@@ -362,7 +346,6 @@ export default function EmployeeTransferList({
                 )}
                 {type === 'source' && otherList.map(user => renderRow(user, type))}
 
-                {/* TARGET LIST: FLAT LIST */}
                 {type === 'target' && rightFiltered.map(user => renderRow(user, type))}
             </List>
         </Paper>
@@ -390,7 +373,6 @@ export default function EmployeeTransferList({
 
             <DialogContent sx={{ p: 3, display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: '#f8f9fa' }}>
 
-                {/* TOOLBAR */}
                 <Paper
                     elevation={0}
                     variant="outlined"
@@ -410,11 +392,7 @@ export default function EmployeeTransferList({
                         placeholder="Find employee..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        sx={{
-                            flex: 1,
-                            minWidth: 180,
-                            maxWidth: 280
-                        }}
+                        sx={{ flex: 1, minWidth: 180, maxWidth: 280 }}
                         InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon color="action" /></InputAdornment> }}
                     />
 
@@ -449,38 +427,34 @@ export default function EmployeeTransferList({
                     </Box>
                 </Paper>
 
-                {/* TRANSFER AREA */}
                 <Stack
                     direction="row"
                     spacing={2}
-                    sx={{
-                        flex: 1,
-                        minHeight: 0
-                    }}
+                    sx={{ flex: 1, minHeight: 0 }}
                 >
-                    {/* LEFT COLUMN */}
-                    <Box sx={{ width: '45%', height: '100%' }}>
-                        {CustomList({ type: 'source' })}
-                    </Box>
+                    <Box sx={{ width: '45%', height: '100%' }}>{CustomList({ type: 'source' })}</Box>
 
-                    {/* BUTTONS COLUMN */}
                     <Box sx={{ width: '10%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 2 }}>
+                        {/* Auto-fill all remaining slots */}
                         <Button
                             variant="outlined"
                             onClick={handleAllRight}
-                            disabled={leftFiltered.filter(u => !unavailableEmployees.has(u.id)).length === 0}
+                            disabled={isFull || leftFiltered.filter(u => !unavailableEmployees.has(u.id)).length === 0}
                             sx={{ minWidth: 40 }}
                         >
                             <KeyboardDoubleArrowRightIcon />
                         </Button>
+
+                        {/* Move Selected - Block if selected > remaining */}
                         <Button
                             variant="contained"
                             onClick={handleCheckedRight}
-                            disabled={leftChecked.length === 0}
+                            disabled={isFull || leftChecked.length === 0 || leftChecked.length > remainingSlots}
                             sx={{ minWidth: 40 }}
                         >
                             <KeyboardArrowRightIcon />
                         </Button>
+
                         <Button
                             variant="contained"
                             onClick={handleCheckedLeft}
@@ -489,6 +463,7 @@ export default function EmployeeTransferList({
                         >
                             <KeyboardArrowLeftIcon />
                         </Button>
+
                         <Button
                             variant="outlined"
                             onClick={handleAllLeft}
@@ -499,10 +474,7 @@ export default function EmployeeTransferList({
                         </Button>
                     </Box>
 
-                    {/* RIGHT COLUMN */}
-                    <Box sx={{ width: '45%', height: '100%' }}>
-                        {CustomList({ type: 'target' })}
-                    </Box>
+                    <Box sx={{ width: '45%', height: '100%' }}>{CustomList({ type: 'target' })}</Box>
                 </Stack>
             </DialogContent>
 
@@ -512,6 +484,7 @@ export default function EmployeeTransferList({
                     onClick={() => onSave(right)}
                     variant="contained"
                     size="large"
+                    // Disabled if no change OR empty list (optional enforcement)
                     disabled={right.length === 0 && initialSelected.length === 0}
                 >
                     Save Changes
