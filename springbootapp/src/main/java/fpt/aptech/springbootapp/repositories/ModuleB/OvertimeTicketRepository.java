@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 import java.sql.Time;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 
 @Repository
 public interface OvertimeTicketRepository extends JpaRepository<TbOvertimeTicket, Integer>,
@@ -34,7 +35,7 @@ public interface OvertimeTicketRepository extends JpaRepository<TbOvertimeTicket
             "WHERE ote.overtimeTicket.overtimeRequest.id = :requestId " +
             "AND ote.line.id = :lineId " +
             "AND ote.overtimeTicket.status != 'rejected' " +
-            "AND ote.status = 'accepted'")
+            "AND ote.status != 'rejected' ")
     long countAssignedEmployeesByLine(@Param("requestId") Integer requestId,
                                       @Param("lineId") Integer lineId);
 
@@ -45,7 +46,7 @@ public interface OvertimeTicketRepository extends JpaRepository<TbOvertimeTicket
             "WHERE ote.user_id = :employeeId " +
             "AND r.overtime_date = :date " +
             "AND t.status != 'rejected' " +
-            "AND ote.status = 'accepted' " +
+            "AND ote.status != 'rejected' " +
             "AND (r.start_time < CAST(:endTime AS TIME) AND r.end_time > CAST(:startTime AS TIME))",
             nativeQuery = true)
     int existsGlobalTimeConflict(@Param("employeeId") Integer employeeId,
@@ -63,4 +64,19 @@ public interface OvertimeTicketRepository extends JpaRepository<TbOvertimeTicket
     Double getWeeklyOvertimeHours(@Param("employeeId") Integer employeeId,
                                   @Param("startDate") LocalDate startDate,
                                   @Param("endDate") LocalDate endDate);
+
+    @Query(value = """
+        SELECT t.* FROM tbOvertimeTicket t
+        INNER JOIN tbOvertimeRequest r ON t.request_id = r.request_id
+        WHERE t.status = 'submitted'
+          AND (
+              r.overtime_date < :date
+              OR 
+              (r.overtime_date = :date AND r.start_time <= CAST(:cutoffTime AS TIME))
+          )
+        """, nativeQuery = true)
+    List<TbOvertimeTicket> findSubmittedTicketsNearStart(
+            @Param("date") LocalDate date,
+            @Param("cutoffTime") LocalTime cutoffTime
+    );
 }

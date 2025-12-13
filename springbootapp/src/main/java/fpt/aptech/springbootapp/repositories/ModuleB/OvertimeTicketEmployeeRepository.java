@@ -4,9 +4,11 @@ import fpt.aptech.springbootapp.entities.Core.TbUser;
 import fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeTicketEmployee;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 @Repository
@@ -28,4 +30,20 @@ public interface OvertimeTicketEmployeeRepository extends JpaRepository<TbOverti
             TbOvertimeTicketEmployee.EmployeeOvertimeStatus employeeOvertimeStatus,
             LocalDate startDate,
             LocalDate endDate);
+
+    @Query(value = """
+        SELECT e.* FROM tb_overtime_ticket_employees e
+        INNER JOIN tbOvertimeTicket t ON e.overtime_ticket_id = t.ticket_id
+        INNER JOIN tbOvertimeRequest r ON t.request_id = r.request_id
+        WHERE e.status = 'pending'
+          AND (
+              r.overtime_date < :date
+              OR 
+              (r.overtime_date = :date AND r.start_time <= CAST(:cutoffTime AS TIME))
+          )
+        """, nativeQuery = true)
+    List<TbOvertimeTicketEmployee> findPendingEmployeesNearStart(
+            @Param("date") LocalDate date,
+            @Param("cutoffTime") LocalTime cutoffTime
+    );
 }

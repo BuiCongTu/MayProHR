@@ -353,24 +353,34 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                 TbLine workerLine = employee.getLine();
                 if (workerLine == null) throw new IllegalArgumentException("Employee has no line assigned.");
 
-                Integer targetParentId = lineService.getParentId(targetLine.getId());
-                Integer workerParentId = lineService.getParentId(workerLine.getId());
+
+
+                //Integer targetParentId = lineService.getParentId(targetLine.getId());
+                //Integer workerParentId = lineService.getParentId(workerLine.getId());
 
                 boolean isNative = workerLine.getId().equals(targetLine.getId());
-                boolean isSameFamily = Objects.equals(targetParentId, workerParentId);
 
-                if (isSameFamily) {
-                    if (!isNative) {
-                        throw new IllegalArgumentException("Sibling Block: Worker " + employee.getFullName() +
-                                " (Line " + workerLine.getName() + ") cannot work for Sibling Line " + targetLine.getName() + ".");
-                    }
-                } else {
-                    boolean isWorkerLineActive = allowedLineIds.contains(workerLine.getId());
-                    if (isWorkerLineActive) {
+                if (!isNative) {
+                    if (allowedLineIds.contains(workerLine.getId())) {
                         throw new IllegalArgumentException("Active Lock: Worker " + employee.getFullName() +
                                 " belongs to active line " + workerLine.getName() + ".");
                     }
                 }
+
+                //boolean isSameFamily = Objects.equals(targetParentId, workerParentId);
+
+//                if (isSameFamily) {
+//                    if (!isNative) {
+//                        throw new IllegalArgumentException("Sibling Block: Worker " + employee.getFullName() +
+//                                " (Line " + workerLine.getName() + ") cannot work for Sibling Line " + targetLine.getName() + ".");
+//                    }
+//                } else {
+//                    boolean isWorkerLineActive = allowedLineIds.contains(workerLine.getId());
+//                    if (isWorkerLineActive) {
+//                        throw new IllegalArgumentException("Active Lock: Worker " + employee.getFullName() +
+//                                " belongs to active line " + workerLine.getName() + ".");
+//                    }
+//                }
 
                 processedEmployeeIds.add(empId);
 
@@ -550,20 +560,13 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                     TbUser employee = userRepository.findById(empId).orElse(null);
                     if (employee != null && employee.getLine() != null) {
                         TbLine workerLine = employee.getLine();
-                        Integer targetParentId = lineService.getParentId(targetLine.getId());
-                        Integer workerParentId = lineService.getParentId(workerLine.getId());
+
+                        //Integer targetParentId = lineService.getParentId(targetLine.getId());
+                        //Integer workerParentId = lineService.getParentId(workerLine.getId());
 
                         boolean isNative = workerLine.getId().equals(targetLine.getId());
-                        boolean isSameFamily = Objects.equals(targetParentId, workerParentId);
 
-                        if (isSameFamily) {
-                            if (!isNative) {
-                                response.setAvailable(false);
-                                response.setReason("Sibling Block");
-                                results.add(response);
-                                continue;
-                            }
-                        } else {
+                        if (!isNative) {
                             if (allowedLineIds.contains(workerLine.getId())) {
                                 response.setAvailable(false);
                                 response.setReason("Active Lock");
@@ -571,6 +574,24 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                                 continue;
                             }
                         }
+
+                        //boolean isSameFamily = Objects.equals(targetParentId, workerParentId);
+
+//                        if (isSameFamily) {
+//                            if (!isNative) {
+//                                response.setAvailable(false);
+//                                response.setReason("Sibling Block");
+//                                results.add(response);
+//                                continue;
+//                            }
+//                        } else {
+//                            if (allowedLineIds.contains(workerLine.getId())) {
+//                                response.setAvailable(false);
+//                                response.setReason("Active Lock");
+//                                results.add(response);
+//                                continue;
+//                            }
+//                        }
                     }
                 }
                 results.add(response);
