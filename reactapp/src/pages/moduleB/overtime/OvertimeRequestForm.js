@@ -30,6 +30,7 @@ import {
     MenuItem,
     FormHelperText
 } from '@mui/material';
+import WorkflowStepper from "../../../components/moduleB/WorkflowStepper";
 
 const MAX_DAILY_OT_HOURS = 4.0;
 
@@ -85,6 +86,7 @@ function OvertimeRequestForm() {
 
     // Selection State
     const [selectedSections, setSelectedSections] = useState({});
+    const [selectedGrandchildren, setSelectedGrandchildren] = useState({});
     const [grandchildQuotas, setGrandchildQuotas] = useState({});
 
     const [isSpecialDay, setIsSpecialDay] = useState(false);
@@ -118,6 +120,7 @@ function OvertimeRequestForm() {
                     setChildLines(sections);
 
                     setSelectedSections({});
+                    setSelectedGrandchildren({});
                     setGrandchildQuotas({});
                 } catch (err) {
                     console.error(err);
@@ -182,7 +185,9 @@ function OvertimeRequestForm() {
     };
 
     const getTotalEmployees = () => {
-        return Object.values(grandchildQuotas).reduce((sum, val) => sum + val, 0);
+        return Object.entries(grandchildQuotas)
+            .filter(([id, val]) => selectedGrandchildren[id]) // Only count selected
+            .reduce((sum, [id, val]) => sum + val, 0);
     };
 
     const getValidEndTimes = () => {
@@ -201,21 +206,58 @@ function OvertimeRequestForm() {
         setFormData(prev => ({...prev, [name]: value}));
     };
 
+    // Level 4 Toggle: Selects/Deselects ALL children + Auto-fills Max Capacity
     const handleSectionToggle = (sectionId) => {
+        const grandchildren = getGrandchildren(sectionId);
+
         setSelectedSections(prev => {
             const isNowSelected = !prev[sectionId];
-            if (!isNowSelected) {
-                // If unchecking, clear quotas for children
-                const children = getGrandchildren(sectionId);
-                setGrandchildQuotas(currentQuotas => {
-                    const newQuotas = { ...currentQuotas };
-                    children.forEach(child => {
-                        delete newQuotas[child.id];
-                    });
-                    return newQuotas;
+
+            if (isNowSelected) {
+                // AUTO-SELECT ALL GRANDCHILDREN & SET MAX QUOTA
+                setSelectedGrandchildren(prevGC => {
+                    const newGC = { ...prevGC };
+                    grandchildren.forEach(gc => newGC[gc.id] = true);
+                    return newGC;
+                });
+                setGrandchildQuotas(prevQ => {
+                    const newQ = { ...prevQ };
+                    grandchildren.forEach(gc => newQ[gc.id] = gc.totalEmployees || 0);
+                    return newQ;
+                });
+            } else {
+                // CLEAR ALL GRANDCHILDREN
+                setSelectedGrandchildren(prevGC => {
+                    const newGC = { ...prevGC };
+                    grandchildren.forEach(gc => delete newGC[gc.id]);
+                    return newGC;
+                });
+                setGrandchildQuotas(prevQ => {
+                    const newQ = { ...prevQ };
+                    grandchildren.forEach(gc => delete newQ[gc.id]);
+                    return newQ;
                 });
             }
             return { ...prev, [sectionId]: isNowSelected };
+        });
+    };
+
+    // Level 5 Toggle: Granular check
+    const handleGrandchildToggle = (lineId, maxCap) => {
+        setSelectedGrandchildren(prev => {
+            const isNowSelected = !prev[lineId];
+
+            setGrandchildQuotas(prevQ => {
+                const newQ = { ...prevQ };
+                if (isNowSelected) {
+                    newQ[lineId] = maxCap || 0; // Default to MAX
+                } else {
+                    delete newQ[lineId];
+                }
+                return newQ;
+            });
+
+            return { ...prev, [lineId]: isNowSelected };
         });
     };
 
@@ -239,8 +281,8 @@ function OvertimeRequestForm() {
     // Check if any line quota exceeds its capacity
     useEffect(() => {
         let hasError = false;
-        // Iterate current quotas
         for (const [lineIdStr, qty] of Object.entries(grandchildQuotas)) {
+            if (!selectedGrandchildren[lineIdStr]) continue; // Skip unchecked
             const lineId = parseInt(lineIdStr);
             const lineObj = allLines.find(l => l.id === lineId);
             if (lineObj && qty > lineObj.totalEmployees) {
@@ -249,10 +291,8 @@ function OvertimeRequestForm() {
             }
         }
         setCapacityError(hasError);
-    }, [grandchildQuotas, allLines]);
+    }, [grandchildQuotas, allLines, selectedGrandchildren]);
 
-
-    // Strict Integer Input Handler
     const handleNumberKeyDown = (e) => {
         if (['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
         if (!/[0-9]/.test(e.key)) {
@@ -266,7 +306,6 @@ function OvertimeRequestForm() {
         setError(null);
         setSuccess(null);
 
-        // Validation
         if (!formData.departmentId) {
             setError("Please select a Department.");
             setLoading(false);
@@ -298,10 +337,19 @@ function OvertimeRequestForm() {
             const grandchildren = getGrandchildren(secId);
             if (grandchildren.length === 0) continue;
 
-            for (const gc of grandchildren) {
+            // Validation: Must have at least 1 checked grandchild in this section
+            const checkedChildren = grandchildren.filter(gc => selectedGrandchildren[gc.id]);
+            if (checkedChildren.length === 0) {
+                missingWorkersError = true;
+                setError(`Section "${allLines.find(l=>l.id===secId)?.name}" must have at least one worker line selected.`);
+                break;
+            }
+
+            for (const gc of checkedChildren) {
                 const count = grandchildQuotas[gc.id];
                 if (!count || count <= 0) {
                     missingWorkersError = true;
+                    setError(`Selected line "${gc.name}" must have at least 1 employee.`);
                     break;
                 }
 
@@ -314,7 +362,6 @@ function OvertimeRequestForm() {
         }
 
         if (missingWorkersError) {
-            setError("Every line within a selected section must have at least 1 worker assigned.");
             setLoading(false);
             return;
         }
@@ -337,16 +384,8 @@ function OvertimeRequestForm() {
             alert(`Success!`);
             navigate("/overtime-request");
         } catch (err) {
-            console.error("Submit Error:", err);
-            let errMsg = "An unknown error occurred.";
-            if (err.response && err.response.data) {
-                errMsg = typeof err.response.data === 'string'
-                    ? err.response.data
-                    : (err.response.data.message || JSON.stringify(err.response.data));
-            } else if (err.message) {
-                errMsg = err.message;
-            }
-            setError(errMsg);
+            console.error(err);
+            setError(err);
         } finally {
             setLoading(false);
         }
@@ -365,13 +404,18 @@ function OvertimeRequestForm() {
     return (
         <Container maxWidth="md">
             <Paper elevation={3} sx={{p: 4, mt: 4, borderRadius: 2}}>
+
+                <Box sx={{ mb: 3 }}>
+                    <WorkflowStepper status="draft" />
+                </Box>
+                <Divider sx={{ mb: 3 }} />
+
                 <Typography variant="h5" component="h1" gutterBottom color="primary" fontWeight="bold">
                     Create Overtime Request
                 </Typography>
 
                 <Box component="form" onSubmit={handleSubmit} sx={{mt: 2, display: 'flex', flexDirection: 'column', gap: 3}}>
 
-                    {/* GENERAL INFO SECTIONS */}
                     <Box sx={{display: 'flex', gap: 2, flexWrap: 'wrap'}}>
                         <TextField
                             label="Factory Manager ID"
@@ -479,32 +523,32 @@ function OvertimeRequestForm() {
                     <Divider sx={{ my: 1 }} />
 
                     <Typography variant="h6" sx={{mt: 1}}>
-                        Assign Workers to Lines
+                        Select Lines & Workers
                     </Typography>
 
                     {childLines.length > 0 ? (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                             {childLines.map((child) => {
-                                const isSelected = !!selectedSections[child.id];
+                                const isSectionSelected = !!selectedSections[child.id];
                                 const managerName = getManagerName(child);
                                 const grandchildren = getGrandchildren(child.id);
 
                                 return (
                                     <Accordion
                                         key={child.id}
-                                        expanded={isSelected}
+                                        expanded={isSectionSelected}
                                         onChange={() => handleSectionToggle(child.id)}
                                         sx={{
-                                            border: isSelected ? '1px solid #1976d2' : '1px solid #e0e0e0',
+                                            border: isSectionSelected ? '1px solid #1976d2' : '1px solid #e0e0e0',
                                             boxShadow: 'none',
                                             '&:before': { display: 'none' }
                                         }}
                                     >
-                                        <AccordionSummary sx={{ bgcolor: isSelected ? '#e3f2fd' : 'white', minHeight: 48 }}>
+                                        <AccordionSummary sx={{ bgcolor: isSectionSelected ? '#e3f2fd' : 'white', minHeight: 48 }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', justifyContent: 'space-between' }}>
                                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                                     <Checkbox
-                                                        checked={isSelected}
+                                                        checked={isSectionSelected}
                                                         onChange={() => handleSectionToggle(child.id)}
                                                     />
                                                     <Typography variant="subtitle1" fontWeight="bold">
@@ -515,21 +559,20 @@ function OvertimeRequestForm() {
                                                     label={`Manager: ${managerName}`}
                                                     size="small"
                                                     variant="outlined"
-                                                    color={isSelected ? "primary" : "default"}
+                                                    color={isSectionSelected ? "primary" : "default"}
                                                 />
                                             </Box>
                                         </AccordionSummary>
 
                                         <AccordionDetails sx={{ bgcolor: '#fafafa', p: 2 }}>
-                                            {/* --- CSS GRID: STRICT 2 COLUMNS --- */}
                                             <Box sx={{
                                                 display: 'grid',
                                                 gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
                                                 gap: 2
                                             }}>
                                                 {grandchildren.map(gc => {
+                                                    const isGcSelected = !!selectedGrandchildren[gc.id];
                                                     const currentVal = grandchildQuotas[gc.id] || 0;
-                                                    // CAPACITY CHECK LOGIC
                                                     const maxCap = gc.totalEmployees || 0;
                                                     const isOverCap = currentVal > maxCap;
 
@@ -541,33 +584,40 @@ function OvertimeRequestForm() {
                                                                 display: 'flex',
                                                                 alignItems: 'center',
                                                                 justifyContent: 'space-between',
-                                                                bgcolor: 'white',
-                                                                border: isOverCap ? '1px solid red' : '1px solid #e0e0e0',
+                                                                bgcolor: isGcSelected ? 'white' : '#f0f0f0',
+                                                                border: isOverCap ? '1px solid red' : (isGcSelected ? '1px solid #90caf9' : '1px solid #e0e0e0'),
                                                                 borderRadius: 1,
-                                                                position: 'relative'
+                                                                opacity: isGcSelected ? 1 : 0.7
                                                             }}
                                                         >
-                                                            <Box sx={{ maxWidth: '65%' }}>
-                                                                <Tooltip title={gc.name} placement="top">
-                                                                    <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
-                                                                        {gc.name}
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', maxWidth: '65%' }}>
+                                                                <Checkbox
+                                                                    size="small"
+                                                                    checked={isGcSelected}
+                                                                    onChange={() => handleGrandchildToggle(gc.id, maxCap)}
+                                                                />
+                                                                <Box>
+                                                                    <Tooltip title={gc.name} placement="top">
+                                                                        <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
+                                                                            {gc.name}
+                                                                        </Typography>
+                                                                    </Tooltip>
+                                                                    <Typography variant="caption" color={isOverCap ? "error" : "text.secondary"}>
+                                                                        Capacity: {maxCap}
                                                                     </Typography>
-                                                                </Tooltip>
-                                                                {/* SHOW CAPACITY */}
-                                                                <Typography variant="caption" color={isOverCap ? "error" : "text.secondary"}>
-                                                                    Max: {maxCap}
-                                                                </Typography>
+                                                                </Box>
                                                             </Box>
 
                                                             <TextField
                                                                 type="number"
                                                                 size="small"
                                                                 placeholder="0"
-                                                                value={grandchildQuotas[gc.id] || ''}
+                                                                disabled={!isGcSelected}
+                                                                value={isGcSelected ? (grandchildQuotas[gc.id] || '') : ''}
                                                                 onChange={(e) => handleQuotaChange(gc.id, e.target.value)}
                                                                 onKeyDown={handleNumberKeyDown}
                                                                 inputProps={{ min: 1, style: { textAlign: 'center', padding: '4px' } }}
-                                                                sx={{ width: '70px' }}
+                                                                sx={{ width: '70px', bgcolor: isGcSelected ? 'white' : '#eee' }}
                                                                 error={isOverCap}
                                                             />
                                                         </Box>
@@ -589,14 +639,12 @@ function OvertimeRequestForm() {
                         </Alert>
                     )}
 
-                    {/* --- FOOTER --- */}
                     <Box display="flex" justifyContent="flex-end" alignItems="center" gap={2} sx={{ mt: 2 }}>
                         <Typography variant="h6">
                             Total Employees: <strong>{getTotalEmployees()}</strong>
                         </Typography>
                     </Box>
 
-                    {/* CAPACITY ERROR MESSAGE */}
                     {capacityError && <Alert severity="error">Cannot submit: Some lines exceed their employee limit.</Alert>}
 
                     {error && <Alert severity="error">{error}</Alert>}
@@ -606,7 +654,6 @@ function OvertimeRequestForm() {
                         type="submit"
                         variant="contained"
                         size="large"
-                        // DISABLE IF CAPACITY ERROR
                         disabled={loading || getTotalEmployees() === 0 || !!timeError || capacityError}
                         sx={{py: 1.5, fontWeight: 'bold'}}
                     >
