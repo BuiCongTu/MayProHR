@@ -50,7 +50,7 @@ export default function OvertimeTicketCreate() {
     // UI States
     const [loading, setLoading] = useState(false);
     const [loadingReq, setLoadingReq] = useState(true);
-    const [loadingDetail, setLoadingDetail] = useState(false); // <--- ADDED
+    const [loadingDetail, setLoadingDetail] = useState(false);
     const [checkingAvailability, setCheckingAvailability] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
     const [autoFillModalOpen, setAutoFillModalOpen] = useState(false);
@@ -75,8 +75,8 @@ export default function OvertimeTicketCreate() {
                     { page: 0, size: 50, sort: 'id,desc' }
                 );
 
-                const usersPromise = departmentId ? getUsersByDepartment(departmentId) : Promise.resolve([]);
-                const linesPromise = departmentId ? getLinesByDepartment(departmentId) : Promise.resolve([]);
+                const usersPromise = departmentId ? await getUsersByDepartment(departmentId) : [];
+                const linesPromise = departmentId ? await getLinesByDepartment(departmentId) : [];
 
                 const [fetchedRequests, fetchedUsers, fetchedLines] = await Promise.all([
                     Promise.resolve(reqData.content || []),
@@ -110,7 +110,7 @@ export default function OvertimeTicketCreate() {
                 setManagedLineIds(owned);
 
                 if (location.state?.preselectedRequestId) {
-                    handleRequestChange(null, { id: location.state.preselectedRequestId });
+                    await handleRequestChange(null, {id: location.state.preselectedRequestId});
                 }
 
             } catch (err) {
