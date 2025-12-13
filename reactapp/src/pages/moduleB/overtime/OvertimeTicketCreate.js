@@ -188,18 +188,35 @@ export default function OvertimeTicketCreate() {
     });
 
     // --- CONFLICT LOGIC ---
+    // unused
     const getSiblingConflict = (employee, targetLineId) => {
+        // if (!employee.lineId || !targetLineId) return null;
+        // if (employee.lineId === targetLineId) return null;
+        //
+        // const targetLine = allLines.find(l => l.id === targetLineId);
+        // const workerLine = allLines.find(l => l.id === employee.lineId);
+        //
+        // if (targetLine?.parentId && workerLine?.parentId) {
+        //     if (targetLine.parentId === workerLine.parentId) {
+        //         return `Sibling Block: Belongs to ${workerLine.name}`;
+        //     }
+        // }
+        return null;
+    };
+
+    const getActiveLockConflict = (employee, targetLineId) => {
         if (!employee.lineId || !targetLineId) return null;
+
         if (employee.lineId === targetLineId) return null;
 
-        const targetLine = allLines.find(l => l.id === targetLineId);
-        const workerLine = allLines.find(l => l.id === employee.lineId);
+        const isHomeLineActive = lines.some(l => l.lineId === employee.lineId);
 
-        if (targetLine?.parentId && workerLine?.parentId) {
-            if (targetLine.parentId === workerLine.parentId) {
-                return `Sibling Block: Belongs to ${workerLine.name}`;
-            }
+        if (isHomeLineActive) {
+            const homeLine = allLines.find(l => l.id === employee.lineId);
+            const lineName = homeLine ? homeLine.name : "Active Line";
+            return `Active Lock: Reserved for ${lineName}`;
         }
+
         return null;
     };
 
@@ -218,7 +235,7 @@ export default function OvertimeTicketCreate() {
 
         deptEmployees.forEach(emp => {
             if (!unavailable.has(emp.id)) {
-                const conflict = getSiblingConflict(emp, targetLineId);
+                const conflict = getActiveLockConflict(emp, targetLineId);
                 if (conflict) unavailable.set(emp.id, conflict);
             }
         });
