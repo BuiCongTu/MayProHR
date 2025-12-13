@@ -19,12 +19,12 @@ import java.util.*;
 
 @Service
 @Slf4j
-public class FaceScanServiceImp implements FaceScanService{
+public class FaceScanServiceImp implements FaceScanService {
 
     private final FaceScanLogRepository faceScanLogRepository;
     private final AttendanceRepository attendanceRepository;
     private final UserRepository userRepository;
-    private final WebClient webClient = WebClient.create("http://localhost:5000");
+    private final WebClient webClient;
 
     @Value("${face.confidence.threshold:0.7}")
     private double confidenceThreshold;
@@ -33,81 +33,86 @@ public class FaceScanServiceImp implements FaceScanService{
     public FaceScanServiceImp(
             FaceScanLogRepository faceScanLogRepository,
             AttendanceRepository attendanceRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            @Value("${python.face-service.url:http://localhost:5001}") String pythonFaceServiceUrl
+    ) {
         this.faceScanLogRepository = faceScanLogRepository;
         this.attendanceRepository = attendanceRepository;
         this.userRepository = userRepository;
+        this.webClient = WebClient.builder()
+                .baseUrl(pythonFaceServiceUrl)
+                .build();
     }
 
     @Override
     public TbFaceScanLog scanFaceAndAttendance(String imageBase64, TbFaceScanLog.ScanType scanType) {
-        try{
-        Map<String, String> request = new HashMap<>();
-        request.put("image_base64", imageBase64);
+        try {
+            Map<String, String> request = new HashMap<>();
+            request.put("image_base64", imageBase64);
 
-        Map<String, Object> responseData = webClient.post()
-                .uri("/api/face/scan")
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono(Map.class)
-                .timeout(java.time.Duration.ofSeconds(30))
-                .onErrorMap(WebClientResponseException.class, ex -> {
-                    log.error("Python service error: {}", ex.getMessage());
-                    return new RuntimeException("Python service error: " + ex.getMessage());
-                })
-                .block();
+            Map<String, Object> responseData = webClient.post()
+                    .uri("/api/face/scan")
+                    .bodyValue(request)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .timeout(java.time.Duration.ofSeconds(30))
+                    .onErrorMap(WebClientResponseException.class, ex -> {
+                        log.error("Python service error: {}", ex.getMessage());
+                        return new RuntimeException("Python service error: " + ex.getMessage());
+                    })
+                    .block();
 
-        TbFaceScanLog scanLog = new TbFaceScanLog();
-        scanLog.setScanDate(Instant.now());
-        scanLog.setScanType(scanType);
-        scanLog.setIsRecognized(false);
-        scanLog.setIsMatched(false);
+            TbFaceScanLog scanLog = new TbFaceScanLog();
+            scanLog.setScanDate(Instant.now());
+            scanLog.setScanType(scanType);
+            scanLog.setIsRecognized(false);
+            scanLog.setIsMatched(false);
 
-        if (responseData != null) {
-            Integer matchedUserId = (Integer) responseData.get("user_id");
-            Double confidence = (Double) responseData.get("confidence");
-            Integer faceId = (Integer) responseData.get("face_id");
-            if (confidence != null && confidence >= confidenceThreshold) {
-                scanLog.setIsMatched(true);
-                scanLog.setIsRecognized(true);
-                scanLog.setMatchedConfidence(new BigDecimal(confidence));
+            if (responseData != null) {
+                Integer matchedUserId = (Integer) responseData.get("user_id");
+                Double confidence = (Double) responseData.get("confidence");
+                Integer faceId = (Integer) responseData.get("face_id");
 
-                log.info("Face matched successfully. UserId: {}", matchedUserId);
+                if (confidence != null && confidence >= confidenceThreshold) {
+                    scanLog.setIsMatched(true);
+                    scanLog.setIsRecognized(true);
+                    scanLog.setMatchedConfidence(new BigDecimal(confidence));
 
-                if (matchedUserId != null) {
-                    Optional<TbUser> matchedUser = userRepository.findById(matchedUserId);
-                    matchedUser.ifPresent(scanLog::setUser);
+                    log.info("Face matched successfully. UserId: {}", matchedUserId);
 
-                    handleAttendance(scanLog, matchedUserId, scanType);
+                    if (matchedUserId != null) {
+                        Optional<TbUser> matchedUser = userRepository.findById(matchedUserId);
+                        matchedUser.ifPresent(scanLog::setUser);
+
+                        handleAttendance(scanLog, matchedUserId, scanType);
+                    }
+                } else {
+                    log.warn("Confidence below threshold or null. Confidence: {}", confidence);
+                    scanLog.setIsMatched(false);
                 }
             } else {
-                log.warn("Confidence below threshold or null. Confidence: {}", confidence);
                 scanLog.setIsMatched(false);
             }
-        } else {
-            scanLog.setIsMatched(false);
+
+            TbFaceScanLog saved = faceScanLogRepository.save(scanLog);
+            return saved;
+
+        } catch (Exception e) {
+            log.error("Error during face scan", e);
+
+            // Save failed scan log
+            TbFaceScanLog failedScan = new TbFaceScanLog();
+            failedScan.setScanDate(Instant.now());
+            failedScan.setScanType(scanType);
+            failedScan.setIsMatched(false);
+            failedScan.setIsRecognized(false);
+
+            faceScanLogRepository.save(failedScan);
+            throw new RuntimeException("Face scan failed: " + e.getMessage());
         }
-
-        TbFaceScanLog saved = faceScanLogRepository.save(scanLog);
-
-        return saved;
-
-    } catch (Exception e) {
-        log.error("Error during face scan", e);
-
-        // Save failed scan log
-        TbFaceScanLog failedScan = new TbFaceScanLog();
-        failedScan.setScanDate(Instant.now());
-        failedScan.setScanType(scanType);
-        failedScan.setIsMatched(false);
-        failedScan.setIsRecognized(false);
-
-        faceScanLogRepository.save(failedScan);
-        throw new RuntimeException("Face scan failed: " + e.getMessage());
     }
-}
 
-
+    // ... existing code ...
     @Override
     public List<TbFaceScanLog> getScanHistoryByUserId(Integer userId) {
         return faceScanLogRepository.findByUserId(userId);
@@ -194,5 +199,4 @@ public class FaceScanServiceImp implements FaceScanService{
             log.error("Error handling attendance for userId: {}", userId, e);
         }
     }
-
 }

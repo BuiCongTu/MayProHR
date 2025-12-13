@@ -1,5 +1,20 @@
 # Face Attendance System - Environment Setup
 
+MacOs/Linux chạy:
+cd face_attendant_svm
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements_api.txt
+bash startPythonApi.sh
+
+
+Windown chạy:
+cd face_attendant_svm
+python3 -m venv venv
+venv\Scripts\activate
+pip install -r requirements_api.txt
+bash startPythonApi.sh
+
 ## Prerequisites
 - Python 3.12 or higher
 - pip (Python package installer)

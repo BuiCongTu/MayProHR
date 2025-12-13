@@ -10,6 +10,7 @@ import java.time.Instant;
 @Getter
 @Setter
 public class ProposalDTO {
+
     private Integer id;
     private ProposalType type;
 

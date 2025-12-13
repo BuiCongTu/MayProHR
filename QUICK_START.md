@@ -23,7 +23,7 @@ Hệ thống chấm công nhân viên sử dụng nhận diện khuôn mặt v�
 
 ```bash
 cd face_attendant_svm
-./start_python_service.sh
+./startPythonApi.sh
 ```
 
 Hoặc thủ công:
