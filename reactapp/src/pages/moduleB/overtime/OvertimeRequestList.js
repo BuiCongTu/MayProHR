@@ -322,7 +322,7 @@ export default function OvertimeRequestList() {
     useEffect(() => {
         const t = setTimeout(() => {
             setDebouncedSearch(departmentSearch);
-            setPage(0); // Reset page on search
+            setPage(0);
         }, 500);
         return () => clearTimeout(t);
     }, [departmentSearch]);
@@ -341,12 +341,12 @@ export default function OvertimeRequestList() {
             // USE DYNAMIC PAGE SIZE
             const data = await getFilteredOvertimeRequest(filter, {
                 page,
-                size: rowsPerPage, // Changed from 10
+                size: rowsPerPage,
                 sort: `${orderBy},${order}`
             });
 
             setRequests(data?.content || []);
-            setTotalCount(data?.totalElements || 0); // Capture Total
+            setTotalCount(data?.totalElements || 0);
 
         } catch (e) {
             console.error(e);
@@ -361,7 +361,7 @@ export default function OvertimeRequestList() {
     useEffect(() => {
         if (!connected) return;
         const sub = subscribe('/topic/requests', (updatedRequest) => {
-            loadData(); // <--- SMART REFRESH
+            loadData();
         });
         return () => { if (sub) sub.unsubscribe(); };
     }, [connected, subscribe, page, rowsPerPage, order, orderBy]);
@@ -409,7 +409,7 @@ export default function OvertimeRequestList() {
                     onChange={(e, v) => {
                         if (v !== null) {
                             setStatusFilter(v);
-                            setPage(0); // Reset page on filter
+                            setPage(0);
                         }
                     }}
                     size="small"
