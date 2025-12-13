@@ -12,7 +12,7 @@ import { getCurrentUser } from '../../../services/authService';
 import {
     Box, CircularProgress, Typography, Alert, Button, Container,
     Paper, Grid, Chip, Stack, Divider, Drawer, IconButton,
-    LinearProgress, Card, CardContent
+    LinearProgress, Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -21,19 +21,19 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import CloseIcon from '@mui/icons-material/Close';
 import HistoryIcon from '@mui/icons-material/History';
 import FactoryIcon from '@mui/icons-material/Factory';
-import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 export default function OvertimeTicketDetail() {
     const {id} = useParams();
     const navigate = useNavigate();
     const {subscribe, connected} = useWebSocket();
     const user = getCurrentUser();
+
     const [ticket, setTicket] = useState(null);
     const [lineRequirements, setLineRequirements] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-
     const [drawerOpen, setDrawerOpen] = useState(false);
 
     const loadData = async () => {
@@ -63,27 +63,15 @@ export default function OvertimeTicketDetail() {
         loadData();
     }, [id, user?.id, connected]);
 
-    useEffect(() => {
-        if (!connected) return;
-        const sub = subscribe('/topic/tickets', (dto) => {
-            if (dto.id === parseInt(id)) {
-                loadData();
-            }
-        });
-        return () => {
-            if (sub) sub.unsubscribe();
-        };
-    }, [connected, subscribe, id]);
+    // --- FIX: Return Array of Lines, not just the first one ---
+    const linesData = useMemo(() => {
+        if (!ticket || !ticket.employeeList) return [];
 
-    // Flattened logic: Extract the single line data directly
-    const lineData = useMemo(() => {
-        if (!ticket || !ticket.employeeList) return null;
-
-        // Group by line to find the distinct line (should only be one per ticket now)
         const groups = {};
         ticket.employeeList.forEach(emp => {
             const lineId = emp.lineId || 9999;
             const lineName = emp.lineName || "Unassigned Line";
+
             if (!groups[lineId]) {
                 groups[lineId] = {
                     id: lineId,
@@ -99,34 +87,26 @@ export default function OvertimeTicketDetail() {
             }
         });
 
-        // Get the first group found (assuming 1 ticket = 1 line)
-        const groupValues = Object.values(groups);
-        if (groupValues.length > 0) {
-            const g = groupValues[0];
+        // Convert Map to Array & Calculate Stats for EACH line
+        return Object.values(groups).map(g => {
             const assigned = g.employees.length;
+            // Progress based on ASSIGNED (or Required if you prefer strict view)
+            // Let's show acceptance progress relative to assigned count
             const progressVal = assigned > 0 ? Math.min((g.acceptedCount / assigned) * 100, 100) : 0;
             const isFullyAccepted = assigned > 0 && g.acceptedCount >= assigned;
-            return { ...g, assigned, progressVal, isFullyAccepted };
-        }
 
-        return null;
+            return { ...g, assigned, progressVal, isFullyAccepted };
+        }).sort((a, b) => a.name.localeCompare(b.name)); // Sort A-Z
+
     }, [ticket, lineRequirements]);
 
     const getStatusChip = (status) => {
         let color = 'default';
         let label = status?.toUpperCase() || 'UNKNOWN';
         switch (status?.toLowerCase()) {
-            case 'submitted':
-                color = 'info';
-                break;
-            case 'approved':
-                color = 'success';
-                break;
-            case 'rejected':
-                color = 'error';
-                break;
-            default:
-                break;
+            case 'submitted': color = 'info'; break;
+            case 'approved': color = 'success'; break;
+            case 'rejected': color = 'error'; break;
         }
         return <Chip label={label} color={color} sx={{fontWeight: 'bold', borderRadius: 1}}/>;
     };
@@ -139,120 +119,104 @@ export default function OvertimeTicketDetail() {
 
     return (
         <Container maxWidth="lg" sx={{mt: 2, mb: 8}}>
-            {/* --- HEADER SECTION --- */}
+            {/* HEADER */}
             <Paper elevation={2} sx={{p: 3, mb: 3, borderRadius: 2, borderTop: '4px solid #1976d2'}}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Button startIcon={<ArrowBackIcon/>} onClick={() => navigate('/overtime-ticket')}
-                            sx={{color: 'text.secondary'}}>Back to Tickets</Button>
-                    <Stack direction="row" spacing={1}>
-                        <Button variant="outlined" startIcon={<HistoryIcon/>}
-                                onClick={() => setDrawerOpen(true)}>History</Button>
-                    </Stack>
+                    <Button startIcon={<ArrowBackIcon/>} onClick={() => navigate('/overtime-ticket')} sx={{color: 'text.secondary'}}>Back</Button>
+                    <Button variant="outlined" startIcon={<HistoryIcon/>} onClick={() => setDrawerOpen(true)}>History</Button>
                 </Stack>
                 <Divider sx={{mb: 2}}/>
                 <Grid container spacing={2} alignItems="center">
                     <Grid item xs={12} md={8}>
                         <Stack direction="row" spacing={2} alignItems="center" mb={1}>
-                            <Typography variant="h4" fontWeight="bold" color="primary.main">Ticket
-                                #{ticket.id}</Typography>
+                            <Typography variant="h4" fontWeight="bold" color="primary.main">Ticket #{ticket.id}</Typography>
                             {getStatusChip(ticket.status)}
                         </Stack>
-                        <Typography variant="subtitle1" color="text.secondary" gutterBottom>Request
-                            Ref: <strong>#{ticket.requestId}</strong> • {ticket.departmentName}</Typography>
+                        <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+                            Request Ref: <strong>#{ticket.requestId}</strong> • {ticket.departmentName}
+                        </Typography>
                         <Stack direction="row" spacing={1} mt={2}>
-                            <Chip icon={<CalendarTodayIcon fontSize='small'/>} label={ticket.overtimeDate}
-                                  variant="outlined" size="small"/>
-                            <Chip icon={<AccessTimeIcon fontSize='small'/>}
-                                  label={`${fmtTime(ticket.startTime)} - ${fmtTime(ticket.endTime)}`} variant="outlined"
-                                  size="small"/>
+                            <Chip icon={<CalendarTodayIcon fontSize='small'/>} label={ticket.overtimeDate} variant="outlined" size="small"/>
+                            <Chip icon={<AccessTimeIcon fontSize='small'/>} label={`${fmtTime(ticket.startTime)} - ${fmtTime(ticket.endTime)}`} variant="outlined" size="small"/>
                         </Stack>
                     </Grid>
                 </Grid>
             </Paper>
 
-            {/* --- LINE SUMMARY & STATISTICS --- */}
-            {lineData ? (
-                <Box sx={{mb: 3}}>
-                    <Card variant="outlined" sx={{bgcolor: 'background.default'}}>
-                        <CardContent>
-                            <Grid container spacing={2} alignItems="center">
-                                <Grid item xs={12} md={4}>
-                                    <Stack direction="row" spacing={1} alignItems="center">
-                                        <FactoryIcon color="action" />
-                                        <Typography variant="h6" fontWeight="bold">
-                                            {lineData.name}
-                                        </Typography>
-                                    </Stack>
-                                    <Typography variant="caption" color="text.secondary" sx={{ml: 4}}>
-                                        Target Line for Overtime
-                                    </Typography>
-                                </Grid>
+            {/* --- MULTI-LINE RENDERER --- */}
+            {linesData.length > 0 ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {linesData.map((line) => (
+                        <Paper key={line.id} elevation={1} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                            {/* LINE HEADER CARD */}
+                            <Box sx={{ p: 2, bgcolor: '#f5f5f5', borderBottom: '1px solid #e0e0e0' }}>
+                                <Grid container alignItems="center" spacing={2}>
+                                    <Grid item xs={12} md={4}>
+                                        <Stack direction="row" spacing={1} alignItems="center">
+                                            <FactoryIcon color="primary" />
+                                            <Typography variant="h6" fontWeight="bold">
+                                                {line.name}
+                                            </Typography>
+                                        </Stack>
+                                    </Grid>
 
-                                <Grid item xs={12} md={8}>
-                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} justifyContent="flex-end">
-                                        <Box textAlign="center">
-                                            <Typography variant="caption" color="text.secondary">Required</Typography>
-                                            <Typography variant="h6">{lineData.required}</Typography>
-                                        </Box>
-                                        <Divider orientation="vertical" flexItem sx={{display: {xs: 'none', sm: 'block'}}} />
-                                        <Box textAlign="center">
-                                            <Typography variant="caption" color="text.secondary">Assigned</Typography>
-                                            <Typography variant="h6" color="primary">{lineData.assigned}</Typography>
-                                        </Box>
-                                        <Divider orientation="vertical" flexItem sx={{display: {xs: 'none', sm: 'block'}}} />
-                                        <Box textAlign="center">
-                                            <Typography variant="caption" color="text.secondary">Accepted</Typography>
-                                            <Stack direction="row" spacing={0.5} alignItems="center">
-                                                <Typography variant="h6" color={lineData.isFullyAccepted ? "success.main" : "text.primary"}>
-                                                    {lineData.acceptedCount}
-                                                </Typography>
-                                                {lineData.isFullyAccepted && <CheckCircleIcon color="success" fontSize="small"/>}
-                                            </Stack>
-                                        </Box>
-                                    </Stack>
-                                </Grid>
-                            </Grid>
+                                    <Grid item xs={12} md={8}>
+                                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} justifyContent="flex-end" alignItems="center">
+                                            {/* Progress Bar Area */}
+                                            <Box sx={{ flex: 1, width: '100%', mr: 2 }}>
+                                                <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                                                    <Typography variant="caption" color="text.secondary">Worker Acceptance</Typography>
+                                                    <Typography variant="caption" fontWeight="bold">{Math.round(line.progressVal)}%</Typography>
+                                                </Stack>
+                                                <LinearProgress
+                                                    variant="determinate"
+                                                    value={line.progressVal}
+                                                    color={line.isFullyAccepted ? "success" : "primary"}
+                                                    sx={{height: 8, borderRadius: 4}}
+                                                />
+                                            </Box>
 
-                            <Box sx={{mt: 3, display: 'flex', alignItems: 'center'}}>
-                                <Box sx={{width: '100%', mr: 1}}>
-                                    <LinearProgress
-                                        variant="determinate"
-                                        value={lineData.progressVal}
-                                        color={lineData.isFullyAccepted ? "success" : "primary"}
-                                        sx={{height: 10, borderRadius: 5}}
-                                    />
-                                </Box>
-                                <Box sx={{minWidth: 35}}>
-                                    <Typography variant="body2" color="text.secondary">
-                                        {Math.round(lineData.progressVal)}%
-                                    </Typography>
-                                </Box>
+                                            {/* Stats */}
+                                            <Box textAlign="center" minWidth={60}>
+                                                <Typography variant="caption" color="text.secondary">Req</Typography>
+                                                <Typography variant="h6">{line.required}</Typography>
+                                            </Box>
+                                            <Divider orientation="vertical" flexItem />
+                                            <Box textAlign="center" minWidth={60}>
+                                                <Typography variant="caption" color="text.secondary">Assigned</Typography>
+                                                <Typography variant="h6" color="primary">{line.assigned}</Typography>
+                                            </Box>
+                                            <Divider orientation="vertical" flexItem />
+                                            <Box textAlign="center" minWidth={60}>
+                                                <Typography variant="caption" color="text.secondary">Accepted</Typography>
+                                                <Stack direction="row" spacing={0.5} justifyContent="center" alignItems="center">
+                                                    <Typography variant="h6" color={line.isFullyAccepted ? "success.main" : "text.primary"}>
+                                                        {line.acceptedCount}
+                                                    </Typography>
+                                                    {line.isFullyAccepted && <CheckCircleIcon color="success" fontSize="small"/>}
+                                                </Stack>
+                                            </Box>
+                                        </Stack>
+                                    </Grid>
+                                </Grid>
                             </Box>
-                        </CardContent>
-                    </Card>
+
+                            {/* EMPLOYEE TABLE FOR THIS LINE */}
+                            <Accordion defaultExpanded elevation={0} disableGutters>
+                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                    <Typography variant="subtitle2" color="text.secondary">View {line.assigned} Employees</Typography>
+                                </AccordionSummary>
+                                <AccordionDetails sx={{ p: 0 }}>
+                                    <EmployeeListTable employees={line.employees}/>
+                                </AccordionDetails>
+                            </Accordion>
+                        </Paper>
+                    ))}
                 </Box>
             ) : (
-                <Alert severity="warning" sx={{mb: 3}}>No line data or employees found for this ticket.</Alert>
+                <Alert severity="warning">No employees found in this ticket.</Alert>
             )}
 
-            {/* --- EMPLOYEE LIST --- */}
-            <Box sx={{width: '100%', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1, p: 2}}>
-                <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                    <AssignmentIndIcon color="primary"/>
-                    <Typography variant="h6">Assigned Employees</Typography>
-                </Stack>
-                <Divider sx={{mb: 1, bgcolor: 'black'}} variant='middle'/>
-
-                {lineData && lineData.employees && lineData.employees.length > 0 ? (
-                    <EmployeeListTable employees={lineData.employees}/>
-                ) : (
-                    <Typography variant="body2" color="text.secondary" align="center" sx={{py: 4}}>
-                        No employees have been assigned to this ticket yet.
-                    </Typography>
-                )}
-            </Box>
-
-            {/* --- DRAWER (HISTORY) --- */}
             <Drawer anchor="right" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
                 <Box sx={{width: 350, p: 3}}>
                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -261,12 +225,6 @@ export default function OvertimeTicketDetail() {
                     </Box>
                     <Divider sx={{mb: 3}}/>
                     <TicketStatusTracker status={ticket.status} orientation="vertical"/>
-                    <Box mt={4} p={2} bgcolor="grey.50" borderRadius={2}>
-                        <Typography variant="caption" color="textSecondary" display="block"
-                                    gutterBottom>METADATA</Typography>
-                        <Typography variant="body2"><strong>Last Updated:</strong> {new Date().toLocaleDateString()}
-                        </Typography>
-                    </Box>
                 </Box>
             </Drawer>
         </Container>
