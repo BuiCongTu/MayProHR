@@ -302,8 +302,8 @@ export default function OvertimeRequestList() {
     const [requests, setRequests] = useState([]);
     // Pagination
     const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(10); // <--- NEW
-    const [totalCount, setTotalCount] = useState(0);    // <--- NEW
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [totalCount, setTotalCount] = useState(0);
 
     const [expanded, setExpanded] = useState(false);
     const [statusFilter, setStatusFilter] = useState('');
