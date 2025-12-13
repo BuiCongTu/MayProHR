@@ -141,7 +141,7 @@ public class OvertimeAutomationService {
 
     /**
      * 3. Auto-Process Requests (Close them for Payroll)
-     * Runs every hour
+     * Runs every 30 minutes
      */
     @Scheduled(cron = "0 */30 * * * *")
     @Transactional

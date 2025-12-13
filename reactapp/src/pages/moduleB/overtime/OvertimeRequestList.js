@@ -6,7 +6,8 @@ import { useWebSocket } from '../../../contexts/WebSocketContext';
 import {
     Box, Typography, Button, Paper, TextField, InputAdornment, ToggleButton, ToggleButtonGroup,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel,
-    Collapse, Chip, colors, Grid, LinearProgress, IconButton, Tooltip, Stack
+    Collapse, Chip, colors, Grid, LinearProgress, IconButton, Tooltip, Stack,
+    TablePagination
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -21,7 +22,7 @@ const mainHeadCells = [
     { id: 'departmentName', label: 'Department', width: '20%' },
     { id: 'overtimeDate', label: 'Date', width: '15%' },
     { id: 'startTime', label: 'Time', width: '15%', disableSorting: true },
-    { id: 'numEmployees', label: 'Workers', numeric: true, width: '15%', disableSorting: true }, // Renamed Label
+    { id: 'numEmployees', label: 'Workers', numeric: true, width: '15%', disableSorting: true },
     { id: 'status', label: 'Status', width: '15%', disableSorting: true },
     { id: 'actions', label: 'Actions', width: '10%', disableSorting: true }
 ];
@@ -91,7 +92,6 @@ function LineBreakdownTable({ request, navigate }) {
         }
 
         // FILTER: Hide Level 4 (Leader) lines from this snapshot
-        // We only want to show the "Workforce" progress
         return request.lineDetails
             .filter(detail => detail.lineLevel !== 4)
             .map(detail => {
@@ -300,7 +300,11 @@ function RequestRow({ request, isExpanded, onToggle, navigate, isLineManager }) 
 // --- 5. MAIN COMPONENT ---
 export default function OvertimeRequestList() {
     const [requests, setRequests] = useState([]);
+    // Pagination
     const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [totalCount, setTotalCount] = useState(0);
+
     const [expanded, setExpanded] = useState(false);
     const [statusFilter, setStatusFilter] = useState('');
     const [departmentSearch, setDepartmentSearch] = useState('');
@@ -316,7 +320,10 @@ export default function OvertimeRequestList() {
     const { subscribe, connected } = useWebSocket();
 
     useEffect(() => {
-        const t = setTimeout(() => setDebouncedSearch(departmentSearch), 500);
+        const t = setTimeout(() => {
+            setDebouncedSearch(departmentSearch);
+            setPage(0);
+        }, 500);
         return () => clearTimeout(t);
     }, [departmentSearch]);
 
@@ -331,10 +338,16 @@ export default function OvertimeRequestList() {
                 filter.departmentId = user.departmentId;
             }
 
-            const data = await getFilteredOvertimeRequest(filter, { page, size: 10, sort: `${orderBy},${order}` });
-            let content = data?.content || [];
+            // USE DYNAMIC PAGE SIZE
+            const data = await getFilteredOvertimeRequest(filter, {
+                page,
+                size: rowsPerPage,
+                sort: `${orderBy},${order}`
+            });
 
-            setRequests(content);
+            setRequests(data?.content || []);
+            setTotalCount(data?.totalElements || 0);
+
         } catch (e) {
             console.error(e);
         }
@@ -342,37 +355,31 @@ export default function OvertimeRequestList() {
 
     useEffect(() => {
         loadData();
-    }, [statusFilter, debouncedSearch, order, orderBy, page, isLineManager, user?.departmentId]);
+    }, [statusFilter, debouncedSearch, order, orderBy, page, rowsPerPage, isLineManager, user?.departmentId]);
 
-
+    // WebSocket: Re-fetch on update to respect pagination limits
     useEffect(() => {
         if (!connected) return;
         const sub = subscribe('/topic/requests', (updatedRequest) => {
-            setRequests(prevRequests => {
-                const exists = prevRequests.find(r => r.id === updatedRequest.id);
-                if (isLineManager && (updatedRequest.status === 'pending' || updatedRequest.status === 'rejected')) {
-                    if (exists) return prevRequests.filter(r => r.id !== updatedRequest.id);
-                    return prevRequests;
-                }
-                if (isLineManager && user?.departmentId && updatedRequest.departmentId !== user.departmentId) {
-                    return prevRequests;
-                }
-                if (exists) {
-                    return prevRequests.map(r => r.id === updatedRequest.id ? updatedRequest : r);
-                } else {
-                    if (page === 0) return [updatedRequest, ...prevRequests];
-                    return prevRequests;
-                }
-            });
+            loadData();
         });
         return () => { if (sub) sub.unsubscribe(); };
-    }, [connected, subscribe, isLineManager, user?.departmentId, page]);
-
+    }, [connected, subscribe, page, rowsPerPage, order, orderBy]);
 
     const handleMainSort = (event, property) => {
         const isAsc = orderBy === property && order === 'asc';
         setOrder(isAsc ? 'desc' : 'asc');
         setOrderBy(property);
+    };
+
+    // --- PAGINATION HANDLERS ---
+    const handleChangePage = (event, newPage) => {
+        setPage(newPage);
+    };
+
+    const handleChangeRowsPerPage = (event) => {
+        setRowsPerPage(parseInt(event.target.value, 10));
+        setPage(0);
     };
 
     return (
@@ -399,7 +406,12 @@ export default function OvertimeRequestList() {
                 <ToggleButtonGroup
                     value={statusFilter}
                     exclusive
-                    onChange={(e, v) => setStatusFilter(v)}
+                    onChange={(e, v) => {
+                        if (v !== null) {
+                            setStatusFilter(v);
+                            setPage(0);
+                        }
+                    }}
                     size="small"
                     sx={{ whiteSpace: 'nowrap' }}
                 >
@@ -420,31 +432,62 @@ export default function OvertimeRequestList() {
                 </Stack>
             </Paper>
 
-            <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #eee' }}>
-                <Table sx={{ tableLayout: 'fixed', minWidth: 800 }}>
-                    <EnhancedTableHead
-                        order={order}
-                        orderBy={orderBy}
-                        onRequestSort={handleMainSort}
-                        cells={mainHeadCells}
-                        themeColor={colors.blue[50]}
-                    />
-                    <TableBody>
-                        {requests.length === 0 ? (
-                            <TableRow><TableCell colSpan={7} align="center">No requests found.</TableCell></TableRow>
-                        ) : requests.map(req => (
-                            <RequestRow
-                                key={req.id}
-                                request={req}
-                                isExpanded={expanded === req.id}
-                                onToggle={() => setExpanded(expanded === req.id ? false : req.id)}
-                                navigate={navigate}
-                                isLineManager={isLineManager}
-                            />
-                        ))}
-                    </TableBody>
-                </Table>
-            </TableContainer>
+            <Paper elevation={0} sx={{ border: '1px solid #eee', borderRadius: 2, overflow: 'hidden' }}>
+                <TableContainer>
+                    <Table sx={{ tableLayout: 'fixed', minWidth: 800 }}>
+                        <EnhancedTableHead
+                            order={order}
+                            orderBy={orderBy}
+                            onRequestSort={handleMainSort}
+                            cells={mainHeadCells}
+                            themeColor={colors.blue[50]}
+                        />
+                        <TableBody>
+                            {requests.length === 0 ? (
+                                <TableRow><TableCell colSpan={7} align="center">No requests found.</TableCell></TableRow>
+                            ) : requests.map(req => (
+                                <RequestRow
+                                    key={req.id}
+                                    request={req}
+                                    isExpanded={expanded === req.id}
+                                    onToggle={() => setExpanded(expanded === req.id ? false : req.id)}
+                                    navigate={navigate}
+                                    isLineManager={isLineManager}
+                                />
+                            ))}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+
+                {/* --- PAGINATION CONTROL --- */}
+                <TablePagination
+                    rowsPerPageOptions={[5, 10, 25, 50]}
+                    component="div"
+                    count={totalCount} // from backend
+                    rowsPerPage={rowsPerPage}
+                    page={page}
+                    onPageChange={handleChangePage}
+                    onRowsPerPageChange={handleChangeRowsPerPage}
+                    showFirstButton
+                    showLastButton
+                    sx={{
+                        borderTop: '1px solid #e0e0e0',
+                        bgcolor: '#fafafa',
+                        '.MuiTablePagination-toolbar': {
+                            minHeight: 52,
+                            px: 2
+                        },
+                        '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
+                            margin: 0,
+                            fontWeight: 500,
+                            color: 'text.secondary'
+                        },
+                        '.MuiTablePagination-actions': {
+                            ml: 2
+                        }
+                    }}
+                />
+            </Paper>
         </Box>
     );
 }
