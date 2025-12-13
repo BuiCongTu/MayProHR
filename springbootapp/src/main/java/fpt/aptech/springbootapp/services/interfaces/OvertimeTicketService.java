@@ -8,9 +8,11 @@ import fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeTicket;
 import fpt.aptech.springbootapp.filter.OvertimeTicketFilter;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+@Service
 public interface OvertimeTicketService {
     Page<OvertimeTicketDTO> getFilteredTicket(OvertimeTicketFilter filter, Pageable pageable);
     OvertimeTicketDTO submitTicket(Integer id);

@@ -20,7 +20,7 @@ const HRDashboard = () =>
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4, flexGrow: 1 }}>
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" gutterBottom>
-            Chào mừng HR, {user?.fullName || 'User'}
+            Welcome HR, {user?.fullName || 'User'}
           </Typography>
           <Typography variant="body1" color="text.secondary">
             MayPayHR Human Resources Management System Dashboard

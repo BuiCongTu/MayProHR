@@ -27,7 +27,6 @@ export const WebSocketProvider = ({ children }) => {
         const client = new Client({
             webSocketFactory: socketFactory,
             reconnectDelay: 5000,
-            // Ensure headers are sent correctly
             connectHeaders: {
                 Authorization: `Bearer ${currentToken}`
             },

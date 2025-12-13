@@ -53,12 +53,15 @@ public class TbPayroll {
     @Column(name = "status", length = 20)
     private PayrollStatus status = PayrollStatus.pending;
 
+    @Column(name = "year_month", length = 20)
+    private String yearMonth;
+
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", nullable = false)
     private TbUser createdBy;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "approved_by")
     private TbUser approvedBy;
 

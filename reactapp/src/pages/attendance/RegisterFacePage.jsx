@@ -4,31 +4,100 @@ import CameraCapture from '../../components/attendance/CameraCapture';
 
 const RegisterFacePage = () => {
   const [users, setUsers] = useState([]);
+  const [allUsers, setAllUsers] = useState([]); // keep original list for search
+  const [departments, setDepartments] = useState([]);
+  const [selectedDept, setSelectedDept] = useState(null);
+  const [lines, setLines] = useState([]);
+  const [selectedLine, setSelectedLine] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('all'); // all | registered | not_registered
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [showUserDetail, setShowUserDetail] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [step, setStep] = useState(1); // 1: Select User, 2: Capture Face, 3: Train Model
+  const [accessDenied, setAccessDenied] = useState(false);
 
   useEffect(() => {
+    checkRoleAccess();
+    fetchDepartments();
     fetchUsers();
   }, []);
 
+  // re-apply filters when filter state changes
+  useEffect(() => {
+    applyFilters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDept, selectedLine, filterStatus, allUsers]);
+
+  const checkRoleAccess = () => {
+    try {
+      const raw = localStorage.getItem('user');
+      if (!raw) {
+        setAccessDenied(true);
+        return;
+      }
+      const u = JSON.parse(raw);
+      const roleName = (u.roleName || u.role || '').toString().replace(/\s+/g, '').toUpperCase();
+      if (!(roleName === 'HR' || roleName === 'ADMIN')) {
+        setAccessDenied(true);
+      }
+    } catch (e) {
+      setAccessDenied(true);
+    }
+  };
+
+  const fetchDepartments = async () => {
+    try {
+      const res = await axios.get('/api/department/');
+      const data = res?.data?.data ?? res?.data ?? [];
+      setDepartments(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error('Failed to load departments', e);
+    }
+  };
+
   const fetchUsers = async () => {
     try {
-      const response = await axios.get('/api/users');
-      setUsers(response.data);
+      // backend exposes GET /api/user which returns ApiResponse wrapper
+      const response = await axios.get('/api/user');
+      // ApiResponse: { success, message, data, timestamp }
+      const data = (response && response.data && response.data.data) ? response.data.data : response.data;
+      const list = Array.isArray(data) ? data : [];
+      setUsers(list);
+      setAllUsers(list);
     } catch (err) {
       console.error('Failed to fetch users:', err);
       setError('Không thể tải danh sách nhân viên');
     }
   };
 
+  // fetch lines when dept changes
+  const fetchLines = async (deptId) => {
+    if (!deptId) {
+      setLines([]);
+      return;
+    }
+    try {
+      const res = await axios.get(`/api/lines/department/${deptId}`);
+      const data =Array.isArray(res.data) ? res.data : [];
+      setLines(data);
+    } catch (e) {
+      console.error('Failed to load lines', e);
+      setLines([]);
+    }
+  };
+
   const handleUserSelect = (userId) => {
     setSelectedUserId(userId);
-    setStep(2);
+    setShowUserDetail(true);
     setError(null);
     setResult(null);
+  };
+
+  const proceedToCapture = () => {
+    setShowUserDetail(false);
+    setStep(2);
   };
 
   const handleCapture = async (imageBase64) => {
@@ -37,9 +106,13 @@ const RegisterFacePage = () => {
     setResult(null);
 
     try {
+      const token = localStorage.getItem('token');
+      console.debug('register-face token:', token);
       const response = await axios.post('/api/attendance/register-face', {
         userId: selectedUserId,
         imageBase64
+      }, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
 
       if (response.data.success) {
@@ -63,7 +136,11 @@ const RegisterFacePage = () => {
     setError(null);
 
     try {
-      const response = await axios.post('/api/attendance/train-model');
+      const token = localStorage.getItem('token');
+      console.debug('train-model token:', token);
+      const response = await axios.post('/api/attendance/train-model', {}, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
 
       if (response.data.success) {
         showNotification('success', 'Huấn luyện mô hình thành công!');
@@ -96,8 +173,45 @@ const RegisterFacePage = () => {
   };
 
   const getSelectedUser = () => {
-    return users.find(u => u.userId === selectedUserId);
+    return allUsers.find(u => (u.userId ?? u.id) === selectedUserId || (u.id === selectedUserId));
   };
+
+  const applyFilters = () => {
+    let list = [...allUsers];
+    if (selectedDept) {
+      list = list.filter(u => {
+        const deptId = u.department?.id ?? u.departmentId ?? u.department?.department_id;
+        return deptId === selectedDept;
+      });
+    }
+    if (selectedLine) {
+      list = list.filter(u => {
+        const lineId = u.line?.id ?? u.lineId ?? u.line?.line_id;
+        return lineId === selectedLine;
+      });
+    }
+    if (filterStatus === 'registered') {
+      list = list.filter(u => {
+        const fd = u.faceData ?? u.face_data ?? null;
+        return !!fd;
+      });
+    } else if (filterStatus === 'not_registered') {
+      list = list.filter(u => {
+        const fd = u.faceData ?? u.face_data ?? null;
+        return !fd;
+      });
+    }
+    setUsers(list);
+  };
+
+  if (accessDenied) {
+    return (
+      <div style={{ ...styles.container, textAlign: 'center' }}>
+        <h2>Quyền truy cập bị từ chối</h2>
+        <p>Bạn cần đăng nhập bằng tài khoản HR hoặc Admin để truy cập trang này.</p>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.container}>
@@ -128,42 +242,126 @@ const RegisterFacePage = () => {
       {step === 1 && (
         <div style={styles.userListContainer}>
           <h3 style={styles.sectionTitle}>Chọn Nhân Viên Cần Đăng Ký</h3>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'center' }}>
+            <div style={{ flex: 1 }}>
+              <select
+                value={selectedDept ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value ? Number(e.target.value) : null;
+                  setSelectedDept(v);
+                  setSelectedLine(null);
+                  fetchLines(v);
+                }}
+                style={{ width: '100%', padding: 10, borderRadius: 6 }}
+              >
+                <option value="">-- Chọn Phòng Ban --</option>
+                {departments.map(d => (
+                  <option key={d.id ?? d.departmentId} value={d.id ?? d.departmentId}>{d.name ?? d.departmentName}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <select
+                value={selectedLine ?? ''}
+                onChange={(e) => setSelectedLine(e.target.value ? Number(e.target.value) : null)}
+                style={{ width: '100%', padding: 10, borderRadius: 6 }}
+              >
+                <option value="">-- Chọn Line --</option>
+                {lines.map(l => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ minWidth: 220 }}>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                style={{ width: '100%', padding: 10, borderRadius: 6 }}
+              >
+                <option value="all">Tất cả</option>
+                <option value="registered">Đã đăng ký face</option>
+                <option value="not_registered">Chưa đăng ký face</option>
+              </select>
+            </div>
+          </div>
           <div style={styles.searchBox}>
-            <input 
-              type="text" 
-              placeholder="🔍 Tìm kiếm nhân viên..." 
+            <input
+              type="text"
+              placeholder="🔍 Tìm kiếm nhân viên..."
               style={styles.searchInput}
               onChange={(e) => {
-                // Simple filter implementation
-                const query = e.target.value.toLowerCase();
-                const filtered = users.filter(u => 
-                  u.fullName?.toLowerCase().includes(query) || 
-                  u.email?.toLowerCase().includes(query)
-                );
+                const query = e.target.value.toLowerCase().trim();
+                if (!query) {
+                  setUsers(allUsers);
+                  return;
+                }
+                const filtered = allUsers.filter(u => {
+                  const name = (u.fullName || u.full_name || u.name || '').toString().toLowerCase();
+                  const email = (u.email || u.emailAddress || '').toString().toLowerCase();
+                  return name.includes(query) || email.includes(query);
+                });
                 setUsers(filtered);
               }}
             />
           </div>
           <div style={styles.userList}>
-            {users.map(user => (
-              <div 
-                key={user.userId} 
-                style={styles.userCard}
-                onClick={() => handleUserSelect(user.userId)}
-              >
-                <div style={styles.userAvatar}>
-                  {user.fullName?.charAt(0) || '?'}
-                </div>
-                <div style={styles.userInfo}>
-                  <div style={styles.userName}>{user.fullName}</div>
-                  <div style={styles.userEmail}>{user.email}</div>
-                  <div style={styles.userDepartment}>
-                    {user.department?.name || 'N/A'}
+            {Array.isArray(users) && users.map(user => {
+              const id = user.userId ?? user.id ?? user.uuid ?? '';
+              return (
+                <div
+                  key={id}
+                  style={styles.userCard}
+                  onClick={() => handleUserSelect(id)}
+                >
+                  <div style={styles.userAvatar}>
+                    {(user.fullName || user.full_name || user.name || '?').toString().charAt(0) || '?'}
+                  </div>
+                  <div style={styles.userInfo}>
+                    <div style={styles.userName}>{user.fullName || user.full_name || user.name}</div>
+                    <div style={styles.userEmail}>{user.email || user.emailAddress || ''}</div>
+                    <div style={styles.userDepartment}>
+                      {user.department?.name || user.departmentName || 'N/A'}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+
+          {/* Selected user detail (before capture) */}
+          {showUserDetail && selectedUserId && (
+            <div style={{ marginTop: 20, padding: 20, border: '2px solid #eee', borderRadius: 8, background: '#fafafa' }}>
+              <h3>Chi tiết nhân viên</h3>
+              {(() => {
+                const su = getSelectedUser();
+                if (!su) return <p>Không tìm thấy nhân viên</p>;
+                const hasFace = !!(su.faceData ?? su.face_data ?? null);
+                return (
+                  <div>
+                    <p><strong>Tên:</strong> {su.fullName || su.full_name || su.name}</p>
+                    <p><strong>SDT:</strong> {su.phone}</p>
+                    <p><strong>Email:</strong> {su.email}</p>
+                    <p><strong>Phòng ban:</strong> {su.department?.name || su.departmentName || 'N/A'}</p>
+                    <p><strong>Line:</strong> {su.line?.name || su.lineName || 'N/A'}</p>
+                    <p><strong>Trạng thái:</strong> {hasFace ? 'Đã đăng ký face' : 'Chưa đăng ký face'}</p>
+
+                    <div style={{ marginTop: 12 }}>
+                      {!hasFace ? (
+                        <button onClick={proceedToCapture} style={styles.trainButton}>Chụp Khuôn Mặt</button>
+                      ) : (
+                        <div>
+                          <button onClick={proceedToCapture} style={styles.trainButton}>Đăng ký lại / Chụp lại</button>
+                        </div>
+                      )}
+                      <button onClick={() => setShowUserDetail(false)} style={{ marginLeft: 12, padding: '10px 20px' }}>Đóng</button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
         </div>
       )}
 
@@ -221,10 +419,11 @@ const RegisterFacePage = () => {
           </div>
 
           {!result?.modelTrained ? (
-            <button 
-              onClick={handleTrainModel} 
+            <button
+              onClick={handleTrainModel}
               style={styles.trainButton}
-              disabled={loading}
+              disabled={loading || !selectedUserId || !result}
+              title={!selectedUserId || !result ? 'Chọn nhân viên và đăng ký khuôn mặt trước khi huấn luyện' : ''}
             >
               {loading ? '⏳ Đang Huấn Luyện...' : '🚀 Huấn Luyện Mô Hình'}
             </button>

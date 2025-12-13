@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 
+import java.time.LocalDate;
+
 @Getter
 @Setter
 @Entity
@@ -35,6 +37,9 @@ public class TbOvertimeTicketEmployee {
     @ColumnDefault("'pending'")
     @Column(name = "status", length = 20)
     private EmployeeOvertimeStatus status = EmployeeOvertimeStatus.pending;
+
+    @Column(name = "ticket_date")
+    private LocalDate ticketDate;
 
     public enum EmployeeOvertimeStatus {
         pending,

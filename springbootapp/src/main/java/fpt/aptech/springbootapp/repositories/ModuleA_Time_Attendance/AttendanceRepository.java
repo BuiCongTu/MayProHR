@@ -121,4 +121,6 @@ public interface AttendanceRepository extends JpaRepository<TbAttendance, Long> 
             @Param("date") LocalDate date
     );
 
+    @Query("SELECT a FROM TbAttendance a WHERE a.user = :user AND a.date BETWEEN :startDate AND :endDate AND a.status = :attendanceStatus ORDER BY a.date DESC")
+    List<TbAttendance> findByUserAndDateBetweenAndStatus(TbUser user, LocalDate startDate, LocalDate endDate, TbAttendance.AttendanceStatus attendanceStatus);
 }

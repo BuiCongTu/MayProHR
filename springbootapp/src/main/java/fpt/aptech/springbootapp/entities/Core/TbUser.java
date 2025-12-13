@@ -35,6 +35,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "tbUser")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "roles", "attendances", "leaveRequests"})
 public class TbUser {
 
     @Id

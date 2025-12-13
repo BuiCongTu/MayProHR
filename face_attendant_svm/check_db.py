@@ -10,23 +10,23 @@ def check_database():
     print("  KIỂM TRA DATABASE")
     print("=" * 40)
     
-    conn = sqlite3.connect('students.db')
+    conn = sqlite3.connect('employees.db')
     cursor = conn.cursor()
     
-    # Kiểm tra bảng students
-    print("\n📚 BẢNG STUDENTS:")
-    cursor.execute("SELECT * FROM Student")
-    students = cursor.fetchall()
-    if students:
+    # Kiểm tra bảng employees
+    print("\n👥 BẢNG EMPLOYEES:")
+    cursor.execute("SELECT * FROM Employee")
+    employees = cursor.fetchall()
+    if employees:
         print("ID     | Tên")
         print("-------|--------------------")
-        for student in students:
-            print(f"{student[0]:<6} | {student[1]}")
+        for employee in employees:
+            print(f"{employee[0]:<6} | {employee[1]}")
     else:
         print("Không có dữ liệu")
     
     # Kiểm tra bảng attendance
-    print("\n BẢNG ATTENDANCE:")
+    print("\n 📋 BẢNG ATTENDANCE:")
     try:
         cursor.execute("SELECT * FROM attendance ORDER BY timestamp DESC")
         attendance = cursor.fetchall()
@@ -44,18 +44,18 @@ def check_database():
 
 def init_attendance_manually():
     """Tạo bảng attendance thủ công"""
-    conn = sqlite3.connect('students.db')
+    conn = sqlite3.connect('employees.db')
     cursor = conn.cursor()
     
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS attendance (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            student_id TEXT NOT NULL,
-            student_name TEXT NOT NULL,
+            employee_id TEXT NOT NULL,
+            employee_name TEXT NOT NULL,
             session TEXT NOT NULL,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             confidence REAL,
-            FOREIGN KEY (student_id) REFERENCES students (id)
+            FOREIGN KEY (employee_id) REFERENCES Employee (id)
         )
     ''')
     

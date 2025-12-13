@@ -4,6 +4,7 @@ package fpt.aptech.springbootapp.services.interfaces;
 import java.util.List;
 
 import fpt.aptech.springbootapp.dtos.response.LineDto;
+import fpt.aptech.springbootapp.dtos.response.LineHierarchyDto;
 import fpt.aptech.springbootapp.entities.Core.TbLine;
 
 public interface LineService {
@@ -21,4 +22,6 @@ public interface LineService {
     Integer getParentId(Integer lineId);
 
     List<Integer> getAllDescendantIds(Integer parentLineId);
+
+    LineHierarchyDto getLineHierarchy(Integer departmentId, Integer lineId, Integer parentId);
 }

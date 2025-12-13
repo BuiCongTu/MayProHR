@@ -22,6 +22,9 @@ import OvertimeTicketList from "./pages/moduleB/overtime/OvertimeTicketList";
 import Profile from "./pages/profile/Profile";
 import {setupAxiosInterceptors} from "./services/authService";
 import {WebSocketProvider} from './contexts/WebSocketContext';
+import PayrollRouter from "./pages/moduleC/PayrollRouter";
+import UserList from "./pages/users/UserList";
+
 
 function App() {
     const getUserRole = () => {
@@ -57,6 +60,10 @@ function App() {
                             <Route path="/attendance/history" element={<HistoryPage/>}/>
                             <Route path="/overtime-request/:id" element={<OvertimeRequestDetail/>}/>
                             <Route path="/profile" element={<Profile/>}/>
+
+                            <Route path="/payroll/*" element={<PayrollRouter/>}/>
+
+                            <Route path="/users" element={<UserList/>}/>
 
                             {/* Ticket Routes */}
                             <Route path="/overtime-ticket" element={<OvertimeTicketList/>}/>
