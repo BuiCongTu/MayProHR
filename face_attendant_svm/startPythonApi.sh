@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Script: start_python_service.sh
+# Script: startPythonApi.sh
 # Purpose: Activate virtual environment and start the Flask face recognition API service.
-# Usage: ./start_python_service.sh
+# Usage: ./startPythonApi.sh
 
 set -euo pipefail
 
