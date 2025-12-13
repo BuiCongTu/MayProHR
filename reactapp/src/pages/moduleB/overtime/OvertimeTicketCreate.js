@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getFilteredOvertimeRequest, createOvertimeTicket, checkEmployeeAvailability } from '../../../services/moduleB/overtimeService';
+import {
+    getFilteredOvertimeRequest,
+    createOvertimeTicket,
+    checkEmployeeAvailability,
+    getOvertimeRequestById
+} from '../../../services/moduleB/overtimeService';
 import { getUsersByDepartment } from '../../../services/userService';
 import { getLinesByDepartment } from '../../../services/departmentService';
 import { getCurrentUser } from '../../../services/authService';
@@ -10,7 +15,7 @@ import {
     Box, Container, Paper, Typography, Autocomplete, TextField,
     Button, Alert, CircularProgress, Stack, Table, TableBody,
     TableCell, TableContainer, TableHead, TableRow, Chip,
-    Divider, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions
+    Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions
 } from '@mui/material';
 
 import SaveIcon from '@mui/icons-material/Save';
@@ -19,6 +24,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import WarningIcon from '@mui/icons-material/Warning';
+import BlockIcon from '@mui/icons-material/Block';
 
 export default function OvertimeTicketCreate() {
     const navigate = useNavigate();
@@ -26,7 +32,7 @@ export default function OvertimeTicketCreate() {
     const user = getCurrentUser();
 
     // Data States
-    const [requests, setRequests] = useState([]);
+    const [requestList, setRequestList] = useState([]);
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [deptEmployees, setDeptEmployees] = useState([]);
 
@@ -44,13 +50,14 @@ export default function OvertimeTicketCreate() {
     // UI States
     const [loading, setLoading] = useState(false);
     const [loadingReq, setLoadingReq] = useState(true);
+    const [loadingDetail, setLoadingDetail] = useState(false); // <--- ADDED
     const [checkingAvailability, setCheckingAvailability] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
     const [autoFillModalOpen, setAutoFillModalOpen] = useState(false);
     const [currentEditingLine, setCurrentEditingLine] = useState(null);
     const [error, setError] = useState(null);
 
-    // 1. Load Data
+    // 1. Load Initial Data (Dropdown & Dept)
     useEffect(() => {
         let isMounted = true;
 
@@ -79,7 +86,7 @@ export default function OvertimeTicketCreate() {
 
                 if (!isMounted) return;
 
-                setRequests(fetchedRequests);
+                setRequestList(fetchedRequests);
                 setDeptEmployees(fetchedUsers || []);
                 setAllLines(fetchedLines || []);
 
@@ -103,11 +110,7 @@ export default function OvertimeTicketCreate() {
                 setManagedLineIds(owned);
 
                 if (location.state?.preselectedRequestId) {
-                    const targetReq = fetchedRequests.find(r => r.id === location.state.preselectedRequestId);
-                    if (targetReq) {
-                        setSelectedRequest(targetReq);
-                        setupLinesForRequest(targetReq);
-                    }
+                    handleRequestChange(null, { id: location.state.preselectedRequestId });
                 }
 
             } catch (err) {
@@ -122,36 +125,67 @@ export default function OvertimeTicketCreate() {
         return () => { isMounted = false; };
     }, [user?.id, user?.departmentId]);
 
-    const setupLinesForRequest = (req) => {
-        if (req && req.lineDetails) {
-            const initialLines = req.lineDetails.map(d => ({
-                lineId: d.lineId,
-                lineName: d.lineName || "Unknown Line",
-                numEmployees: d.numEmployees || 0,
-                serverAssigned: 0 // Assume 0 for new ticket to simplify "Fulfill Request" logic
-            }));
-            setLines(initialLines);
-            setAllocations({});
-            setBackendConflicts(new Map());
-        } else {
+    // 2. Fetch Fresh Details & Calculate Gaps
+    const handleRequestChange = async (event, newValue) => {
+        if (!newValue) {
+            setSelectedRequest(null);
             setLines([]);
             setAllocations({});
+            return;
+        }
+
+        setLoadingDetail(true);
+        setError(null);
+
+        try {
+            // Fetch LIVE data to calculate gaps correctly
+            const freshRequest = await getOvertimeRequestById(newValue.id);
+            setSelectedRequest(freshRequest);
+            processRequestLines(freshRequest);
+        } catch (err) {
+            console.error(err);
+            setError("Could not load request details.");
+        } finally {
+            setLoadingDetail(false);
         }
     };
 
-    // Filter visible lines (Hide Level 4)
+    const processRequestLines = (req) => {
+        if (!req || !req.lineDetails) return;
+
+        // Calculate ACTIVE employees (Pending + Accepted + Submitted)
+        const activeCounts = {};
+        if (req.overtimeTickets) {
+            req.overtimeTickets.forEach(t => {
+                if (t.status !== 'rejected' && t.employeeList) {
+                    t.employeeList.forEach(emp => {
+                        // Count active seats. Ignore rejected employees (they create gaps).
+                        if (emp.lineId && emp.status !== 'rejected') {
+                            activeCounts[emp.lineId] = (activeCounts[emp.lineId] || 0) + 1;
+                        }
+                    });
+                }
+            });
+        }
+
+        const initialLines = req.lineDetails.map(d => ({
+            lineId: d.lineId,
+            lineName: d.lineName || "Unknown Line",
+            numEmployees: d.numEmployees || 0,
+            activeCount: activeCounts[d.lineId] || 0
+        }));
+
+        setLines(initialLines);
+        setAllocations({});
+        setBackendConflicts(new Map());
+    };
+
     const visibleLines = lines.filter(l => {
         if (!managedLineIds.has(l.lineId)) return false;
         const lineDef = allLines.find(al => al.id === l.lineId);
         if (lineDef && lineDef.level === 4) return false;
         return true;
     });
-
-    const handleRequestChange = (event, newValue) => {
-        setSelectedRequest(newValue);
-        setError(null);
-        setupLinesForRequest(newValue);
-    };
 
     // --- CONFLICT LOGIC ---
     const getSiblingConflict = (employee, targetLineId) => {
@@ -173,7 +207,6 @@ export default function OvertimeTicketCreate() {
         const unavailable = new Map();
         backendConflicts.forEach((reason, id) => unavailable.set(id, reason));
 
-        // Already allocated in THIS draft
         Object.keys(allocations).forEach(lId => {
             const lineIdInt = parseInt(lId);
             if (lineIdInt !== targetLineId) {
@@ -192,53 +225,39 @@ export default function OvertimeTicketCreate() {
         return unavailable;
     };
 
-    // --- NEW: SMART AUTO-FILL ALGORITHM ---
+    // --- AUTO-FILL ---
     const handleAutoDistribute = () => {
         const newAllocations = { ...allocations };
         const usedEmployeeIds = new Set();
-
-        // 1. Mark currently assigned as used
         Object.values(newAllocations).forEach(list => list.forEach(u => usedEmployeeIds.add(u.id)));
 
-        // 2. PASS 1: Native Priority
         visibleLines.forEach(line => {
-            const needed = Math.max(0, line.numEmployees - line.serverAssigned);
+            const gap = Math.max(0, line.numEmployees - line.activeCount);
+            if (gap <= 0) return;
+
             let currentList = newAllocations[line.lineId] || [];
+            if (currentList.length < gap) {
+                const needed = gap - currentList.length;
 
-            if (currentList.length < needed) {
-                const remainingNeeded = needed - currentList.length;
-
-                // Find candidates: Native line, Not used, No Backend conflict
-                const candidates = deptEmployees.filter(u =>
-                    u.lineId === line.lineId &&
-                    !usedEmployeeIds.has(u.id) &&
-                    !backendConflicts.has(u.id)
+                // 1. Native
+                const native = deptEmployees.filter(u =>
+                    u.lineId === line.lineId && !usedEmployeeIds.has(u.id) && !backendConflicts.has(u.id)
                 );
+                const addNative = native.slice(0, needed);
+                addNative.forEach(u => usedEmployeeIds.add(u.id));
+                currentList = [...currentList, ...addNative];
 
-                const toAdd = candidates.slice(0, remainingNeeded);
-                toAdd.forEach(u => usedEmployeeIds.add(u.id));
-                newAllocations[line.lineId] = [...currentList, ...toAdd];
-            }
-        });
-
-        // 3. PASS 2: Borrowing (Fill remaining gaps)
-        visibleLines.forEach(line => {
-            const needed = Math.max(0, line.numEmployees - line.serverAssigned);
-            let currentList = newAllocations[line.lineId] || [];
-
-            if (currentList.length < needed) {
-                const remainingNeeded = needed - currentList.length;
-
-                // Find candidates: Any line, Not used, No Sibling Conflict
-                const candidates = deptEmployees.filter(u =>
-                    !usedEmployeeIds.has(u.id) &&
-                    !backendConflicts.has(u.id) &&
-                    !getSiblingConflict(u, line.lineId)
-                );
-
-                const toAdd = candidates.slice(0, remainingNeeded);
-                toAdd.forEach(u => usedEmployeeIds.add(u.id));
-                newAllocations[line.lineId] = [...currentList, ...toAdd];
+                // 2. Borrow
+                if (currentList.length < gap) {
+                    const stillNeeded = gap - currentList.length;
+                    const borrowed = deptEmployees.filter(u =>
+                        !usedEmployeeIds.has(u.id) && !backendConflicts.has(u.id) && !getSiblingConflict(u, line.lineId)
+                    );
+                    const addBorrow = borrowed.slice(0, stillNeeded);
+                    addBorrow.forEach(u => usedEmployeeIds.add(u.id));
+                    currentList = [...currentList, ...addBorrow];
+                }
+                newAllocations[line.lineId] = currentList;
             }
         });
 
@@ -281,20 +300,56 @@ export default function OvertimeTicketCreate() {
         setCurrentEditingLine(null);
     };
 
-    // --- VALIDATION GATE ---
-    // Identify lines that haven't met their target
-    const missingLines = visibleLines.filter(line => {
-        const required = line.numEmployees - line.serverAssigned;
-        const current = (allocations[line.lineId] || []).length;
-        return current < required;
+    // --- STRICT GATE VALIDATION ---
+    const getValidationStatus = (line) => {
+        const gap = Math.max(0, line.numEmployees - line.activeCount);
+        const draft = (allocations[line.lineId] || []).length;
+        const isLineFull = gap === 0;
+
+        // If line is Full, we shouldn't add more.
+        if (isLineFull) {
+            return { isValid: draft === 0, msg: "Line is full." };
+        }
+
+        // FRESH TICKET (Active == 0): Must Fill Completely.
+        if (line.activeCount === 0) {
+            return {
+                isValid: draft === gap,
+                msg: `Fresh Ticket: Must select exactly ${gap} employees.`
+            };
+        }
+
+        // MAINTENANCE (Active > 0): Filling Gaps. Can select 1 to Gap.
+        // If Gap > 0, you must select at least 1 IF you decide to edit it,
+        // OR select 0 if you are ignoring this line for now (Valid use case for multi-line request).
+        // BUT strict requirement "Complete fulfillment" implies ignoring lines with gaps is bad?
+        // Let's enforce: If you have a gap, you must fill it partially or fully. (Draft > 0)
+        return {
+            isValid: draft > 0 && draft <= gap,
+            msg: `Maintenance: Fill 1 to ${gap} slots.`
+        };
+    };
+
+    // Global Check
+    const invalidLines = visibleLines.filter(line => {
+        const status = getValidationStatus(line);
+        // We only care about lines that HAVE gaps.
+        const gap = Math.max(0, line.numEmployees - line.activeCount);
+        if (gap === 0) return (allocations[line.lineId] || []).length > 0; // Invalid if trying to overstuff
+        return !status.isValid;
     });
 
-    const isFulfillingRequest = missingLines.length === 0;
+    const isGateOpen = invalidLines.length === 0;
+    const hasAllocation = Object.values(allocations).some(l => l.length > 0);
 
     const handleSubmit = async () => {
         if (!selectedRequest) return;
-        if (!isFulfillingRequest) {
-            setError("Cannot submit: You must fulfill the requested number of employees for all lines.");
+        if (!isGateOpen) {
+            setError("Validation Failed: Please follow strict gap filling rules.");
+            return;
+        }
+        if (!hasAllocation) {
+            setError("Ticket is empty.");
             return;
         }
 
@@ -342,9 +397,9 @@ export default function OvertimeTicketCreate() {
                     </Typography>
                     <Autocomplete
                         id="request-select"
-                        options={requests}
+                        options={requestList} // Dropdown list
                         getOptionLabel={(option) => `Req #${option.id} (${option.overtimeDate})`}
-                        value={selectedRequest}
+                        value={requestList.find(r => r.id === selectedRequest?.id) || null}
                         onChange={handleRequestChange}
                         loading={loadingReq}
                         isOptionEqualToValue={(option, value) => option.id === value.id}
@@ -352,96 +407,89 @@ export default function OvertimeTicketCreate() {
                             <TextField {...params} placeholder="Search Open Requests..." fullWidth variant="outlined" />
                         )}
                     />
+                    {loadingDetail && <CircularProgress size={24} sx={{ mt: 2 }} />}
                 </Paper>
 
-                {selectedRequest && (
+                {selectedRequest && !loadingDetail && (
                     <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
                         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                             <Typography variant="subtitle2" color="primary" fontWeight="bold">
-                                STEP 2: MANAGE STAFFING
+                                STEP 2: STAFFING (Gap Filling)
                             </Typography>
-                            {/* AUTO-FILL BUTTON */}
+                            {/* Auto-Fill only useful if there are gaps */}
                             <Button
                                 variant="outlined"
                                 startIcon={<AutoFixHighIcon />}
                                 onClick={() => setAutoFillModalOpen(true)}
                                 size="small"
                             >
-                                Auto-Fill Roster
+                                Auto-Fill Gaps
                             </Button>
                         </Stack>
 
-                        {visibleLines.length > 0 ? (
-                            <TableContainer sx={{ mt: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                                <Table>
-                                    <TableHead sx={{ bgcolor: 'grey.50' }}>
-                                        <TableRow>
-                                            <TableCell width="30%"><strong>Line Name</strong></TableCell>
-                                            <TableCell width="20%"><strong>Status</strong></TableCell>
-                                            <TableCell width="30%"><strong>Counts</strong></TableCell>
-                                            <TableCell width="20%" align="right"><strong>Actions</strong></TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {visibleLines.map((line) => {
-                                            const draftCount = (allocations[line.lineId] || []).length;
-                                            const totalRequired = line.numEmployees; // Original requested
-                                            const isMet = draftCount >= totalRequired;
+                        <TableContainer sx={{ mt: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                            <Table>
+                                <TableHead sx={{ bgcolor: 'grey.50' }}>
+                                    <TableRow>
+                                        <TableCell><strong>Line</strong></TableCell>
+                                        <TableCell><strong>Status</strong></TableCell>
+                                        <TableCell><strong>Counts</strong></TableCell>
+                                        <TableCell align="right"><strong>Action</strong></TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {visibleLines.map((line) => {
+                                        const draft = (allocations[line.lineId] || []).length;
+                                        const gap = Math.max(0, line.numEmployees - line.activeCount);
+                                        const isLineFull = gap === 0;
+                                        const status = getValidationStatus(line);
 
-                                            return (
-                                                <TableRow key={line.lineId} hover>
-                                                    <TableCell>
-                                                        <Typography variant="body1" fontWeight="bold">{line.lineName}</Typography>
-                                                    </TableCell>
+                                        return (
+                                            <TableRow key={line.lineId} hover>
+                                                <TableCell>{line.lineName}</TableCell>
 
-                                                    <TableCell>
-                                                        {isMet ? (
-                                                            <Chip icon={<CheckCircleIcon fontSize="small"/>} label="Ready" color="success" size="small" variant="outlined" />
-                                                        ) : (
-                                                            <Chip icon={<WarningIcon fontSize="small"/>} label="Missing" color="error" size="small" variant="outlined" />
-                                                        )}
-                                                    </TableCell>
+                                                <TableCell>
+                                                    {isLineFull && draft === 0 ? <Chip label="Full" icon={<BlockIcon/>} size="small"/> :
+                                                        status.isValid ? <Chip label="Ready" color="success" icon={<CheckCircleIcon/>} size="small"/> :
+                                                            <Chip label="Action Needed" color="error" icon={<WarningIcon/>} size="small"/>}
+                                                </TableCell>
 
-                                                    <TableCell>
+                                                <TableCell>
+                                                    <Stack spacing={0.5}>
                                                         <Typography variant="body2">
-                                                            Assigned: <strong style={{ color: isMet ? 'green' : 'red' }}>{draftCount}</strong> / {totalRequired}
+                                                            Active: <strong>{line.activeCount + draft}</strong> / {line.numEmployees}
                                                         </Typography>
-                                                    </TableCell>
+                                                        <Typography variant="caption" color="textSecondary">
+                                                            Gap: {gap} {draft > 0 ? `(+${draft} selected)` : ''}
+                                                        </Typography>
+                                                    </Stack>
+                                                </TableCell>
 
-                                                    <TableCell align="right">
-                                                        <Button
-                                                            variant={draftCount > 0 ? "outlined" : "contained"}
-                                                            size="small"
-                                                            startIcon={
-                                                                checkingAvailability && currentEditingLine?.lineId === line.lineId
-                                                                    ? <CircularProgress size={20} color="inherit" />
-                                                                    : <EditIcon />
-                                                            }
-                                                            onClick={() => openEmployeePicker(line)}
-                                                            disabled={checkingAvailability}
-                                                        >
-                                                            {draftCount > 0 ? "Edit" : "Assign"}
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        ) : (
-                            <Alert severity="info" sx={{ mt: 2 }}>
-                                No lines to staff.
-                            </Alert>
-                        )}
+                                                <TableCell align="right">
+                                                    <Button
+                                                        disabled={isLineFull && draft === 0}
+                                                        variant={draft > 0 ? "outlined" : "contained"}
+                                                        size="small"
+                                                        startIcon={checkingAvailability && currentEditingLine?.lineId === line.lineId ? <CircularProgress size={20}/> : <EditIcon/>}
+                                                        onClick={() => openEmployeePicker(line)}
+                                                    >
+                                                        {draft > 0 ? "Edit" : "Fill Gap"}
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
 
-                        {/* HARD BLOCK WARNING */}
-                        {!isFulfillingRequest && visibleLines.length > 0 && (
+                        {/* WARNINGS */}
+                        {!isGateOpen && (
                             <Alert severity="error" sx={{ mt: 3 }} icon={<WarningIcon />}>
-                                <strong>Request Not Fulfilled:</strong> You must assign enough workers to the following lines before submitting:
+                                <strong>Validation Failed:</strong>
                                 <ul style={{ margin: '8px 0 0 20px' }}>
-                                    {missingLines.map(l => (
-                                        <li key={l.lineId}>{l.lineName} (Needs {l.numEmployees}, has {(allocations[l.lineId]||[]).length})</li>
+                                    {invalidLines.map(l => (
+                                        <li key={l.lineId}>{l.lineName}: {getValidationStatus(l).msg}</li>
                                     ))}
                                 </ul>
                             </Alert>
@@ -458,8 +506,7 @@ export default function OvertimeTicketCreate() {
                                 size="large"
                                 startIcon={loading ? <CircularProgress size={24} color="inherit"/> : <SaveIcon />}
                                 onClick={handleSubmit}
-                                // THE HARD BLOCK
-                                disabled={loading || !isFulfillingRequest || visibleLines.length === 0}
+                                disabled={loading || !isGateOpen || !hasAllocation}
                                 sx={{ px: 4 }}
                             >
                                 Create Ticket
@@ -477,20 +524,22 @@ export default function OvertimeTicketCreate() {
                 allEmployees={deptEmployees}
                 initialSelected={currentEditingLine ? (allocations[currentEditingLine.lineId] || []) : []}
                 unavailableEmployees={currentEditingLine ? getUnavailableEmployeesMap(currentEditingLine.lineId) : new Map()}
-                requestedCount={currentEditingLine ? currentEditingLine.numEmployees : 0}
+                // STRICT LIMIT: Cannot select more than the Gap
+                requestedCount={
+                    currentEditingLine
+                        ? Math.max(0, currentEditingLine.numEmployees - currentEditingLine.activeCount)
+                        : 0
+                }
                 targetLineId={currentEditingLine ? currentEditingLine.lineId : null}
                 onSave={handleSaveAllocation}
             />
 
-            {/* AUTO-FILL CONFIRMATION MODAL */}
+            {/* AUTO-FILL MODAL */}
             <Dialog open={autoFillModalOpen} onClose={() => setAutoFillModalOpen(false)}>
-                <DialogTitle>Auto-Fill Roster?</DialogTitle>
+                <DialogTitle>Auto-Fill Gaps?</DialogTitle>
                 <DialogContent>
                     <DialogContentText>
-                        This will automatically distribute available employees to fill all requested lines.
-                        <br/><br/>
-                        <strong>Pass 1:</strong> Assign native workers to their own lines.<br/>
-                        <strong>Pass 2:</strong> Fill remaining gaps with available borrowed workers.
+                        This will automatically distribute available employees to fill the remaining gaps.
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
