@@ -25,6 +25,12 @@ public interface OvertimeTicketEmployeeRepository extends JpaRepository<TbOverti
             "WHERE te.overtimeTicket.id = :ticketId AND te.employee.id = :userId")
     TbOvertimeTicketEmployee findByTicketAndEmployee(Integer ticketId, Integer userId);
 
+    List<TbOvertimeTicketEmployee> findByEmployeeAndStatusAndTicketDateBetween(
+            TbUser user,
+            TbOvertimeTicketEmployee.EmployeeOvertimeStatus employeeOvertimeStatus,
+            LocalDate startDate,
+            LocalDate endDate);
+
     @Query(value = """
         SELECT e.* FROM tb_overtime_ticket_employees e
         INNER JOIN tbOvertimeTicket t ON e.overtime_ticket_id = t.ticket_id
