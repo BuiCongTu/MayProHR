@@ -28,4 +28,18 @@ public interface OvertimeRequestRepository extends JpaRepository<TbOvertimeReque
             @Param("today") LocalDate today,
             @Param("now") LocalTime now
     );
+
+    @Query(value = """
+        SELECT * FROM tbOvertimeRequest 
+        WHERE status = 'pending' 
+        AND (
+            overtime_date < :today 
+            OR 
+            (overtime_date = :today AND start_time < CAST(:now AS TIME))
+        )
+        """, nativeQuery = true)
+    List<TbOvertimeRequest> findExpiredPendingRequests(
+            @Param("today") LocalDate today,
+            @Param("now") LocalTime now
+    );
 }

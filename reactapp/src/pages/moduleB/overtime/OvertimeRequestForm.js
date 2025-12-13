@@ -56,6 +56,20 @@ const timeToMinutes = (timeStr) => {
     return h * 60 + m;
 };
 
+const getDefaultDate = () => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+
+    if (currentHour > 17 || (currentHour === 17 && currentMinute > 0)) {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        return tomorrow.toISOString().split('T')[0];
+    }
+
+    return now.toISOString().split('T')[0];
+};
+
 function OvertimeRequestForm() {
     const navigate = useNavigate();
     const user = getCurrentUser();
@@ -68,7 +82,7 @@ function OvertimeRequestForm() {
     const [formData, setFormData] = useState({
         factoryManagerId: user?.id || '',
         departmentId: '',
-        overtimeDate: new Date().toISOString().split('T')[0],
+        overtimeDate: getDefaultDate(),
         startTime: '17:00',
         endTime: '18:00',
         overtimeTime: 1.0,

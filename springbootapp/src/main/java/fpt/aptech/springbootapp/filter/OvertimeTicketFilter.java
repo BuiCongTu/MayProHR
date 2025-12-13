@@ -13,7 +13,7 @@ import java.util.List;
 public class OvertimeTicketFilter {
     private Integer managerId;
     private String managerName;
-    private Integer requestId;
+    private String requestId;
     private String requesterName;
     private LocalDate overtimeDate;
     private OvertimeTicketStatus status;
