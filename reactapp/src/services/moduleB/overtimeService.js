@@ -47,7 +47,7 @@ export async function approveOvertimeRequest(requestId) {
 export async function rejectOvertimeRequest(requestId, reason) {
     const API_URL = `${BASE_API}${OVERTIME_REQUEST_API}${requestId}/reject`;
     try {
-        const response = await axios.post(API_URL);
+        const response = await axios.post(API_URL + '?reason=' + reason);
         return response.data;
     } catch (err) {
         console.error("Failed to reject overtime request:", err);
