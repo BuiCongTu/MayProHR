@@ -23,7 +23,7 @@ import java.time.*;
 public class TbProduction {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "production_id", nullable = false)
+    @Column(name = "id", nullable = false)
     private Integer id;
 
     @NotNull

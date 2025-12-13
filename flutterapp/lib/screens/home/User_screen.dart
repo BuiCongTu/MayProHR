@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../overtime/my_overtime_screen.dart';
 import '../auth/login_screen.dart';
+import '../payroll/payroll_detail_screen.dart';
 
 class UserHome extends StatelessWidget {
   const UserHome({super.key});
@@ -94,7 +95,14 @@ class UserHome extends StatelessWidget {
                     icon: Icons.monetization_on,
                     color: Colors.blue,
                     onTap: () {
-                      // Navigate to Payroll if implemented
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PayrollDetailScreen(
+                            payroll: auth.currentUser?['payroll'],
+                          ),
+                        ),
+                      );
                     },
                   ),
 

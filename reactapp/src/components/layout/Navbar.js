@@ -38,7 +38,7 @@ const getNavLinks = (roleName) =>
         case 'FManager':
             links = [
                 { title: 'Dashboard', path: '/dashboard' },
-                { title: 'Production Lines', path: '/lines' },
+                { title: 'Pay Management', path: '/payroll/' },
                 { title: 'Overtime Requests', path: '/overtime-request' },
                 { title: 'Attendance', path: '/attendance' },
                 { title: 'Reports', path: '/reports' },

@@ -14,5 +14,6 @@ import java.util.Optional;
 //tap trung xử lý CRUD bảng luong
 @Repository
 public interface PayrollRepo extends JpaRepository<TbPayroll, Integer> {
+    Optional<TbPayroll> findByDepartmentIdAndMonth(Integer departmentId, LocalDate month);
 
 }

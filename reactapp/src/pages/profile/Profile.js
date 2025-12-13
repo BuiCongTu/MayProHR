@@ -1,5 +1,4 @@
-import
-{
+import {
   Badge as BadgeIcon,
   Business as BusinessIcon,
   CalendarToday as CalendarIcon,
@@ -16,8 +15,7 @@ import
   CheckCircle as StatusIcon,
   Work as WorkIcon
 } from '@mui/icons-material';
-import
-{
+import {
   Alert,
   Avatar,
   Box,
@@ -35,8 +33,7 @@ import Sidebar from '../../components/layout/Sidebar';
 import { getCurrentUser } from '../../services/authService';
 import { getUserProfile, updateUserProfile } from '../../services/userService';
 
-const Profile = () =>
-{
+const Profile = () => {
   const currentUser = getCurrentUser();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -45,45 +42,40 @@ const Profile = () =>
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Form data
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
-    phone: '',
+    phone: ''
   });
 
-  // Check if user is Admin or HR (có sidebar)
   const hasSidebar = currentUser?.roleName === 'Admin' || currentUser?.roleName === 'HR';
 
-  useEffect(() =>
-  {
+  useEffect(() => {
     fetchUserProfile();
   }, []);
 
-  const fetchUserProfile = async () =>
-  {
-    try
-    {
+  const fetchUserProfile = async () => {
+    try {
       setLoading(true);
-      const data = await getUserProfile();
-      setUser(data);
+      const response = await getUserProfile();
+      // const data = response.data; // LẤY ĐÚNG USER TRONG API
+
+      setUser(response);
       setFormData({
-        fullName: data.fullName || '',
-        email: data.email || '',
-        phone: data.phone || '',
+        fullName: response.fullName || '',
+        email: response.email || '',
+        phone: response.phone || ''
       });
-    } catch (err)
-    {
+
+    } catch (err) {
       setError('Không thể tải thông tin người dùng');
       console.error(err);
-    } finally
-    {
+    } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (e) =>
-  {
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -91,55 +83,54 @@ const Profile = () =>
     }));
   };
 
-  const handleEdit = () =>
-  {
+  const handleEdit = () => {
     setEditMode(true);
     setError('');
     setSuccess('');
   };
 
-  const handleCancel = () =>
-  {
+  const handleCancel = () => {
     setEditMode(false);
-    // Reset form data
     setFormData({
-      fullName: user.fullName || '',
-      email: user.email || '',
-      phone: user.phone || '',
+      fullName: user.fullName,
+      email: user.email,
+      phone: user.phone
     });
     setError('');
     setSuccess('');
   };
 
-  const handleSave = async () =>
-  {
-    try
-    {
+  const handleSave = async () => {
+    try {
       setSaving(true);
       setError('');
       setSuccess('');
 
-      const updatedUser = await updateUserProfile(formData);
+      const response = await updateUserProfile(formData);
+      const updatedUser = response.data; // LẤY ĐÚNG USER TRONG API
+
       setUser(updatedUser);
-      setEditMode(false);
       setSuccess('Cập nhật thông tin thành công!');
+      setEditMode(false);
 
-      // Update localStorage
+      // Cập nhật lại localStorage
       const storedUser = JSON.parse(localStorage.getItem('user'));
-      localStorage.setItem('user', JSON.stringify({ ...storedUser, ...updatedUser }));
+      localStorage.setItem('user', JSON.stringify({
+        ...storedUser,
+        fullName: updatedUser.fullName,
+        email: updatedUser.email,
+        phone: updatedUser.phone
+      }));
 
-    } catch (err)
-    {
-      setError(err.response?.data?.message || 'Không thể cập nhật thông tin');
+    } catch (err) {
+      setError('Không thể cập nhật thông tin');
       console.error(err);
-    } finally
-    {
+    } finally {
       setSaving(false);
     }
   };
 
-  const getAvatarImage = () =>
-  {
+  const getAvatarImage = () => {
     const roleName = user?.roleName;
     const gender = user?.gender;
 
@@ -149,14 +140,13 @@ const Profile = () =>
     if (roleName === 'Factory Manager' || roleName === 'FManager') return '/images/fmanager.jpeg';
     if (roleName === 'Factory Director' || roleName === 'FDirector') return '/images/fdirector.jpeg';
 
-    if (gender === 0) return '/images/female.jpeg';
-    if (gender === 1) return '/images/male.jpeg';
+    if (gender === false || gender === 0) return '/images/female.jpeg';
+    if (gender === true || gender === 1) return '/images/male.jpeg';
 
     return null;
   };
 
-  if (loading)
-  {
+  if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
         <CircularProgress />
@@ -170,16 +160,10 @@ const Profile = () =>
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
       <Paper elevation={3} sx={{ p: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" gutterBottom>
-            Thông tin cá nhân
-          </Typography>
+          <Typography variant="h4">Thông tin cá nhân</Typography>
           {!editMode && (
-            <Button
-              variant="contained"
-              startIcon={<EditIcon />}
-              onClick={handleEdit}
-              sx={{ backgroundColor: '#4b90f9ff' }}
-            >
+            <Button variant="contained" startIcon={<EditIcon />} sx={{ backgroundColor: '#4b90f9ff' }}
+              onClick={handleEdit}>
               Chỉnh sửa
             </Button>
           )}
@@ -187,24 +171,18 @@ const Profile = () =>
 
         <Divider sx={{ mb: 3 }} />
 
-        {/* Avatar Section */}
         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 4 }}>
-          <Avatar
-            src={avatarImage}
-            sx={{
-              width: 120,
-              height: 120,
-              fontSize: '3rem',
-              bgcolor: avatarImage ? 'transparent' : '#4b90f9ff'
-            }}
-          >
+          <Avatar src={avatarImage} sx={{ width: 120, height: 120, fontSize: '3rem' }}>
             {!avatarImage && (user?.fullName?.charAt(0) || 'U')}
           </Avatar>
         </Box>
 
-        {/* Alert Messages */}
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+
+        {/* Các trường hiển thị user thông tin giữ nguyên như bạn đã viết */}
+        {/* Không thay đổi UI bên dưới → Mọi thứ đã chạy đúng */}
+
 
         {/* Profile Information */}
         <Grid container spacing={3}>

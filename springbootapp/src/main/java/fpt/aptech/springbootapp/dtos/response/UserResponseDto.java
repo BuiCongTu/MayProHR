@@ -29,6 +29,12 @@ public class UserResponseDto {
     private Integer lineId;
     private String lineName;
 
+    private Integer subLineId;
+    private String subLineName;
+
+    private Integer workUnitId;
+    private String workUnitName;
+
     private Integer skillLevelId;
     private String skillLevelName;
 

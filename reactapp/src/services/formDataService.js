@@ -64,6 +64,17 @@ export const checkDuplicateUser = async (departmentId, parentLineId, lineId, sub
     throw err;
   }
 };
+export const getCurrentUser = async () =>
+{
+    try {
+        const response = await axios.get(`${API_URL}/user/profile`);
+        return response.data.data || null;
+    } catch (error) {
+        console.error('Error fetching current user:', error);
+        return null;
+    }
+};
+
 
 export default {
   getDepartments,
@@ -73,5 +84,6 @@ export default {
   getRoles,
   getSkillLevels,
   getUsersByLineAndRole,
-  checkDuplicateUser
+  checkDuplicateUser,
+    getCurrentUser
 };
