@@ -482,7 +482,7 @@ export default function OvertimeTicketCreate() {
                 onSave={handleSaveAllocation}
             />
 
-            {/* NEW: AUTO-FILL CONFIRMATION MODAL */}
+            {/* AUTO-FILL CONFIRMATION MODAL */}
             <Dialog open={autoFillModalOpen} onClose={() => setAutoFillModalOpen(false)}>
                 <DialogTitle>Auto-Fill Roster?</DialogTitle>
                 <DialogContent>
