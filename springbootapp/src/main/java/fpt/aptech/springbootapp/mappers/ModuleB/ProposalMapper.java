@@ -1,43 +1,92 @@
 package fpt.aptech.springbootapp.mappers.ModuleB;
 
 import fpt.aptech.springbootapp.dtos.ModuleB.ProposalDTO;
+import fpt.aptech.springbootapp.dtos.ModuleB.requests.*;
 import fpt.aptech.springbootapp.entities.ModuleB.TbProposal;
+import fpt.aptech.springbootapp.entities.Core.TbUser;
+
+import java.time.Instant;
 
 public class ProposalMapper {
 
-    public static ProposalDTO toDTO(TbProposal entity) {
-        if(entity == null) return null;
+
+    public static ProposalDTO toDTO(TbProposal p) {
+        if (p == null) return null;
 
         ProposalDTO dto = new ProposalDTO();
+        dto.setId(p.getId());
+        dto.setType(p.getType());
 
-        dto.setId(entity.getId());
-        dto.setType(entity.getType());
-
-        if (entity.getProposer() != null) {
-
-            dto.setProposerId(entity.getProposer().getId());
-            dto.setProposerName(entity.getProposer().getFullName());
+        // proposer
+        if (p.getProposer() != null) {
+            dto.setProposerId(p.getProposer().getId());
+            dto.setProposerName(p.getProposer().getFullName());
         }
 
-        if(entity.getTargetUser() != null){
-            dto.setTargetUserId(entity.getTargetUser().getId());
-            dto.setTargetUserName(entity.getTargetUser().getFullName());
+        // target user
+        if (p.getTargetUser() != null) {
+            dto.setTargetUserId(p.getTargetUser().getId());
+            dto.setTargetUserName(p.getTargetUser().getFullName());
         }
 
-        dto.setDetails(entity.getDetails());
-        dto.setReason(entity.getReason());
+        dto.setDetails(p.getDetails());
+        dto.setReason(p.getReason());
+        dto.setStatus(p.getStatus());
 
-        dto.setStatus(entity.getStatus());
-
-        if(entity.getApprovedBy() != null){
-            dto.setApprovedById(entity.getApprovedBy().getId());
-            dto.setApprovedByName(entity.getApprovedBy().getFullName());
+        // approved-by
+        if (p.getApprovedBy() != null) {
+            dto.setApprovedById(p.getApprovedBy().getId());
+            dto.setApprovedByName(p.getApprovedBy().getFullName());
         }
 
-        dto.setRejectReason(entity.getRejectReason());
+        dto.setRejectReason(p.getRejectReason());
 
-        dto.setCreatedAt(entity.getCreatedAt());
+        dto.setCreatedAt(p.getCreatedAt() != null ? p.getCreatedAt() : Instant.now());
 
         return dto;
+    }
+
+
+
+
+    public static TbProposal fromSalaryRequest(SalaryIncreaseRequest req, TbUser proposer, TbUser target) {
+        TbProposal p = new TbProposal();
+        p.setType(TbProposal.ProposalType.SalaryIncrease);
+        p.setProposer(proposer);
+        p.setTargetUser(target);
+        String details = String.format("{\"increase\": %d}", req.getIncreaseAmount());
+        p.setDetails(details);
+        p.setReason(req.getReason());
+        p.setStatus(TbProposal.ProposalStatus.pending);
+        return p;
+    }
+
+    public static TbProposal fromPositionRequest(PositionChangeRequest req, TbUser proposer, TbUser target) {
+        TbProposal p = new TbProposal();
+        p.setType(TbProposal.ProposalType.PositionChange);
+        p.setProposer(proposer);
+        p.setTargetUser(target);
+        String details = String.format(
+                "{\"new_role_id\": %d, \"new_department_id\": %d, \"new_salary\": %s}",
+                req.getNewRoleId(),
+                req.getNewDepartmentId(),
+                req.getNewSalary() == null ? "null" : req.getNewSalary().toString()
+        );
+        p.setDetails(details);
+        p.setReason(req.getReason());
+        p.setStatus(TbProposal.ProposalStatus.pending);
+        return p;
+    }
+
+    public static TbProposal fromSkillRequest(SkillLevelChangeRequest req, TbUser proposer, TbUser target) {
+        TbProposal p = new TbProposal();
+        p.setType(TbProposal.ProposalType.SkillLevelChange);
+        p.setProposer(proposer);
+        p.setTargetUser(target);
+        String details = String.format("{\"new_skill_level_id\": %d}", req.getNewSkillLevelId());
+        p.setDetails(details);
+        p.setReason(req.getReason());
+        p.setStatus(TbProposal.ProposalStatus.pending);
+        return p;
     }
 }
