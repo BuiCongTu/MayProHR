@@ -7,7 +7,7 @@ import {
     Box, Typography, Button, Paper, TextField, InputAdornment, ToggleButton, ToggleButtonGroup,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel,
     Collapse, Chip, colors, Grid, LinearProgress, IconButton, Tooltip, Stack,
-    TablePagination // <--- IMPORT ADDED
+    TablePagination
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -22,7 +22,7 @@ const mainHeadCells = [
     { id: 'departmentName', label: 'Department', width: '20%' },
     { id: 'overtimeDate', label: 'Date', width: '15%' },
     { id: 'startTime', label: 'Time', width: '15%', disableSorting: true },
-    { id: 'numEmployees', label: 'Workers', numeric: true, width: '15%', disableSorting: true }, // Renamed Label
+    { id: 'numEmployees', label: 'Workers', numeric: true, width: '15%', disableSorting: true },
     { id: 'status', label: 'Status', width: '15%', disableSorting: true },
     { id: 'actions', label: 'Actions', width: '10%', disableSorting: true }
 ];
