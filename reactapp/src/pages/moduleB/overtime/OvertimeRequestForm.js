@@ -84,8 +84,8 @@ function OvertimeRequestForm() {
     const [childLines, setChildLines] = useState([]);
 
     // Selection State
-    const [selectedSections, setSelectedSections] = useState({}); // Level 4 (Leader)
-    const [selectedGrandchildren, setSelectedGrandchildren] = useState({}); // Level 5 (Worker) - NEW
+    const [selectedSections, setSelectedSections] = useState({});
+    const [selectedGrandchildren, setSelectedGrandchildren] = useState({});
     const [grandchildQuotas, setGrandchildQuotas] = useState({});
 
     const [isSpecialDay, setIsSpecialDay] = useState(false);

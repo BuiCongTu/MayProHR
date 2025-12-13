@@ -46,7 +46,7 @@ export default function OvertimeTicketCreate() {
     const [loadingReq, setLoadingReq] = useState(true);
     const [checkingAvailability, setCheckingAvailability] = useState(false);
     const [modalOpen, setModalOpen] = useState(false);
-    const [autoFillModalOpen, setAutoFillModalOpen] = useState(false); // NEW MODAL
+    const [autoFillModalOpen, setAutoFillModalOpen] = useState(false);
     const [currentEditingLine, setCurrentEditingLine] = useState(null);
     const [error, setError] = useState(null);
 

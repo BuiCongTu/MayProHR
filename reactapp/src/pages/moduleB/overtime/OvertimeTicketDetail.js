@@ -90,8 +90,6 @@ export default function OvertimeTicketDetail() {
         // Convert Map to Array & Calculate Stats for EACH line
         return Object.values(groups).map(g => {
             const assigned = g.employees.length;
-            // Progress based on ASSIGNED (or Required if you prefer strict view)
-            // Let's show acceptance progress relative to assigned count
             const progressVal = assigned > 0 ? Math.min((g.acceptedCount / assigned) * 100, 100) : 0;
             const isFullyAccepted = assigned > 0 && g.acceptedCount >= assigned;
 
