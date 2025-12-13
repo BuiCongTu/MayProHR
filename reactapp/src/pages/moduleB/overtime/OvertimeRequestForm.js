@@ -30,6 +30,7 @@ import {
     MenuItem,
     FormHelperText
 } from '@mui/material';
+import WorkflowStepper from "../../../components/moduleB/WorkflowStepper";
 
 const MAX_DAILY_OT_HOURS = 4.0;
 
@@ -383,16 +384,8 @@ function OvertimeRequestForm() {
             alert(`Success!`);
             navigate("/overtime-request");
         } catch (err) {
-            console.error("Submit Error:", err);
-            let errMsg = "An unknown error occurred.";
-            if (err.response && err.response.data) {
-                errMsg = typeof err.response.data === 'string'
-                    ? err.response.data
-                    : (err.response.data.message || JSON.stringify(err.response.data));
-            } else if (err.message) {
-                errMsg = err.message;
-            }
-            setError(errMsg);
+            console.error(err);
+            setError(err);
         } finally {
             setLoading(false);
         }
@@ -411,6 +404,12 @@ function OvertimeRequestForm() {
     return (
         <Container maxWidth="md">
             <Paper elevation={3} sx={{p: 4, mt: 4, borderRadius: 2}}>
+
+                <Box sx={{ mb: 3 }}>
+                    <WorkflowStepper status="draft" />
+                </Box>
+                <Divider sx={{ mb: 3 }} />
+
                 <Typography variant="h5" component="h1" gutterBottom color="primary" fontWeight="bold">
                     Create Overtime Request
                 </Typography>

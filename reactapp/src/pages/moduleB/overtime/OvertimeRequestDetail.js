@@ -43,6 +43,7 @@ import AutoModeIcon from "@mui/icons-material/AutoMode";
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import BadgeIcon from '@mui/icons-material/Badge';
 import WorkIcon from '@mui/icons-material/Work';
+import WorkflowStepper from "../../../components/moduleB/WorkflowStepper";
 
 // Helper to safely get name
 const getEmpName = (emp) => emp.employeeName || emp.fullName || emp.name || "Unknown";
@@ -319,14 +320,16 @@ export default function OvertimeRequestDetail() {
 
         return (
             <Stack direction="row" spacing={1} alignItems="center">
-                <Button
-                    variant="outlined"
-                    startIcon={<HistoryIcon />}
-                    onClick={() => setDrawerOpen(true)}
-                    sx={{ borderColor: 'grey.400', color: 'grey.700' }}
-                >
-                    History
-                </Button>
+
+                {/*deprecated history button*/}
+                {/*<Button*/}
+                {/*    variant="outlined"*/}
+                {/*    startIcon={<HistoryIcon />}*/}
+                {/*    onClick={() => setDrawerOpen(true)}*/}
+                {/*    sx={{ borderColor: 'grey.400', color: 'grey.700' }}*/}
+                {/*>*/}
+                {/*    History*/}
+                {/*</Button>*/}
 
                 {status === 'open' && isLineManager && (
                     <Button
@@ -390,6 +393,18 @@ export default function OvertimeRequestDetail() {
 
     return (
         <Container maxWidth="xl" sx={{ mt: 2, mb: 8 }}>
+
+            {/* workflow stepper */}
+            {request && (
+                <Paper elevation={1} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+                    <Typography variant="overline" color="text.secondary" fontWeight="bold">
+                        WORKFLOW PROGRESS
+                    </Typography>
+                    <Box sx={{ mt: 2 }}>
+                        <WorkflowStepper status={request.status} />
+                    </Box>
+                </Paper>
+            )}
 
             {/* HEADER */}
             <Box mb={3}>
@@ -591,20 +606,21 @@ export default function OvertimeRequestDetail() {
                 )}
             </Box>
 
-            <Drawer
-                anchor="right"
-                open={drawerOpen}
-                onClose={() => setDrawerOpen(false)}
-            >
-                <Box sx={{ width: 350, p: 3 }}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                        <Typography variant="h6" fontWeight="bold">Request Status</Typography>
-                        <IconButton onClick={() => setDrawerOpen(false)}><CloseIcon /></IconButton>
-                    </Box>
-                    <Divider sx={{ mb: 3 }} />
-                    <RequestStatusTracker status={request.status} orientation="vertical" />
-                </Box>
-            </Drawer>
+            {/*deprecated history drawer*/}
+            {/*<Drawer*/}
+            {/*    anchor="right"*/}
+            {/*    open={drawerOpen}*/}
+            {/*    onClose={() => setDrawerOpen(false)}*/}
+            {/*>*/}
+            {/*    <Box sx={{ width: 350, p: 3 }}>*/}
+            {/*        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>*/}
+            {/*            <Typography variant="h6" fontWeight="bold">Request Status</Typography>*/}
+            {/*            <IconButton onClick={() => setDrawerOpen(false)}><CloseIcon /></IconButton>*/}
+            {/*        </Box>*/}
+            {/*        <Divider sx={{ mb: 3 }} />*/}
+            {/*        <RequestStatusTracker status={request.status} orientation="vertical" />*/}
+            {/*    </Box>*/}
+            {/*</Drawer>*/}
 
             <Dialog open={employeeModalOpen} onClose={() => setEmployeeModalOpen(false)} maxWidth="md" fullWidth>
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
