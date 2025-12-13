@@ -66,7 +66,7 @@ public class OvertimeAutomationService {
      * 1. Auto-Reject Pending Employees who haven't responded before shift starts
      * Runs every 5 minutes
      */
-    @Scheduled(cron = "0 */5 * * * *")
+    @Scheduled(cron = "0 */1 * * * *")
     @Transactional
     public void autoRejectEmployees() {
         LocalDate today = LocalDate.now();
@@ -102,7 +102,7 @@ public class OvertimeAutomationService {
      * 2. Auto-Approve Tickets
      * Runs every 10 minutes
      */
-    @Scheduled(cron = "0 */10 * * * *")
+    @Scheduled(cron = "0 */1 * * * *")
     @Transactional
     public void autoApproveTickets() {
         LocalDate today = LocalDate.now();
@@ -141,7 +141,7 @@ public class OvertimeAutomationService {
 
     /**
      * 3. Auto-Process Requests (Close them for Payroll)
-     * Runs every hour
+     * Runs every 30 minutes
      */
     @Scheduled(cron = "0 */30 * * * *")
     @Transactional

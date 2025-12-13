@@ -69,8 +69,11 @@ public interface OvertimeTicketRepository extends JpaRepository<TbOvertimeTicket
         SELECT t.* FROM tbOvertimeTicket t
         INNER JOIN tbOvertimeRequest r ON t.request_id = r.request_id
         WHERE t.status = 'submitted'
-          AND r.overtime_date = :date
-          AND r.start_time <= CAST(:cutoffTime AS TIME)
+          AND (
+              r.overtime_date < :date
+              OR 
+              (r.overtime_date = :date AND r.start_time <= CAST(:cutoffTime AS TIME))
+          )
         """, nativeQuery = true)
     List<TbOvertimeTicket> findSubmittedTicketsNearStart(
             @Param("date") LocalDate date,
