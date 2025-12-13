@@ -22,8 +22,11 @@ public class OvertimeTicketSpecification {
                 predicates.add(cb.like(root.get("manager").get("fullName"), "%" + filter.getManagerName() + "%"));
             }
 
-            if (filter.getRequestId() != null) {
-                predicates.add(cb.equal(root.get("overtimeRequest").get("id"), filter.getRequestId()));
+            if (filter.getRequestId() != null && !filter.getRequestId().isEmpty()) {
+                predicates.add(cb.like(
+                        root.get("overtimeRequest").get("id").as(String.class),
+                        "%" + filter.getRequestId() + "%"
+                ));
             }
 
             if (filter.getRequesterName() != null) {

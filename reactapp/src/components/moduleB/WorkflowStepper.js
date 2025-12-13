@@ -11,10 +11,9 @@ import {
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
-import ErrorIcon from '@mui/icons-material/Error';
-import PendingIcon from '@mui/icons-material/Pending';
 import PlayCircleFilledIcon from '@mui/icons-material/PlayCircleFilled';
 import CancelIcon from '@mui/icons-material/Cancel';
+import HourglassDisabledIcon from '@mui/icons-material/HourglassDisabled'; // [NEW] Icon for Expired
 
 // --- CUSTOM STYLES ---
 const QontoConnector = styled(StepConnector)(({ theme }) => ({
@@ -45,11 +44,13 @@ export default function WorkflowStepper({ status }) {
 
     let activeStep = 0;
     let isRejected = false;
+    let isExpired = false; // [NEW] Flag for expiry
 
     // --- DETERMINE ACTIVE STEP ---
     if (s === 'draft') activeStep = 0;
     else if (s === 'pending') activeStep = 1;
     else if (s === 'rejected') { activeStep = 1; isRejected = true; }
+    else if (s === 'expired') { activeStep = 1; isExpired = true; } // [NEW] Handle expired status
     else if (s === 'open') activeStep = 2;
     else if (s === 'processed') activeStep = 4; // Completed
 
@@ -68,8 +69,9 @@ export default function WorkflowStepper({ status }) {
 
     if (isRejected) {
         step2 = { label: 'Rejected', desc: 'Rejected by Factory Director' };
+    } else if (isExpired) {
+        step2 = { label: 'Expired', desc: 'Shift time passed without approval' };
     } else if (activeStep > 1) {
-        // If we are past step 1 (Open or Processed), it means it was Approved
         step2 = { label: 'Approved', desc: 'Approved by Factory Director' };
     }
 
@@ -93,9 +95,10 @@ export default function WorkflowStepper({ status }) {
                 {steps.map((step, index) => {
                     const labelProps = {};
                     const isStepRejected = isRejected && index === activeStep;
+                    const isStepExpired = isExpired && index === activeStep;
 
                     // Error State Logic (Turn text red)
-                    if (isStepRejected) {
+                    if (isStepRejected || isStepExpired) {
                         labelProps.error = true;
                     }
 
@@ -106,34 +109,41 @@ export default function WorkflowStepper({ status }) {
                                 StepIconComponent={(props) => {
                                     const { active, completed, error } = props;
 
-                                    // 1. Rejected State (Red X)
+                                    // 1. Expired State (Hourglass)
+                                    if (isStepExpired) {
+                                        return <HourglassDisabledIcon color="error" sx={{ fontSize: 30 }} />;
+                                    }
+
+                                    // 2. Rejected State (Red X)
                                     if (error || isStepRejected) {
                                         return <CancelIcon color="error" sx={{ fontSize: 30 }} />;
                                     }
-                                    // 2. Completed State (Green Check)
+
+                                    // 3. Completed State (Green Check)
                                     if (completed) {
                                         return <CheckCircleIcon color="success" sx={{ fontSize: 30 }} />;
                                     }
-                                    // 3. Active State (Blue Pulse)
+
+                                    // 4. Active State (Blue Pulse)
                                     if (active) {
                                         return <PlayCircleFilledIcon color="primary" sx={{ fontSize: 34, filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.2))' }} />;
                                     }
 
-                                    // 4. Future State (Grey Dot)
+                                    // 5. Future State (Grey Dot)
                                     return <RadioButtonUncheckedIcon color="disabled" sx={{ fontSize: 24 }} />;
                                 }}
                             >
                                 <Typography
                                     variant="subtitle2"
                                     fontWeight="bold"
-                                    color={isStepRejected ? "error" : "inherit"}
+                                    color={isStepRejected || isStepExpired ? "error" : "inherit"}
                                 >
                                     {step.label}
                                 </Typography>
                                 <Typography
                                     variant="caption"
                                     display="block"
-                                    color={isStepRejected ? "error" : "text.secondary"}
+                                    color={isStepRejected || isStepExpired ? "error" : "text.secondary"}
                                     sx={{ lineHeight: 1.2, mt: 0.5 }}
                                 >
                                     {step.desc}

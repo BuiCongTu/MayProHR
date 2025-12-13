@@ -102,12 +102,20 @@ public class OvertimeRequestServiceImpl implements OvertimeRequestService {
         if (overtimeRequest.getOvertimeDate() == null) {
             throw new IllegalArgumentException("Overtime date is required");
         }
-        if (overtimeRequest.getOvertimeDate().isBefore(LocalDate.now())) {
+
+        LocalDate requestDate = overtimeRequest.getOvertimeDate();
+        LocalDate today = LocalDate.now();
+        java.time.LocalTime now = java.time.LocalTime.now();
+
+        if (requestDate.isBefore(today)) {
             throw new IllegalArgumentException("Cannot create overtime requests for past dates");
         }
 
         if (overtimeRequest.getStartTime() == null || overtimeRequest.getEndTime() == null) {
             throw new IllegalArgumentException("Start time and End time are required");
+        }
+        if (requestDate.equals(today) && overtimeRequest.getStartTime().isBefore(now)) {
+            throw new IllegalArgumentException("Invalid Start Time: The time " + overtimeRequest.getStartTime() + " has already passed for today.");
         }
         if (!overtimeRequest.getEndTime().isAfter(overtimeRequest.getStartTime())) {
             throw new IllegalArgumentException("End time must be after Start time");

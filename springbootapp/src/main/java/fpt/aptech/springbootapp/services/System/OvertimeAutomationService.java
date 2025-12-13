@@ -172,4 +172,42 @@ public class OvertimeAutomationService {
             });
         }
     }
+
+
+    /**
+     * 4. Auto-Expire Pending Requests (Shift Start Time Passed)
+     * Runs every 30 minutes
+     */
+    @Scheduled(cron = "0 */30 * * * *")
+    @Transactional
+    public void autoExpireRequests() {
+        LocalDate today = LocalDate.now();
+        LocalTime now = LocalTime.now();
+
+        List<TbOvertimeRequest> expiredRequests = requestRepo.findExpiredPendingRequests(today, now);
+
+        if (!expiredRequests.isEmpty()) {
+            logger.info("Found {} pending requests that missed their start time.", expiredRequests.size());
+
+            for (TbOvertimeRequest req : expiredRequests) {
+                req.setStatus(TbOvertimeRequest.OvertimeRequestStatus.expired);
+
+                // Notify Factory Manager
+                if (req.getFactoryManager() != null) {
+                    notificationService.sendNotification(req.getFactoryManager(),
+                            "Request #" + req.getId() + " has EXPIRED because the shift start time (" +
+                                    req.getOvertimeDate() + " " + req.getStartTime() + ") has passed without approval.",
+                            TbNotification.NotificationType.rejection
+                    );
+                }
+            }
+            requestRepo.saveAll(expiredRequests);
+
+            // Broadcast updates
+            expiredRequests.forEach(req -> {
+                OvertimeRequestDTO dto = requestMapper.toDTO(req);
+                webSocketService.sendGlobalUpdate("/topic/requests", dto);
+            });
+        }
+    }
 }
