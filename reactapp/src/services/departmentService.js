@@ -1,5 +1,5 @@
 import axios from 'axios';
-import BASE_API from './api';
+import { BASE_API } from './api';
 
 const DEPARTMENT_API = '/department';
 const LINE_API = '/lines';
@@ -10,7 +10,20 @@ export async function getAllDepartments()
     try
     {
         const response = await axios.get(API_URL);
-        return response.data;
+        const data = response.data;
+
+        // Normalize to always return an array for consumers (e.g. Autocomplete)
+        if (Array.isArray(data))
+        {
+            return data;
+        }
+
+        if (Array.isArray(data?.data))
+        {
+            return data.data;
+        }
+
+        return [];
     } catch (err)
     {
         console.error("Failed to fetch departments:", err);

@@ -44,23 +44,6 @@ export default function useDepartmentLineFilters()
                 }
 
                 setDepartments(list);
-
-                // Chọn mặc định departmentId = 1005 nếu tồn tại và chưa có filter
-                if (!filters.departmentId && Array.isArray(list) && list.length > 0)
-                {
-                    const defaultDept = list.find((d) => d.id === 1005);
-                    if (defaultDept)
-                    {
-                        setFilters({
-                            departmentId: defaultDept.id,
-                            departmentName: defaultDept.name,
-                            lineId: null,
-                            lineName: '',
-                            linePath: []
-                        });
-                        setSelectedDeptForLines(defaultDept.id);
-                    }
-                }
             } catch (err)
             {
                 const msg =

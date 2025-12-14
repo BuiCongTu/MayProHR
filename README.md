@@ -11,7 +11,7 @@ source venv/bin/activate  # macOS/Linux
 # hoặc
 venv\Scripts\activate      # Windows
 
-pip install -r requirements.txt
+pip install -r requirements_api.txt
 ```
 
 Xem chi tiết tại: `face_attendant_svm/SETUP_ENVIRONMENT.md`
