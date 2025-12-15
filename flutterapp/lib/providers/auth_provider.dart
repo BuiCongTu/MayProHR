@@ -1,20 +1,38 @@
 import 'package:flutter/material.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 
 class AuthProvider with ChangeNotifier {
   Map<String, dynamic>? currentUser;
   String? token;
 
-  Future<bool> login(String phone, String password) async {
+  bool get isLoggedIn => token != null;
+
+  Future<void> tryAutoLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!prefs.containsKey(AuthService.tokenKey)) return;
+
+    token = prefs.getString(AuthService.tokenKey);
+
+    notifyListeners();
+
+    // Sync FCM Token immediately after auto-login
+    await _syncDeviceToken();
+  }
+
+  Future<Map<String, dynamic>> login(String phone, String password) async {
     final result = await AuthService.login(phone, password);
-    if (result != null) {
+    if (result != null && result['error'] == null) {
       token = result["token"];
       currentUser = result["user"];
       notifyListeners();
-      return true;
+      await _syncDeviceToken();
+      return result;
     }
-    return false;
+    else{
+      return result ?? {"error": "Login failed"};
+    }
   }
 
   Future<void> logout() async {
@@ -23,6 +41,15 @@ class AuthProvider with ChangeNotifier {
     currentUser = null;
     notifyListeners();
   }
-
-  bool get isLoggedIn => token != null;
+  Future<void> _syncDeviceToken() async {
+    try {
+      String? deviceToken = await NotificationService().getDeviceToken();
+      if (deviceToken != null) {
+        print("Syncing FCM Token to backend...");
+        await AuthService.saveDeviceToken(deviceToken);
+      }
+    } catch (e) {
+      print("Token sync error: $e");
+    }
+  }
 }

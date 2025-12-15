@@ -1,6 +1,11 @@
 package fpt.aptech.springbootapp.api;
 
 import java.util.List;
+import java.util.Map;
+
+import fpt.aptech.springbootapp.dtos.request.DeviceTokenReq;
+import fpt.aptech.springbootapp.entities.Core.TbUser;
+import fpt.aptech.springbootapp.repositories.UserRepository;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -8,13 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import fpt.aptech.springbootapp.dtos.request.UpdateProfileRequest;
 import fpt.aptech.springbootapp.dtos.response.ApiResponse;
@@ -97,6 +96,12 @@ public class UserController {
         }
     }
 
+    @PostMapping("/device-token")
+    public ResponseEntity<?> updateDeviceToken(@RequestBody DeviceTokenReq req) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        userService.saveDeviceToken(email, req.getToken());
+        return ResponseEntity.ok().body(Map.of("message", "Token updated"));
+    }
     // Search employees by role_id, department_id and hierarchical line ids
     // response department only; department + line; department + line + subline; 
     // department + line + subline + wordUnit

@@ -20,6 +20,7 @@ import fpt.aptech.springbootapp.repositories.ModuleB.OvertimeRequestRepository;
 import fpt.aptech.springbootapp.repositories.ModuleB.OvertimeTicketEmployeeRepository;
 import fpt.aptech.springbootapp.repositories.ModuleB.OvertimeTicketRepository;
 import fpt.aptech.springbootapp.repositories.UserRepository;
+import fpt.aptech.springbootapp.services.System.FCMService;
 import fpt.aptech.springbootapp.services.System.NotificationService;
 import fpt.aptech.springbootapp.services.System.WebSocketService;
 import fpt.aptech.springbootapp.services.interfaces.LineService;
@@ -55,6 +56,7 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
     private final WebSocketService webSocketService;
     private final NotificationService notificationService;
     private final LineService lineService;
+    private final FCMService fcmService;
 
     @Autowired
     public OvertimeTicketServiceImpl(OvertimeTicketRepository overtimeTicketRepository,
@@ -65,7 +67,8 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                                      OvertimeTicketEmployeeRepository overtimeTicketEmployeeRepository,
                                      WebSocketService webSocketService,
                                      NotificationService notificationService,
-                                     LineService lineService) {
+                                     LineService lineService,
+                                     FCMService fcmService) {
         this.overtimeTicketRepository = overtimeTicketRepository;
         this.userRepository = userRepository;
         this.overtimeRequestRepository = overtimeRequestRepository;
@@ -75,6 +78,7 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
         this.webSocketService = webSocketService;
         this.notificationService = notificationService;
         this.lineService = lineService;
+        this.fcmService = fcmService;
     }
 
     @Override
@@ -321,6 +325,12 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                     throw new IllegalArgumentException("Employee ID " + empId + " is assigned multiple times in this ticket.");
                 }
 
+                if (overtimeTicketEmployeeRepository.hasRejected(request.getId(), empId)) {
+                    TbUser u = userRepository.findById(empId).orElse(null);
+                    String name = (u != null) ? u.getFullName() : "ID " + empId;
+                    throw new IllegalArgumentException("Employee " + name + " has already declined this overtime request.");
+                }
+
                 // Robust Check: Is employee in ANY active ticket for this request?
                 if (isEmployeeActiveInRequest(request, empId)) {
                     throw new IllegalArgumentException("Employee ID " + empId + " is already assigned to another ticket in this request.");
@@ -400,6 +410,20 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
 
         ticket.setOvertimeEmployees(ticketEmployees);
         TbOvertimeTicket saved = overtimeTicketRepository.save(ticket);
+        for (TbOvertimeTicketEmployee emp : ticketEmployees) {
+            TbUser user = emp.getEmployee();
+            if (user.getDeviceToken() != null && !user.getDeviceToken().isEmpty()) {
+                String title = "New Overtime Invite";
+                String body = "You have been invited to work overtime on " +
+                        request.getOvertimeDate() + ". Check app for details.";
+
+                Map<String, String> data = new HashMap<>();
+                data.put("type", "overtime_invite");
+                data.put("ticketId", String.valueOf(saved.getId()));
+
+                fcmService.sendNotification(user.getDeviceToken(), title, body, data);
+            }
+        }
         submitTicket(saved.getId());
     }
 
@@ -430,7 +454,7 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                     dto.setMaxAttendees(max);
 
                     // 2. Get Current Count (Accepted only)
-                    long current = overtimeTicketRepository.countAssignedEmployeesByLine(req.getId(), lineId);
+                    long current = overtimeTicketRepository.countAcceptedEmployeesByLine(req.getId(), lineId);
                     dto.setCurrentAttendees((int) current);
                 }
             }
@@ -451,40 +475,41 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
             throw new IllegalArgumentException("This ticket has been rejected by the manager.");
         }
 
+        TbOvertimeTicketEmployee.EmployeeOvertimeStatus newStatus;
         try {
-            TbOvertimeTicketEmployee.EmployeeOvertimeStatus newStatus =
-                    TbOvertimeTicketEmployee.EmployeeOvertimeStatus.valueOf(statusStr.toLowerCase());
-
-            if (newStatus == TbOvertimeTicketEmployee.EmployeeOvertimeStatus.accepted) {
-                TbOvertimeRequest request = assignment.getOvertimeTicket().getOvertimeRequest();
-                Integer lineId = assignment.getLine().getId();
-
-                TbOvertimeRequestDetail lineDetail = request.getLineDetails().stream()
-                        .filter(d -> d.getLine().getId().equals(lineId))
-                        .findFirst()
-                        .orElseThrow(() -> new IllegalArgumentException("Line config not found"));
-
-                long currentAccepted = overtimeTicketRepository.countAssignedEmployeesByLine(request.getId(), lineId);
-
-                if (currentAccepted >= lineDetail.getNumEmployees()) {
-                    throw new IllegalArgumentException("Shift is full!");
-                }
-
-                if (overtimeTicketRepository.existsGlobalTimeConflict(
-                        userId, request.getOvertimeDate(), request.getStartTime(), request.getEndTime()) > 0) {
-                    throw new IllegalArgumentException("You have another overtime shift during this time.");
-                }
-            }
-            assignment.setStatus(newStatus);
-            overtimeTicketEmployeeRepository.save(assignment);
-
-            TbOvertimeTicket updatedTicket = overtimeTicketRepository.findById(ticketId).orElse(assignment.getOvertimeTicket());
-            OvertimeTicketDTO ticketDTO = overtimeTicketMapper.toDTO(updatedTicket);
-            webSocketService.sendGlobalUpdate("/topic/tickets", ticketDTO);
-
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid status.");
+            newStatus = TbOvertimeTicketEmployee.EmployeeOvertimeStatus.valueOf(statusStr.toLowerCase());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new IllegalArgumentException("Invalid status value: " + statusStr);
         }
+
+        if (newStatus == TbOvertimeTicketEmployee.EmployeeOvertimeStatus.accepted) {
+            TbOvertimeRequest request = assignment.getOvertimeTicket().getOvertimeRequest();
+            Integer lineId = assignment.getLine().getId();
+
+            TbOvertimeRequestDetail lineDetail = request.getLineDetails().stream()
+                    .filter(d -> d.getLine().getId().equals(lineId))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Line config not found for this request"));
+
+            long currentAccepted = overtimeTicketRepository.countAcceptedEmployeesByLine(request.getId(), lineId);
+
+            if (currentAccepted >= lineDetail.getNumEmployees()) {
+                throw new IllegalArgumentException("Shift is full! Cannot accept.");
+            }
+
+            if (overtimeTicketRepository.existsGlobalTimeConflict(
+                    userId, request.getOvertimeDate(), request.getStartTime(), request.getEndTime()) > 0) {
+                throw new IllegalArgumentException("You have another overtime shift during this time.");
+            }
+        }
+
+        // 3. Save
+        assignment.setStatus(newStatus);
+        overtimeTicketEmployeeRepository.save(assignment);
+
+        TbOvertimeTicket updatedTicket = overtimeTicketRepository.findById(ticketId).orElse(assignment.getOvertimeTicket());
+        OvertimeTicketDTO ticketDTO = overtimeTicketMapper.toDTO(updatedTicket);
+        webSocketService.sendGlobalUpdate("/topic/tickets", ticketDTO);
     }
 
     @Override
@@ -518,6 +543,13 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
             response.setAvailable(true);
 
             try {
+                if (overtimeTicketEmployeeRepository.hasRejected(request.getId(), empId)) {
+                    response.setAvailable(false);
+                    response.setReason("Worker has Rejected this request");
+                    results.add(response);
+                    continue;
+                }
+
                 if (isEmployeeActiveInRequest(request, empId)) {
                     response.setAvailable(false);
                     response.setReason("Already Assigned in Req");

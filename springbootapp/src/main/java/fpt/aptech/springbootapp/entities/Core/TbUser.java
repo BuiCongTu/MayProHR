@@ -119,6 +119,10 @@ public class TbUser {
     @Column(name = "created_at")
     private Instant createdAt;
 
+    //field for firebase cloud messaging, hibernate will auto update
+    @Column(name = "device_token")
+    private String deviceToken;
+
     // enum
     public enum SalaryType {
         ProductBased, TimeBased

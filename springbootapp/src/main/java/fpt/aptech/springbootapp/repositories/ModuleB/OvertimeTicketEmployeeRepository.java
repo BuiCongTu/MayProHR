@@ -46,4 +46,11 @@ public interface OvertimeTicketEmployeeRepository extends JpaRepository<TbOverti
             @Param("date") LocalDate date,
             @Param("cutoffTime") LocalTime cutoffTime
     );
+
+    @Query("SELECT CASE WHEN COUNT(te) > 0 THEN true ELSE false END " +
+            "FROM TbOvertimeTicketEmployee te " +
+            "WHERE te.overtimeTicket.overtimeRequest.id = :requestId " +
+            "AND te.employee.id = :employeeId " +
+            "AND te.status = 'rejected'")
+    boolean hasRejected(@Param("requestId") Integer requestId, @Param("employeeId") Integer employeeId);
 }
