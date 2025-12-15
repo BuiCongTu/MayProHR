@@ -3,7 +3,7 @@ import { Alert, Badge, Button, Card, Col, Form, Pagination, Row, Spinner, Table 
 import { Link } from 'react-router-dom';
 import LineSelector from '../../components/ModuleC/LineSelector';
 import useDepartmentLineFilters from '../../hooks/useDepartmentLineFilters';
-import { getUsersByDepartment } from '../../services/userService';
+import { getUsersByStructure } from '../../services/userService';
 import '../../styles/payroll.css';
 
 const UserList = () =>
@@ -28,8 +28,9 @@ const UserList = () =>
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [roleId, setRoleId] = useState('');
 
-  // Load users khi chọn Department (theo id)
+  // Load users theo cấu trúc: department + optional line/subline/workunit + optional role
   useEffect(() =>
   {
     let isMounted = true;
@@ -46,7 +47,11 @@ const UserList = () =>
       {
         setLoadingUsers(true);
         setUserError('');
-        const data = await getUsersByDepartment(deptLineFilters.departmentId);
+        const data = await getUsersByStructure({
+          departmentId: deptLineFilters.departmentId,
+          lineId: deptLineFilters.lineId || undefined,
+          roleId: roleId || undefined
+        });
         if (isMounted)
         {
           setUsers(Array.isArray(data) ? data : []);
@@ -71,29 +76,14 @@ const UserList = () =>
     loadUsers();
 
     return () => { isMounted = false; };
-  }, [deptLineFilters.departmentId]);
+  }, [deptLineFilters.departmentId, deptLineFilters.lineId, roleId]);
 
   // Lọc theo Dept + line đã chọn từ LineSelector + search
   const filteredUsers = useMemo(() =>
   {
     let list = users;
 
-    if (deptLineFilters.departmentId)
-    {
-      list = list.filter(
-        (u) => String(u.departmentId) === String(deptLineFilters.departmentId)
-      );
-    }
-
-    if (deptLineFilters.lineId)
-    {
-      const selectedLineId = String(deptLineFilters.lineId);
-      list = list.filter((u) =>
-        String(u.lineId) === selectedLineId ||
-        String(u.subLineId) === selectedLineId ||
-        String(u.workUnitId) === selectedLineId
-      );
-    }
+    // BE đã trả về đúng tập theo department/line/role; FE chỉ cần search text
 
     if (search)
     {
@@ -150,64 +140,25 @@ const UserList = () =>
     setPage(1);
   };
 
-  const getLineChain = (user) =>
-  {
-    const chain = [];
-    let node = user?.line || null;
-
-    // Xây dựng chain từ root -> leaf dựa vào quan hệ parent - children
-    while (node)
-    {
-      chain.unshift(node);
-      node = node.parent || null;
-    }
-
-    return chain;
-  };
-
+  // BE đã trả về đầy đủ thông tin hierarchy, FE chỉ cần hiển thị trực tiếp
   const getDepartmentName = (user) =>
   {
-    return user.departmentName || user.department?.name || '-';
-  };
-
-  const getWorkUnitName = (user) =>
-  {
-    if (user.workUnitName) return user.workUnitName;
-
-    const chain = getLineChain(user); // [root, ..., leaf]
-
-    // Work Unit là node sâu nhất trong hierarchy (leaf)
-    if (chain.length > 0)
-    {
-      return chain[chain.length - 1]?.name || getDepartmentName(user);
-    }
-
-    // Fallback nếu không có line
-    return user.workUnit?.name || getDepartmentName(user);
-  };
-
-  const getSubLineName = (user) =>
-  {
-    if (user.subLineName) return user.subLineName;
-
-    const chain = getLineChain(user); // [root, ..., leaf]
-
-    // Nếu có ít nhất 3 level thì Sub Line là node trước Work Unit (second last)
-    if (chain.length >= 3)
-    {
-      return chain[chain.length - 2]?.name || '-';
-    }
-
-    // Nếu chỉ có 1-2 level thì coi như không có Sub Line rõ ràng
-    return '-';
+    return user.departmentName || '-';
   };
 
   const getLineName = (user) =>
   {
-    if (user.lineName) return user.lineName;
+    return user.lineName || '-';
+  };
 
-    const chain = getLineChain(user); // [root, ..., leaf]
-    return chain[0]?.name || user.line?.name || '-';
+  const getSubLineName = (user) =>
+  {
+    return user.subLineName || '-';
+  };
+
+  const getWorkUnitName = (user) =>
+  {
+    return user.workUnitName || '-';
   };
 
   const getStatusBadge = (status) =>
@@ -277,52 +228,9 @@ const UserList = () =>
               </Form.Group>
             </Col>
 
-            <Col md={4}>
-              <div className="mb-2 fw-semibold">
-                Department / Line / Sub Line / Work Unit
-              </div>
-              <div className="p-2 border rounded bg-light d-flex flex-wrap align-items-center gap-1">
-                <Button
-                  variant="link"
-                  className="p-0 me-1"
-                  onClick={() =>
-                  {
-                    // focus vào select department (nếu muốn có thể scroll tới)
-                  }}
-                >
-                  {deptLineFilters.departmentName || 'Select Department'}
-                </Button>
-                <span className="mx-1">/</span>
-                <Button
-                  variant="link"
-                  className="p-0 me-1"
-                  disabled={!deptLineFilters.departmentId}
-                  onClick={() => setShowLineSelector(true)}
-                >
-                  {currentLineName !== '-' ? currentLineName : 'Line'}
-                </Button>
-                <span className="mx-1">/</span>
-                <Button
-                  variant="link"
-                  className="p-0 me-1"
-                  disabled={!deptLineFilters.departmentId}
-                  onClick={() => setShowLineSelector(true)}
-                >
-                  {currentSubLineName !== '-' ? currentSubLineName : 'Sub Line'}
-                </Button>
-                <span className="mx-1">/</span>
-                <Button
-                  variant="link"
-                  className="p-0 me-1"
-                  disabled={!deptLineFilters.departmentId}
-                  onClick={() => setShowLineSelector(true)}
-                >
-                  {currentWorkUnitName !== '-' ? currentWorkUnitName : 'Work Unit'}
-                </Button>
-              </div>
-            </Col>
 
-            <Col md={2}>
+
+            <Col md={6}>
               <Form.Group>
                 <Form.Label>Search</Form.Label>
                 <Form.Control
@@ -356,6 +264,49 @@ const UserList = () =>
                 </Form.Select>
               </Form.Group>
             </Col>
+          </Row>
+            <Row className="gy-3 align-items-end">
+              <Col md={8}>
+                  <div className="p-2 border rounded bg-light d-flex flex-wrap align-items-center gap-1">
+                      <Button
+                          variant="link"
+                          className="p-0 me-1"
+                          onClick={() =>
+                          {
+                              //select department
+                          }}
+                      >
+                          {deptLineFilters.departmentName || 'Select Department'}
+                      </Button>
+                      <span className="mx-1">/</span>
+                      <Button
+                          variant="link"
+                          className="p-0 me-1"
+                          disabled={!deptLineFilters.departmentId}
+                          onClick={() => setShowLineSelector(true)}
+                      >
+                          {currentLineName !== '-' ? currentLineName : 'Line'}
+                      </Button>
+                      <span className="mx-1">/</span>
+                      <Button
+                          variant="link"
+                          className="p-0 me-1"
+                          disabled={!deptLineFilters.departmentId}
+                          onClick={() => setShowLineSelector(true)}
+                      >
+                          {currentSubLineName !== '-' ? currentSubLineName : 'Sub Line'}
+                      </Button>
+                      <span className="mx-1">/</span>
+                      <Button
+                          variant="link"
+                          className="p-0 me-1"
+                          disabled={!deptLineFilters.departmentId}
+                          onClick={() => setShowLineSelector(true)}
+                      >
+                          {currentWorkUnitName !== '-' ? currentWorkUnitName : 'Work Unit'}
+                      </Button>
+                  </div>
+              </Col>
           </Row>
 
           {/* Selector ẩn, chỉ hiện khi cần xem cây Line */}
@@ -449,7 +400,7 @@ const UserList = () =>
                           size="sm"
                           variant="success"
                         >
-                          Create Payment
+                          Create Payroll
                         </Button>
                       </div>
                     </td>

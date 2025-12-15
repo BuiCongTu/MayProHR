@@ -3,6 +3,32 @@ import { BASE_API } from './api';
 
 const USER_API = '/user';
 
+// New: search users by organizational structure
+export async function getUsersByStructure({ departmentId, lineId, roleId })
+{
+    if (!departmentId)
+    {
+        return [];
+    }
+    const API_URL = `${BASE_API}${USER_API}/search-by-structure`;
+    try
+    {
+        const response = await axios.get(API_URL, {
+            params: {
+                departmentId,
+                lineId: lineId || undefined,
+                roleId: roleId || undefined
+            }
+        });
+        const data = response.data;
+        return Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+    } catch (err)
+    {
+        console.error('Failed to fetch users by structure:', err);
+        return [];
+    }
+}
+
 // Lấy danh sách users theo phòng ban
 export async function getUsersByDepartment(deptId)
 {
