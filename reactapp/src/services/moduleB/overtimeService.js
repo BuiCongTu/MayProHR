@@ -1,19 +1,22 @@
-import BASE_API from '../api'
-import axios from "axios";
+import api from '../api'; // Import the configured instance (default export)
 
-//overtime request service
-const OVERTIME_REQUEST_API = '/overtime-request/'
+// Note: baseURL is already '/api' in the instance, so we just need the relative path
+const OVERTIME_REQUEST_API = '/overtime-request/';
+const OVERTIME_TICKET_API = '/overtime-ticket/';
 
-export async function getFilteredOvertimeRequest (filter, pageable) {
+// --- Overtime Request Services ---
+
+export async function getFilteredOvertimeRequest(filter, pageable) {
     const params = {
         ...filter,
         page: pageable.page,
         size: pageable.size,
         sort: pageable.sort,
-    }
+    };
 
     try {
-        const response = await axios.get(BASE_API + OVERTIME_REQUEST_API, { params });
+        // Use 'api' instead of 'axios' + manual URL
+        const response = await api.get(OVERTIME_REQUEST_API, { params });
         console.log("Overtime request response:", response.data);
         return response.data;
     } catch (err) {
@@ -23,9 +26,9 @@ export async function getFilteredOvertimeRequest (filter, pageable) {
 }
 
 export async function createOvertimeRequest(requestData) {
-    const API_URL = BASE_API + OVERTIME_REQUEST_API + 'create';
+    const API_URL = OVERTIME_REQUEST_API + 'create';
     try {
-        const response = await axios.post(API_URL, requestData);
+        const response = await api.post(API_URL, requestData);
         return response.data;
     } catch (err) {
         console.error("Failed to create overtime request:", err);
@@ -34,9 +37,9 @@ export async function createOvertimeRequest(requestData) {
 }
 
 export async function approveOvertimeRequest(requestId) {
-    const API_URL = `${BASE_API}${OVERTIME_REQUEST_API}${requestId}/approve`;
+    const API_URL = `${OVERTIME_REQUEST_API}${requestId}/approve`;
     try {
-        const response = await axios.post(API_URL);
+        const response = await api.post(API_URL);
         return response.data;
     } catch (err) {
         console.error("Failed to approve overtime request:", err);
@@ -45,9 +48,9 @@ export async function approveOvertimeRequest(requestId) {
 }
 
 export async function rejectOvertimeRequest(requestId, reason) {
-    const API_URL = `${BASE_API}${OVERTIME_REQUEST_API}${requestId}/reject`;
+    const API_URL = `${OVERTIME_REQUEST_API}${requestId}/reject`;
     try {
-        const response = await axios.post(API_URL + '?reason=' + reason);
+        const response = await api.post(API_URL + '?reason=' + reason);
         return response.data;
     } catch (err) {
         console.error("Failed to reject overtime request:", err);
@@ -56,9 +59,9 @@ export async function rejectOvertimeRequest(requestId, reason) {
 }
 
 export async function processOvertimeRequest(requestId) {
-    const API_URL = `${BASE_API}${OVERTIME_REQUEST_API}${requestId}/process`;
+    const API_URL = `${OVERTIME_REQUEST_API}${requestId}/process`;
     try {
-        const response = await axios.post(API_URL);
+        const response = await api.post(API_URL);
         return response.data;
     } catch (err) {
         console.error("Failed to process overtime request:", err);
@@ -67,9 +70,9 @@ export async function processOvertimeRequest(requestId) {
 }
 
 export async function getOvertimeRequestById(id) {
-    const API_URL = `${BASE_API}/overtime-request/${id}`;
+    const API_URL = `${OVERTIME_REQUEST_API}${id}`;
     try {
-        const response = await axios.get(API_URL);
+        const response = await api.get(API_URL);
         return response.data;
     } catch (err) {
         console.error(`Failed to fetch request ${id}:`, err);
@@ -77,19 +80,18 @@ export async function getOvertimeRequestById(id) {
     }
 }
 
-//overtime ticket service
-const OVERTIME_TICKET_API = '/overtime-ticket/'
+// --- Overtime Ticket Services ---
 
-export async function getFilteredOvertimeTickets (filter, pageable) {
+export async function getFilteredOvertimeTickets(filter, pageable) {
     const params = {
         ...filter,
         page: pageable.page,
         size: pageable.size,
         sort: pageable.sort,
-    }
+    };
 
     try {
-        const response = await axios.get(BASE_API + OVERTIME_TICKET_API, { params });
+        const response = await api.get(OVERTIME_TICKET_API, { params });
         console.log("Overtime ticket response:", response.data);
         return response.data;
     } catch (err) {
@@ -99,9 +101,9 @@ export async function getFilteredOvertimeTickets (filter, pageable) {
 }
 
 export async function submitOvertimeTicket(ticketId) {
-    const API_URL = `${BASE_API}${OVERTIME_TICKET_API}${ticketId}/submit`;
+    const API_URL = `${OVERTIME_TICKET_API}${ticketId}/submit`;
     try {
-        const response = await axios.post(API_URL);
+        const response = await api.post(API_URL);
         return response.data;
     } catch (err) {
         console.error("Failed to submit overtime ticket:", err);
@@ -110,9 +112,9 @@ export async function submitOvertimeTicket(ticketId) {
 }
 
 export async function confirmOvertimeTicket(ticketId) {
-    const API_URL = `${BASE_API}${OVERTIME_TICKET_API}${ticketId}/confirm`;
+    const API_URL = `${OVERTIME_TICKET_API}${ticketId}/confirm`;
     try {
-        const response = await axios.post(API_URL);
+        const response = await api.post(API_URL);
         return response.data;
     } catch (err) {
         console.error("Failed to confirm overtime ticket:", err);
@@ -121,9 +123,9 @@ export async function confirmOvertimeTicket(ticketId) {
 }
 
 export async function rejectOvertimeTicket(ticketId, reason) {
-    const API_URL = `${BASE_API}${OVERTIME_TICKET_API}${ticketId}/reject`;
+    const API_URL = `${OVERTIME_TICKET_API}${ticketId}/reject`;
     try {
-        const response = await axios.post(API_URL + '?reason=' + reason);
+        const response = await api.post(API_URL + '?reason=' + reason);
         return response.data;
     } catch (err) {
         console.error("Failed to reject overtime ticket:", err);
@@ -133,9 +135,9 @@ export async function rejectOvertimeTicket(ticketId, reason) {
 
 export async function approveOvertimeTicket(ticketId, reason) {
     const safeReason = reason || "Approved by Factory Manager";
-    const API_URL = `${BASE_API}${OVERTIME_TICKET_API}${ticketId}/approve`;
+    const API_URL = `${OVERTIME_TICKET_API}${ticketId}/approve`;
     try {
-        const response = await axios.post(API_URL + '?reason=' + safeReason);
+        const response = await api.post(API_URL + '?reason=' + safeReason);
         return response.data;
     } catch (err) {
         console.error("Failed to approve overtime ticket:", err);
@@ -144,9 +146,9 @@ export async function approveOvertimeTicket(ticketId, reason) {
 }
 
 export async function getOvertimeTicketById(id) {
-    const API_URL = `${BASE_API}${OVERTIME_TICKET_API}${id}`;
+    const API_URL = `${OVERTIME_TICKET_API}${id}`;
     try {
-        const response = await axios.get(API_URL);
+        const response = await api.get(API_URL);
         return response.data;
     } catch (err) {
         console.error(`Failed to fetch ticket ${id}:`, err);
@@ -155,9 +157,9 @@ export async function getOvertimeTicketById(id) {
 }
 
 export async function createOvertimeTicket(ticketData) {
-    const API_URL = `${BASE_API}${OVERTIME_TICKET_API}create`;
+    const API_URL = `${OVERTIME_TICKET_API}create`;
     try {
-        const response = await axios.post(API_URL, ticketData);
+        const response = await api.post(API_URL, ticketData);
         return response.data;
     } catch (err) {
         console.error("Failed to create ticket:", err);
@@ -166,9 +168,9 @@ export async function createOvertimeTicket(ticketData) {
 }
 
 export async function checkEmployeeAvailability(requestId, employeeIds) {
-    const API_URL = `${BASE_API}${OVERTIME_TICKET_API}check-availability`;
+    const API_URL = `${OVERTIME_TICKET_API}check-availability`;
     try {
-        const response = await axios.post(API_URL, {
+        const response = await api.post(API_URL, {
             requestId: requestId,
             employeeIds: employeeIds
         });
