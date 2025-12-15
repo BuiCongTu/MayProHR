@@ -325,6 +325,12 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                     throw new IllegalArgumentException("Employee ID " + empId + " is assigned multiple times in this ticket.");
                 }
 
+                if (overtimeTicketEmployeeRepository.hasRejected(request.getId(), empId)) {
+                    TbUser u = userRepository.findById(empId).orElse(null);
+                    String name = (u != null) ? u.getFullName() : "ID " + empId;
+                    throw new IllegalArgumentException("Employee " + name + " has already declined this overtime request.");
+                }
+
                 // Robust Check: Is employee in ANY active ticket for this request?
                 if (isEmployeeActiveInRequest(request, empId)) {
                     throw new IllegalArgumentException("Employee ID " + empId + " is already assigned to another ticket in this request.");
@@ -537,6 +543,13 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
             response.setAvailable(true);
 
             try {
+                if (overtimeTicketEmployeeRepository.hasRejected(request.getId(), empId)) {
+                    response.setAvailable(false);
+                    response.setReason("Worker has Rejected this request");
+                    results.add(response);
+                    continue;
+                }
+
                 if (isEmployeeActiveInRequest(request, empId)) {
                     response.setAvailable(false);
                     response.setReason("Already Assigned in Req");
