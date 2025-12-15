@@ -46,7 +46,7 @@ public interface OvertimeTicketRepository extends JpaRepository<TbOvertimeTicket
             "WHERE ote.user_id = :employeeId " +
             "AND r.overtime_date = :date " +
             "AND t.status != 'rejected' " +
-            "AND ote.status != 'rejected' " +
+            "AND ote.status = 'accepted' " +
             "AND (r.start_time < CAST(:endTime AS TIME) AND r.end_time > CAST(:startTime AS TIME))",
             nativeQuery = true)
     int existsGlobalTimeConflict(@Param("employeeId") Integer employeeId,
@@ -79,4 +79,12 @@ public interface OvertimeTicketRepository extends JpaRepository<TbOvertimeTicket
             @Param("date") LocalDate date,
             @Param("cutoffTime") LocalTime cutoffTime
     );
+
+    @Query("SELECT COUNT(ote) FROM TbOvertimeTicketEmployee ote " +
+            "WHERE ote.overtimeTicket.overtimeRequest.id = :requestId " +
+            "AND ote.line.id = :lineId " +
+            "AND ote.overtimeTicket.status != 'rejected' " +
+            "AND ote.status = 'accepted' ")
+    long countAcceptedEmployeesByLine(@Param("requestId") Integer requestId,
+                                      @Param("lineId") Integer lineId);
 }
