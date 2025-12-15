@@ -1,32 +1,60 @@
 package fpt.aptech.springbootapp.api.ModuleC;
 
-import fpt.aptech.springbootapp.dtos.ModuleC.*;
-import fpt.aptech.springbootapp.entities.Core.*;
-import fpt.aptech.springbootapp.entities.ModuleC.*;
-import fpt.aptech.springbootapp.repositories.DepartmentRepository;
-import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.*;
-import fpt.aptech.springbootapp.repositories.UserRepository;
-import fpt.aptech.springbootapp.services.ModuleC_Payroll.*;
-import lombok.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import fpt.aptech.springbootapp.entities.ModuleC.TbPayrollAllowance;
-import fpt.aptech.springbootapp.entities.ModuleC.TbPayrollAllowance.AllowanceScope;
-
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import fpt.aptech.springbootapp.dtos.ModuleC.AllowanceRequestDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.EmpRecurAllowReqDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.EmployeeTaxProfileDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.PayrollCalculationDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.PayrollResponseDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.TaxCalculationDTO;
+import fpt.aptech.springbootapp.entities.Core.TbDepartment;
+import fpt.aptech.springbootapp.entities.Core.TbUser;
+import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeePayroll;
+import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeeWorkTime;
+import fpt.aptech.springbootapp.entities.ModuleC.TbPayroll;
+import fpt.aptech.springbootapp.entities.ModuleC.TbPayrollAllowance;
+import fpt.aptech.springbootapp.entities.ModuleC.TbPayrollAllowance.AllowanceScope;
+import fpt.aptech.springbootapp.repositories.DepartmentRepository;
+import fpt.aptech.springbootapp.repositories.UserRepository;
+import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.EmployeePayrollRepo;
+import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.PayrollAllowanceRepo;
+import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.PayrollRepo;
+import fpt.aptech.springbootapp.services.ModuleC_Payroll.EmployeeTaxProfileService;
+import fpt.aptech.springbootapp.services.ModuleC_Payroll.PayrollCalculationService;
+import fpt.aptech.springbootapp.services.ModuleC_Payroll.PayrollService;
+import fpt.aptech.springbootapp.services.ModuleC_Payroll.PersonalIncomeTaxCalService;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @RestController
 @RequestMapping("/api/payroll")
 //@CrossOrigin(origins = "*")
 public class PayrollController {
+
     private final DepartmentRepository departmentRepository;
     private PayrollService payrollService;
     private final PayrollCalculationService payrollCalculationService;
@@ -39,14 +67,14 @@ public class PayrollController {
 
     @Autowired
     public PayrollController(PayrollService payrollService,
-                             PayrollCalculationService payrollCalculationService,
-                             EmployeeTaxProfileService taxProfileService,
-                             PersonalIncomeTaxCalService taxCalculationService,
-                             UserRepository userRepository,
-                             EmployeePayrollRepo employeePayrollRepo,
-                             PayrollRepo payrollRepo,
-                             DepartmentRepository departmentRepository,
-                             PayrollAllowanceRepo payrollAllowanceRepo) {
+            PayrollCalculationService payrollCalculationService,
+            EmployeeTaxProfileService taxProfileService,
+            PersonalIncomeTaxCalService taxCalculationService,
+            UserRepository userRepository,
+            EmployeePayrollRepo employeePayrollRepo,
+            PayrollRepo payrollRepo,
+            DepartmentRepository departmentRepository,
+            PayrollAllowanceRepo payrollAllowanceRepo) {
         this.payrollService = payrollService;
         this.payrollCalculationService = payrollCalculationService;
         this.taxProfileService = taxProfileService;
@@ -146,6 +174,31 @@ public class PayrollController {
         Map<String, String> response = new HashMap<>();
         response.put("error", message);
         return response;
+    }
+
+    // láy chỉ số WorkTime theo employeePayrollId cho FE
+    @GetMapping("/employee-work-time")
+    public ResponseEntity<?> getEmployeeWorkTime(@RequestParam Integer employeePayrollId) {
+        try {
+            TbEmployeeWorkTime wt = payrollService.getEmployeeWorkTimeByEmployeePayrollId(employeePayrollId);
+            if (wt == null) {
+                return ResponseEntity.ok(Map.of(
+                        "success", true,
+                        "message", "No work-time record for employeePayrollId",
+                        "data", null
+                ));
+            }
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "OK",
+                    "data", wt
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Error: " + e.getMessage()
+            ));
+        }
     }
 
     //Tinh luong day du cho employee
@@ -299,8 +352,8 @@ public class PayrollController {
             List<PayrollResponseDTO.EmployeePayrollDetailDTO> employees = payroll.getEmployeePayrolls()
                     .stream()
                     .map(ep -> {
-                        PayrollResponseDTO.EmployeePayrollDetailDTO empDto =
-                                new PayrollResponseDTO.EmployeePayrollDetailDTO();
+                        PayrollResponseDTO.EmployeePayrollDetailDTO empDto
+                                = new PayrollResponseDTO.EmployeePayrollDetailDTO();
                         empDto.setEmployeeId(ep.getUser().getId());
                         empDto.setEmployeeName(ep.getUser().getFullName());
                         empDto.setSalaryType(ep.getUser().getSalaryType().toString());
@@ -329,7 +382,6 @@ public class PayrollController {
             return ResponseEntity.badRequest().body(body);
         }
 
-
     }
 
     //lay history luong cua nhan vien
@@ -341,8 +393,8 @@ public class PayrollController {
             List<PayrollResponseDTO.EmployeePayrollDetailDTO> dtos = payrolls
                     .stream()
                     .map(ep -> {
-                        PayrollResponseDTO.EmployeePayrollDetailDTO empDto =
-                                new PayrollResponseDTO.EmployeePayrollDetailDTO();
+                        PayrollResponseDTO.EmployeePayrollDetailDTO empDto
+                                = new PayrollResponseDTO.EmployeePayrollDetailDTO();
                         empDto.setEmployeeId(ep.getUser().getId());
                         empDto.setEmployeeName(ep.getUser().getFullName());
                         empDto.setSalaryType(ep.getUser().getSalaryType().toString());
@@ -384,8 +436,8 @@ public class PayrollController {
 
             list = payrollAllowanceRepo.findAll().stream()
                     .filter(a -> a.getUser() != null
-                            && a.getUser().getId().equals(user.getId())
-                            && a.getScope() == AllowanceScope.RECURRING)
+                    && a.getUser().getId().equals(user.getId())
+                    && a.getScope() == AllowanceScope.RECURRING)
                     .toList();
 
             LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
@@ -448,10 +500,10 @@ public class PayrollController {
             var user = userRepository.findById(request.getUserId())
                     .orElseThrow(() -> new RuntimeException("User not found: " + request.getUserId()));
 
-            TbPayrollAllowance.AllowanceType type =
-                    request.getType() != null
-                            ? request.getType()
-                            : TbPayrollAllowance.AllowanceType.OTHER;
+            TbPayrollAllowance.AllowanceType type
+                    = request.getType() != null
+                    ? request.getType()
+                    : TbPayrollAllowance.AllowanceType.OTHER;
 
             LocalDate newStart = request.getStartMonth().withDayOfMonth(1);
             LocalDate newEnd = request.getEndMonth() != null
@@ -486,8 +538,8 @@ public class PayrollController {
             if (hasOverlap) {
                 body.put("success", false);
                 body.put("message",
-                        "Employee already has a recurring allowance of type " + type +
-                                " that overlaps with the given period.");
+                        "Employee already has a recurring allowance of type " + type
+                        + " that overlaps with the given period.");
                 return ResponseEntity.badRequest().body(body);
             }
             //tao allơeance mới
@@ -593,11 +645,11 @@ public class PayrollController {
             }
 
             TbUser user = allowance.getUser();
-            TbPayrollAllowance.AllowanceType newType =
-                    request.getType() != null
-                            ? request.getType()
-                            : (allowance.getType() != null ? allowance.getType()
-                            : TbPayrollAllowance.AllowanceType.OTHER);
+            TbPayrollAllowance.AllowanceType newType
+                    = request.getType() != null
+                    ? request.getType()
+                    : (allowance.getType() != null ? allowance.getType()
+                    : TbPayrollAllowance.AllowanceType.OTHER);
 
             LocalDate newStart = request.getStartMonth().withDayOfMonth(1);
             LocalDate newEnd = request.getEndMonth() != null
@@ -632,8 +684,8 @@ public class PayrollController {
             if (hasOverlap) {
                 body.put("success", false);
                 body.put("message",
-                        "Employee already has a recurring allowance of type " + newType +
-                                " that overlaps with the given period.");
+                        "Employee already has a recurring allowance of type " + newType
+                        + " that overlaps with the given period.");
                 return ResponseEntity.badRequest().body(body);
             }
 
@@ -658,7 +710,7 @@ public class PayrollController {
         }
     }
 
-        //trợ cấp ONE_TIME cho 1 employeePayroll trong payroll
+    //trợ cấp ONE_TIME cho 1 employeePayroll trong payroll
     @PostMapping("/{payrollId}/employee/{employeePayrollId}/allowances")
     public ResponseEntity<?> addOneTimeAllowance(
             @PathVariable Integer payrollId,
@@ -691,8 +743,8 @@ public class PayrollController {
             allowance.setAmount(request.getAmount());
             allowance.setType(
                     request.getType() != null
-                            ? request.getType()
-                            : TbPayrollAllowance.AllowanceType.TRAVEL
+                    ? request.getType()
+                    : TbPayrollAllowance.AllowanceType.TRAVEL
             );
             allowance.setScope(AllowanceScope.ONE_TIME);
             // startMonth/endMonth = đúng tháng của payroll
@@ -836,8 +888,8 @@ public class PayrollController {
                 ep.setTaxDeductionTotal(BigDecimal.ZERO);
 
                 // tro cap dai hanj cho thang nay
-                List<TbPayrollAllowance> recurringAllowances =
-                        payrollAllowanceRepo.findRecurringAllowancesForUserAndMonth(
+                List<TbPayrollAllowance> recurringAllowances
+                        = payrollAllowanceRepo.findRecurringAllowancesForUserAndMonth(
                                 user.getId(),
                                 payrollMonth,
                                 TbPayrollAllowance.AllowanceScope.RECURRING
@@ -865,8 +917,10 @@ public class PayrollController {
             payroll.setTotalSalary(totalSalary);
             payroll.setEmployeePayrolls(employeePayrolls);
 
-
             TbPayroll saved = payrollRepo.save(payroll);
+
+            // Lưu WorkTime cho từng employeePayroll
+            payrollService.generateAndSaveWorkTimeForPayroll(saved, payrollMonth);
 
             body.put("success", true);
             body.put("message", "Generate payroll successfully");
@@ -922,8 +976,8 @@ public class PayrollController {
             response.put("success", true);
             response.put("data", Map.of(
                     "totalPayroll", payrollRepo.count(),
-                    "approvedPayroll", 0,  // Tính toán từ DB
-                    "pendingPayroll", 0,   // Tính toán từ DB
+                    "approvedPayroll", 0, // Tính toán từ DB
+                    "pendingPayroll", 0, // Tính toán từ DB
                     "totalSalaryExpense", BigDecimal.ZERO,
                     "monthlyTrend", List.of()
             ));
@@ -976,8 +1030,8 @@ public class PayrollController {
             if (lineId != null) {
                 payrolls = payrolls.stream()
                         .filter(p -> p.getEmployeePayrolls().stream()
-                                .anyMatch(ep -> ep.getUser().getLine() != null &&
-                                        ep.getUser().getLine().getId().equals(lineId)))
+                        .anyMatch(ep -> ep.getUser().getLine() != null
+                        && ep.getUser().getLine().getId().equals(lineId)))
                         .collect(Collectors.toList());
             }
 
@@ -1045,6 +1099,7 @@ public class PayrollController {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class ApiResponse {
+
         private Boolean success;
         private String message;
         private Object data;
@@ -1053,6 +1108,7 @@ public class PayrollController {
     @Getter
     @Setter
     public static class GeneratePayrollRequest {
+
         private Integer departmentId;
         private LocalDate month;
         private BigDecimal allowance;
@@ -1061,8 +1117,8 @@ public class PayrollController {
     @Getter
     @Setter
     public static class ApprovePayrollRequest {
+
         private String approverNote;
     }
 
 }
-

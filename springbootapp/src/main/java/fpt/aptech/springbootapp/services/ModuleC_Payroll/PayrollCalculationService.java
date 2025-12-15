@@ -3,13 +3,11 @@ package fpt.aptech.springbootapp.services.ModuleC_Payroll;
 import fpt.aptech.springbootapp.dtos.ModuleC.PayrollCalculationDTO;
 import fpt.aptech.springbootapp.dtos.ModuleC.TaxCalculationDTO;
 import fpt.aptech.springbootapp.entities.Core.TbUser;
-import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
 
-@Service
 public interface PayrollCalculationService {
     //tinh luong đầy đủ cho nhan vien
     PayrollCalculationDTO calEmpSalary(TbUser user, LocalDate payrollMonth, BigDecimal allowance);

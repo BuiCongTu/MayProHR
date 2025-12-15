@@ -103,6 +103,10 @@ public class TbUser {
     @Column(name = "base_salary", precision = 10, scale = 2)
     private BigDecimal baseSalary;
 
+    @ColumnDefault("1.00")
+    @Column(name = "wage_coefficient", precision = 5, scale = 2)
+    private BigDecimal wageCoefficient = new BigDecimal("1.00");
+
     @Column(name = "hire_date")
     private LocalDate hireDate;
 
