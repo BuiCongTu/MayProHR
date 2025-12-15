@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../providers/auth_provider.dart';
-import '../../services/auth_service.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 

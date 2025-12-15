@@ -7,7 +7,6 @@ import 'services/notification_service.dart';
 
 import 'providers/auth_provider.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/home/home_screen.dart';
 
 final AppTheme appTheme = AppTheme();
 
