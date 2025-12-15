@@ -608,4 +608,12 @@ public class UserServiceImp implements UserService {
 
         return null;
     }
+
+    @Override
+    public void saveDeviceToken(String email, String token) {
+        TbUser user = userRepo.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        user.setDeviceToken(token);
+        userRepo.save(user);
+    }
 }
