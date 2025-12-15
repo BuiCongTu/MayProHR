@@ -1,10 +1,13 @@
 package fpt.aptech.springbootapp.services.ModuleC_Payroll;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import fpt.aptech.springbootapp.dtos.ModuleC.TimeBaseAllocDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.TimeBaseAllocationResult;
 import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeePayroll;
 import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeeWorkTime;
 import fpt.aptech.springbootapp.entities.ModuleC.TbPayroll;
@@ -33,5 +36,11 @@ public interface PayrollService {
 
     //truy xuất chỉ số WorkTime theo employeePayrollId
     TbEmployeeWorkTime getEmployeeWorkTimeByEmployeePayrollId(Integer employeePayrollId);
+
+    TimeBaseAllocationResult allocateTimeBaseFund(Integer year, Integer month, BigDecimal fundAmount, List<Integer> employeeIds);
+
+    TimeBaseAllocDTO getTimeBaseAllocationForEmployee(Integer userId, Integer year, Integer month);
+
+    void clearTimeBaseAllocation(Integer year, Integer month, List<Integer> employeeIds);
 
 }

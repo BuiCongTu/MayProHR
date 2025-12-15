@@ -1,9 +1,9 @@
 package fpt.aptech.springbootapp.api;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
-import fpt.aptech.springbootapp.entities.Core.TbUser;
-import fpt.aptech.springbootapp.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -19,7 +19,12 @@ import org.springframework.web.bind.annotation.RestController;
 import fpt.aptech.springbootapp.dtos.request.UpdateProfileRequest;
 import fpt.aptech.springbootapp.dtos.response.ApiResponse;
 import fpt.aptech.springbootapp.dtos.response.UserResponseDto;
+import fpt.aptech.springbootapp.entities.Core.TbLine;
+import fpt.aptech.springbootapp.entities.Core.TbUser;
+import fpt.aptech.springbootapp.repositories.LineRepository;
+import fpt.aptech.springbootapp.repositories.UserRepository;
 import fpt.aptech.springbootapp.services.System.UserService;
+import fpt.aptech.springbootapp.services.interfaces.LineService;
 
 @RestController
 @RequestMapping("/api/user")
@@ -27,12 +32,15 @@ public class UserController {
 
     final private UserService userService;
     final private UserRepository userRepository;
+    final private LineService lineService;
+    final private LineRepository lineRepository;
 
     @Autowired
-    public UserController(UserService userService, UserRepository userRepository)
-    {
+    public UserController(UserService userService, UserRepository userRepository, LineService lineService, LineRepository lineRepository) {
         this.userService = userService;
         this.userRepository = userRepository;
+        this.lineService = lineService;
+        this.lineRepository = lineRepository;
     }
 
     @GetMapping
@@ -87,5 +95,111 @@ public class UserController {
         } else {
             return ResponseEntity.status(404).body(ApiResponse.error("No duplicate user found"));
         }
+    }
+
+    // Search employees by role_id, department_id and hierarchical line ids
+    // réponse department only; department + line; department + line + subline; 
+    // department + line + subline + wordUnit
+    @GetMapping("/search-by-structure")
+    public ResponseEntity<ApiResponse<List<UserResponseDto>>> searchEmployeesByStructure(
+            @RequestParam Integer departmentId,
+            @RequestParam(required = false) Integer lineId,
+            @RequestParam(required = false) Integer subLineId,
+            @RequestParam(required = false) Integer wordUnitId,
+            @RequestParam(required = false) Integer roleId) {
+
+        Integer targetLineId = null;
+        if (wordUnitId != null) {
+            targetLineId = wordUnitId;
+        } else if (subLineId != null) {
+            targetLineId = subLineId;
+        } else if (lineId != null) {
+            targetLineId = lineId;
+        }
+
+        List<TbUser> users = userRepository.findByDepartmentId(departmentId);
+
+        if (targetLineId != null) {
+            List<Integer> descendantIds = lineService.getAllDescendantIds(targetLineId);
+            Set<Integer> allowedLineIds = descendantIds.stream().collect(Collectors.toSet());
+            allowedLineIds.add(targetLineId);
+            users = users.stream()
+                    .filter(u -> u.getLine() != null && allowedLineIds.contains(u.getLine().getId()))
+                    .collect(Collectors.toList());
+        }
+
+        if (roleId != null) {
+            users = users.stream()
+                    .filter(u -> u.getRole() != null && roleId.equals(u.getRole().getId()))
+                    .collect(Collectors.toList());
+        }
+
+        // Map to lightweight DTO for FE
+        List<UserResponseDto> dtos = users.stream().map(u -> {
+            UserResponseDto dto = new UserResponseDto();
+            dto.setId(u.getId());
+            dto.setFullName(u.getFullName());
+            dto.setEmail(u.getEmail());
+            dto.setPhone(u.getPhone());
+            dto.setRoleId(u.getRole() != null ? u.getRole().getId() : null);
+            dto.setRoleName(u.getRole() != null ? u.getRole().getName() : null);
+
+            dto.setDepartmentId(u.getDepartment() != null ? u.getDepartment().getId() : null);
+            dto.setDepartmentName(u.getDepartment() != null ? u.getDepartment().getName() : null);
+
+            Integer lineIdVal = null;
+            String lineNameVal = null;
+            Integer subLineIdVal = null;
+            String subLineNameVal = null;
+            Integer workUnitIdVal = null;
+            String workUnitNameVal = null;
+
+            TbLine cur = u.getLine();
+            if (cur != null) {
+                // Level 1: word unit
+                workUnitIdVal = cur.getId();
+                workUnitNameVal = cur.getName();
+
+                TbLine parent1 = cur.getParent();
+                if (parent1 != null) {
+                    // Level 2: Sub Line
+                    subLineIdVal = parent1.getId();
+                    subLineNameVal = parent1.getName();
+
+                    TbLine parent2 = parent1.getParent();
+                    if (parent2 != null) {
+                        // Level 3: Line
+                        lineIdVal = parent2.getId();
+                        lineNameVal = parent2.getName();
+                    } else {
+                        // If no grandparent, parent is the top Line
+                        lineIdVal = parent1.getId();
+                        lineNameVal = parent1.getName();
+                        // Then Work Unit is actually the Sub Line (no separate work unit)
+                        workUnitIdVal = null;
+                        workUnitNameVal = null;
+                    }
+                } else {
+                    // No parent
+                    lineIdVal = cur.getId();
+                    lineNameVal = cur.getName();
+                    // No subline/workunit
+                    subLineIdVal = null;
+                    subLineNameVal = null;
+                    workUnitIdVal = null;
+                    workUnitNameVal = null;
+                }
+            }
+
+            dto.setLineId(lineIdVal);
+            dto.setLineName(lineNameVal);
+            dto.setSubLineId(subLineIdVal);
+            dto.setSubLineName(subLineNameVal);
+            dto.setWorkUnitId(workUnitIdVal);
+            dto.setWorkUnitName(workUnitNameVal);
+            return dto;
+        }).collect(Collectors.toList());
+
+        return ResponseEntity.ok(ApiResponse.success(dtos));
     }
 }

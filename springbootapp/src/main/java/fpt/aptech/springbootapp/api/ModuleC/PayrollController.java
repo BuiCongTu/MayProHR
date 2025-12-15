@@ -1,54 +1,23 @@
 package fpt.aptech.springbootapp.api.ModuleC;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.math.*;
+import java.time.*;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import fpt.aptech.springbootapp.dtos.ModuleC.AllowanceRequestDTO;
-import fpt.aptech.springbootapp.dtos.ModuleC.EmpRecurAllowReqDTO;
-import fpt.aptech.springbootapp.dtos.ModuleC.EmployeeTaxProfileDTO;
-import fpt.aptech.springbootapp.dtos.ModuleC.PayrollCalculationDTO;
-import fpt.aptech.springbootapp.dtos.ModuleC.PayrollResponseDTO;
-import fpt.aptech.springbootapp.dtos.ModuleC.TaxCalculationDTO;
-import fpt.aptech.springbootapp.entities.Core.TbDepartment;
-import fpt.aptech.springbootapp.entities.Core.TbUser;
-import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeePayroll;
-import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeeWorkTime;
-import fpt.aptech.springbootapp.entities.ModuleC.TbPayroll;
-import fpt.aptech.springbootapp.entities.ModuleC.TbPayrollAllowance;
+import fpt.aptech.springbootapp.dtos.ModuleC.*;
+import fpt.aptech.springbootapp.entities.Core.*;
+import fpt.aptech.springbootapp.entities.ModuleC.*;
 import fpt.aptech.springbootapp.entities.ModuleC.TbPayrollAllowance.AllowanceScope;
-import fpt.aptech.springbootapp.repositories.DepartmentRepository;
-import fpt.aptech.springbootapp.repositories.UserRepository;
-import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.EmployeePayrollRepo;
-import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.PayrollAllowanceRepo;
-import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.PayrollRepo;
-import fpt.aptech.springbootapp.services.ModuleC_Payroll.EmployeeTaxProfileService;
-import fpt.aptech.springbootapp.services.ModuleC_Payroll.PayrollCalculationService;
-import fpt.aptech.springbootapp.services.ModuleC_Payroll.PayrollService;
-import fpt.aptech.springbootapp.services.ModuleC_Payroll.PersonalIncomeTaxCalService;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import fpt.aptech.springbootapp.repositories.*;
+import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.*;
+import fpt.aptech.springbootapp.services.ModuleC_Payroll.*;
+import lombok.*;
 
 @RestController
 @RequestMapping("/api/payroll")
@@ -84,6 +53,71 @@ public class PayrollController {
         this.payrollRepo = payrollRepo;
         this.departmentRepository = departmentRepository;
         this.payrollAllowanceRepo = payrollAllowanceRepo;
+    }
+
+    //
+    @PostMapping("/timebase/allocate")
+    public ResponseEntity<?> allocateTimeBase(@RequestBody TimeBaseAllocationRequest request) {
+        try {
+            if (request.getYear() == null || request.getMonth() == null || request.getFundAmount() == null) {
+                return ResponseEntity.badRequest().body(buildErrorResponse("Missing required parameters(year, month, fundAmount)"));
+            }
+            // If employeeIds not provided, try to fetch by Work Unit (lineId)
+            List<Integer> employeeIds = request.getEmployeeIds();
+            if ((employeeIds == null || employeeIds.isEmpty()) && request.getLineId() != null) {
+                employeeIds = userRepository.findByLineId(request.getLineId()).stream()
+                        .map(TbUser::getId)
+                        .toList();
+            }
+            if (employeeIds == null || employeeIds.isEmpty()) {
+                return ResponseEntity.badRequest().body(buildErrorResponse("employeeIds is required (or provide lineId to auto-select)"));
+            }
+            TimeBaseAllocationResult result = payrollService.allocateTimeBaseFund(
+                    request.getYear(), request.getMonth(), request.getFundAmount(), employeeIds);
+            return ResponseEntity.ok(result);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(buildErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(buildErrorResponse("Server Error: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/timebase/employee")
+    public ResponseEntity<?> getTimeBaseForEmployee(
+            @RequestParam Integer userId,
+            @RequestParam Integer year,
+            @RequestParam Integer month) {
+        try {
+            var item = payrollService.getTimeBaseAllocationForEmployee(userId, year, month);
+            if (item == null) {
+                return ResponseEntity.ok().body(buildErrorResponse("No allocation found for employee in given month"));
+            }
+            return ResponseEntity.ok(item);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(buildErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(buildErrorResponse("Server Error: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/timebase/clear")
+    public ResponseEntity<?> clearTimeBase(
+            @RequestParam Integer year,
+            @RequestParam Integer month,
+            @RequestBody List<Integer> employeeIds) {
+        try {
+            payrollService.clearTimeBaseAllocation(year, month, employeeIds);
+            Map<String, Object> body = new HashMap<>();
+            body.put("message", "Cleared time-base allocation successfully");
+            body.put("year", year);
+            body.put("month", month);
+            body.put("count", employeeIds != null ? employeeIds.size() : 0);
+            return ResponseEntity.ok(body);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(buildErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(buildErrorResponse("Server Error: " + e.getMessage()));
+        }
     }
 
     // lay bang luong theo thang cu the

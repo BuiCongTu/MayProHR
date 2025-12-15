@@ -1,6 +1,7 @@
 package fpt.aptech.springbootapp.services.ModuleC_Payroll;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -11,6 +12,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import fpt.aptech.springbootapp.dtos.ModuleC.PayrollCalculationDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.TimeBaseAllocDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.TimeBaseAllocationResult;
 import fpt.aptech.springbootapp.entities.Core.TbUser;
 import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeePayroll;
 import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeeWorkTime;
@@ -177,5 +180,117 @@ public class PayrollServiceImp implements PayrollService {
     @Override
     public TbEmployeeWorkTime getEmployeeWorkTimeByEmployeePayrollId(Integer employeePayrollId) {
         return ewtrepo.findByEmployeePayroll_Id(employeePayrollId);
+    }
+
+    // Branch D: Allocate time-base fund for a set of employees (work unit)
+    @Override
+    public TimeBaseAllocationResult allocateTimeBaseFund(Integer year, Integer month, BigDecimal fundAmount, List<Integer> employeeIds) {
+        if (year == null || month == null || fundAmount == null || fundAmount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Invalid input for allocation");
+        }
+        if (employeeIds == null || employeeIds.isEmpty()) {
+            throw new IllegalArgumentException("employeeIds is required");
+        }
+
+        LocalDate payrollMonth = LocalDate.of(year, month, 1);
+
+        List<TimeBaseAllocDTO> items = new ArrayList<>();
+        BigDecimal totalWeight = BigDecimal.ZERO;
+
+        // First pass: compute hours, weights per employee
+        for (Integer userId : employeeIds) {
+            TbUser user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("Not found employee: " + userId));
+
+            BigDecimal allowance = BigDecimal.ZERO;
+            PayrollCalculationDTO calc = payrollCalService.calEmpSalary(user, payrollMonth, allowance);
+
+            BigDecimal hours = BigDecimal.ZERO;
+            if (calc.getRegularHours() != null) {
+                hours = hours.add(calc.getRegularHours());
+            }
+            if (calc.getOtWeekdayHours() != null) {
+                hours = hours.add(calc.getOtWeekdayHours());
+            }
+            if (calc.getOtHolidayHours() != null) {
+                hours = hours.add(calc.getOtHolidayHours());
+            }
+
+            BigDecimal coef = user.getWageCoefficient() != null ? user.getWageCoefficient() : BigDecimal.ONE;
+            BigDecimal weight = coef.multiply(hours);
+
+            items.add(TimeBaseAllocDTO.builder()
+                    .userId(userId)
+                    .skillCoefficient(coef)
+                    .hours(hours)
+                    .weight(weight)
+                    .allocatedSalary(BigDecimal.ZERO)
+                    .build());
+
+            totalWeight = totalWeight.add(weight);
+        }
+
+        // Second pass: compute allocation and persist on existing EmployeePayroll rows
+        for (TimeBaseAllocDTO item : items) {
+            BigDecimal allocated = BigDecimal.ZERO;
+            if (totalWeight.compareTo(BigDecimal.ZERO) > 0) {
+                allocated = fundAmount.multiply(item.getWeight())
+                        .divide(totalWeight, 2, RoundingMode.HALF_UP);
+            }
+            item.setAllocatedSalary(allocated);
+
+            // Persist into TbEmployeePayroll if it exists for that month; otherwise skip creation here
+            Optional<TbEmployeePayroll> epOpt = employeePayrollRepo.findByUserIdAndYearAndMonth(item.getUserId(), year, month);
+            if (epOpt.isPresent()) {
+                TbEmployeePayroll ep = epOpt.get();
+                ep.setTimeBaseHours(item.getHours());
+                ep.setTimeBaseWeight(item.getWeight());
+                ep.setTimeBaseAllocatedSalary(allocated);
+                employeePayrollRepo.save(ep);
+            }
+        }
+
+        return TimeBaseAllocationResult.builder()
+                .year(year)
+                .month(month)
+                .fundAmount(fundAmount)
+                .totalWeight(totalWeight)
+                .items(items)
+                .build();
+    }
+
+    @Override
+    public TimeBaseAllocDTO getTimeBaseAllocationForEmployee(Integer userId, Integer year, Integer month) {
+        Optional<TbEmployeePayroll> epOpt = employeePayrollRepo.findByUserIdAndYearAndMonth(userId, year, month);
+        if (epOpt.isEmpty()) {
+            return null;
+        }
+        TbEmployeePayroll ep = epOpt.get();
+
+        BigDecimal coef = ep.getUser() != null && ep.getUser().getWageCoefficient() != null
+                ? ep.getUser().getWageCoefficient() : BigDecimal.ONE;
+
+        return TimeBaseAllocDTO.builder()
+                .userId(userId)
+                .skillCoefficient(coef)
+                .hours(ep.getTimeBaseHours())
+                .weight(ep.getTimeBaseWeight())
+                .allocatedSalary(ep.getTimeBaseAllocatedSalary())
+                .build();
+    }
+
+    @Override
+    public void clearTimeBaseAllocation(Integer year, Integer month, List<Integer> employeeIds) {
+        if (year == null || month == null || employeeIds == null || employeeIds.isEmpty()) {
+            return;
+        }
+        for (Integer userId : employeeIds) {
+            employeePayrollRepo.findByUserIdAndYearAndMonth(userId, year, month).ifPresent(ep -> {
+                ep.setTimeBaseHours(null);
+                ep.setTimeBaseWeight(null);
+                ep.setTimeBaseAllocatedSalary(null);
+                employeePayrollRepo.save(ep);
+            });
+        }
     }
 }

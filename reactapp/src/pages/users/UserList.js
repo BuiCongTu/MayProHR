@@ -3,7 +3,7 @@ import { Alert, Badge, Button, Card, Col, Form, Pagination, Row, Spinner, Table 
 import { Link } from 'react-router-dom';
 import LineSelector from '../../components/ModuleC/LineSelector';
 import useDepartmentLineFilters from '../../hooks/useDepartmentLineFilters';
-import { getUsersByDepartment } from '../../services/userService';
+import { getUsersByStructure } from '../../services/userService';
 import '../../styles/payroll.css';
 
 const UserList = () =>
@@ -28,8 +28,9 @@ const UserList = () =>
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [roleId, setRoleId] = useState('');
 
-  // Load users khi chọn Department (theo id)
+  // Load users theo cấu trúc: department + optional line/subline/workunit + optional role
   useEffect(() =>
   {
     let isMounted = true;
@@ -46,7 +47,11 @@ const UserList = () =>
       {
         setLoadingUsers(true);
         setUserError('');
-        const data = await getUsersByDepartment(deptLineFilters.departmentId);
+        const data = await getUsersByStructure({
+          departmentId: deptLineFilters.departmentId,
+          lineId: deptLineFilters.lineId || undefined,
+          roleId: roleId || undefined
+        });
         if (isMounted)
         {
           setUsers(Array.isArray(data) ? data : []);
@@ -71,29 +76,14 @@ const UserList = () =>
     loadUsers();
 
     return () => { isMounted = false; };
-  }, [deptLineFilters.departmentId]);
+  }, [deptLineFilters.departmentId, deptLineFilters.lineId, roleId]);
 
   // Lọc theo Dept + line đã chọn từ LineSelector + search
   const filteredUsers = useMemo(() =>
   {
     let list = users;
 
-    if (deptLineFilters.departmentId)
-    {
-      list = list.filter(
-        (u) => String(u.departmentId) === String(deptLineFilters.departmentId)
-      );
-    }
-
-    if (deptLineFilters.lineId)
-    {
-      const selectedLineId = String(deptLineFilters.lineId);
-      list = list.filter((u) =>
-        String(u.lineId) === selectedLineId ||
-        String(u.subLineId) === selectedLineId ||
-        String(u.workUnitId) === selectedLineId
-      );
-    }
+    // BE đã trả về đúng tập theo department/line/role; FE chỉ cần search text
 
     if (search)
     {
@@ -353,6 +343,27 @@ const UserList = () =>
                   <option value={10}>10</option>
                   <option value={20}>20</option>
                   <option value={50}>50</option>
+                </Form.Select>
+              </Form.Group>
+            </Col>
+
+            <Col md={4}>
+              <Form.Group>
+                <Form.Label>Role (optional)</Form.Label>
+                <Form.Select
+                  value={roleId}
+                  onChange={(e) =>
+                  {
+                    setRoleId(e.target.value || '');
+                    setPage(1);
+                  }}
+                  disabled={!deptLineFilters.departmentId}
+                >
+                  <option value="">-- All Roles --</option>
+                  <option value="1">Admin</option>
+                  <option value="2">Manager</option>
+                  <option value="3">HR</option>
+                  <option value="4">Employee</option>
                 </Form.Select>
               </Form.Group>
             </Col>

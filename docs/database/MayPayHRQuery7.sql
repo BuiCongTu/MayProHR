@@ -183,17 +183,17 @@ INSERT INTO tbLine (department_id, parent_id, [level], [name], [description], ma
 GO
 ----seed dataa usser
 INSERT INTO tbUser 
-(full_name, email, password_hash, phone, gender, role_id)
+(full_name, email, password_hash, phone, gender, role_id, wage_coefficient)
 VALUES
 -- Admin
 ('Admin', 'admin@maypro.com','$2a$10$jcw0c1yYkDzTO4XTg/kTmeD3UggCAaQwpw1v1R76VMupvQMwelxwq','0900000000', 1,
- (SELECT role_id FROM tbRole WHERE name = 'Admin')),
+ (SELECT role_id FROM tbRole WHERE name = 'Admin'), null),
  -- HR
  ('HR', 'hr@maypro.com','$2a$10$jcw0c1yYkDzTO4XTg/kTmeD3UggCAaQwpw1v1R76VMupvQMwelxwq','0910000000', 1,
- (SELECT role_id FROM tbRole WHERE name = 'HR')),
+ (SELECT role_id FROM tbRole WHERE name = 'HR'),null),
  --accounting
   ('Accounting', 'accounting@maypro.com','$2a$10$jcw0c1yYkDzTO4XTg/kTmeD3UggCAaQwpw1v1R76VMupvQMwelxwq','0920000000', 1,
- (SELECT role_id FROM tbRole WHERE name = 'Accounting'))
+ (SELECT role_id FROM tbRole WHERE name = 'Accounting'),null)
 GO
 
 
