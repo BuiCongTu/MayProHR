@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutterapp/screens/auth/AppTheme.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'services/notification_service.dart';
 
 import 'providers/auth_provider.dart';
 import 'screens/auth/login_screen.dart';
@@ -8,7 +10,24 @@ import 'screens/home/home_screen.dart';
 
 final AppTheme appTheme = AppTheme();
 
-void main() {
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+void main() async{
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+    print("Firebase Initialized Successfully");
+
+    await NotificationService().initialize();
+
+    String? token = await NotificationService().getDeviceToken();
+    print("============================================");
+    print("FCM DEVICE TOKEN: $token");
+    print("============================================");
+
+  } catch (e) {
+    print("Firebase Initialization Failed: $e");
+  }
   runApp(MyApp());
 }
 
@@ -21,6 +40,8 @@ class MyApp extends StatelessWidget {
       create: (_) => AuthProvider(),
       child: MaterialApp(
         title: 'My App',
+        debugShowCheckedModeBanner: false,
+        navigatorKey: navigatorKey,
         theme: ThemeData(primarySwatch: Colors.blue),
         home: Consumer<AuthProvider>(
           builder: (context, auth, _) {

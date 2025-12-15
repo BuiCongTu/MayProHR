@@ -131,4 +131,34 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(roleKey);
   }
+
+  static Future<bool> saveDeviceToken(String deviceToken) async {
+    final url = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.updateDeviceTokenEndpoint}');
+
+    String? jwt = await getToken();
+
+    if (jwt == null) return false;
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $jwt',
+        },
+        body: jsonEncode({'token': deviceToken}),
+      );
+
+      if (response.statusCode == 200) {
+        print("Device token saved successfully.");
+        return true;
+      } else {
+        print("Failed to save device token: ${response.statusCode} - ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("Error saving device token: $e");
+      return false;
+    }
+  }
 }

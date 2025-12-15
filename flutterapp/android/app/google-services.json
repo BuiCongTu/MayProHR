@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "465798010962",
+    "project_id": "maypayhr-mobile",
+    "storage_bucket": "maypayhr-mobile.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:465798010962:android:8025fb44f295c2cb8be78b",
+        "android_client_info": {
+          "package_name": "fpt.aptech.flutterapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCBjIR48HlUakQMJK4omJ9G7aAk4friZ5M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
