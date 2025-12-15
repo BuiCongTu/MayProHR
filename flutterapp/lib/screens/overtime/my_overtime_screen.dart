@@ -4,7 +4,8 @@ import '../../services/overtime_service.dart';
 import '../../services/websocket_service.dart';
 
 class MyOvertimeScreen extends StatefulWidget {
-  const MyOvertimeScreen({super.key});
+  final int? highlightTicketId;
+  const MyOvertimeScreen({super.key, this.highlightTicketId});
 
   @override
   State<MyOvertimeScreen> createState() => _MyOvertimeScreenState();
@@ -46,6 +47,18 @@ class _MyOvertimeScreenState extends State<MyOvertimeScreen> with SingleTickerPr
       setState(() {
         _allInvites = data;
         _isLoading = false;
+        if (widget.highlightTicketId != null) {
+          final isInPending = _allInvites.any((i) =>
+          i.ticketId == widget.highlightTicketId && i.status.toLowerCase() == 'pending');
+
+          if (!isInPending) {
+            final isInHistory = _allInvites.any((i) =>
+            i.ticketId == widget.highlightTicketId && i.status.toLowerCase() != 'pending');
+            if (isInHistory) {
+              _tabController.animateTo(1);
+            }
+          }
+        }
       });
     } catch (e) {
       if (!mounted) return;
@@ -133,15 +146,21 @@ class _MyOvertimeScreenState extends State<MyOvertimeScreen> with SingleTickerPr
       itemCount: list.length,
       itemBuilder: (ctx, index) {
         final item = list[index];
+        final bool isHighlighted = (item.ticketId == widget.highlightTicketId);
         final bool isFull = item.currentAttendees >= item.maxAttendees;
         final double progress = item.maxAttendees > 0
             ? (item.currentAttendees / item.maxAttendees)
             : 0.0;
         return Card(
-          elevation: 3,
+          elevation: isHighlighted ? 10 : 3,
           color: isFull ? Colors.grey[200] : Colors.white,
           margin: const EdgeInsets.only(bottom: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: isHighlighted
+                ? const BorderSide(color: Colors.orange, width: 2)
+                : BorderSide.none,
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -239,9 +258,16 @@ class _MyOvertimeScreenState extends State<MyOvertimeScreen> with SingleTickerPr
       itemBuilder: (ctx, index) {
         final item = list[index];
         final isAccepted = item.status.toLowerCase() == 'accepted';
+        final bool isHighlighted = (item.ticketId == widget.highlightTicketId);
 
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: isHighlighted
+                ? const BorderSide(color: Colors.orange, width: 2)
+                : BorderSide.none,
+          ),
           child: ListTile(
             leading: Icon(
               isAccepted ? Icons.check_circle : Icons.cancel,

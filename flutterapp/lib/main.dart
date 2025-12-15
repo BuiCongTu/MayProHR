@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutterapp/screens/auth/AppTheme.dart';
+import 'package:flutterapp/screens/home/User_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'services/notification_service.dart';
 
 import 'providers/auth_provider.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/home/home_screen.dart';
 
 final AppTheme appTheme = AppTheme();
 
@@ -37,7 +37,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
+      create: (_) => AuthProvider()..tryAutoLogin(),
       child: MaterialApp(
         title: 'My App',
         debugShowCheckedModeBanner: false,
@@ -46,7 +46,7 @@ class MyApp extends StatelessWidget {
         home: Consumer<AuthProvider>(
           builder: (context, auth, _) {
             if (auth.isLoggedIn) {
-              return HomeScreen();
+              return const UserHome();
             } else {
               return LoginScreen();
             }
