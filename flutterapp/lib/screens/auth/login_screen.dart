@@ -23,7 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = Provider.of<AuthProvider>(context);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
 
     return Scaffold(
       appBar: AppBar(title: Text("Login")),
@@ -53,13 +53,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       final phone = phoneCtrl.text.trim();
                       final password = passCtrl.text.trim();
 
-                      final result = await AuthService.login(phone, password);
+                      final result = await auth.login(phone, password);
 
                       setState(() {
                         loading = false;
                       });
 
-                      if (result != null && result["error"] == null) {
+                      if (result["error"] == null) {
                         final prefs = await SharedPreferences.getInstance();
                         final role = prefs.getString("role");
 
@@ -77,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(result?["error"] ?? "Login failed"),
+                            content: Text(result["error"] ?? "Login failed"),
                           ),
                         );
                       }

@@ -126,10 +126,12 @@ class NotificationService {
   void _navigateToOvertime(String? ticketId) {
     if (ticketId == null) return;
 
+    int? parsedId = int.tryParse(ticketId);
+
     // Use the Global Key to push the screen
     navigatorKey.currentState?.push(
       MaterialPageRoute(
-        builder: (context) => MyOvertimeScreen(),
+        builder: (context) => MyOvertimeScreen(highlightTicketId: parsedId,),
         // If your MyOvertimeScreen accepts a ticketId, pass it here:
         // builder: (context) => MyOvertimeScreen(highlightTicketId: ticketId),
       ),

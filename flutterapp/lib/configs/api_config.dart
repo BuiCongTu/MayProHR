@@ -31,5 +31,5 @@ class ApiConfig {
   //employee overtime response
   static const String myOvertimeEndpoint = '/api/app/overtime/my-invites';
   static const String respondOvertimeEndpoint = '/api/app/overtime/respond';
-  static const String updateDeviceTokenEndpoint = '/api/users/device-token';
+  static const String updateDeviceTokenEndpoint = '/api/user/device-token';
 }
