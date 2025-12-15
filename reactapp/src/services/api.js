@@ -35,5 +35,6 @@ axiosInstance.interceptors.response.use(
   }
 );
 
-export default BASE_API;
+// Mặc định export axios instance để các service dùng như `api.get(...)`
+export default axiosInstance;
 export { axiosInstance, BASE_API };

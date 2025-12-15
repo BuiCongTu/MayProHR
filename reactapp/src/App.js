@@ -24,6 +24,10 @@ import {setupAxiosInterceptors} from "./services/authService";
 import {WebSocketProvider} from './contexts/WebSocketContext';
 import PayrollRouter from "./pages/moduleC/PayrollRouter";
 import UserList from "./pages/users/UserList";
+import PositionChangeManagement from "./pages/moduleB/proposal/PositionChangeManagement";
+import PositionProposalForm from "./pages/moduleB/proposal/PositionProposalForm";
+import ProposalApprove from "./pages/moduleB/proposal/ProposalApprove";
+import ProposalConfirm from "./pages/moduleB/proposal/ProposalConfirm";
 
 
 function App() {
@@ -64,6 +68,11 @@ function App() {
                             <Route path="/payroll/*" element={<PayrollRouter/>}/>
 
                             <Route path="/users" element={<UserList/>}/>
+                            <Route path="/position-change" element={<PositionChangeManagement />}/>
+                            <Route path="/position-change/create" element={<PositionProposalForm />} />
+                            <Route path="/position-change/approve" element={<ProposalApprove />} />
+                            <Route path="/position-change/my" element={<ProposalConfirm />} />
+
 
                             {/* Ticket Routes */}
                             <Route path="/overtime-ticket" element={<OvertimeTicketList/>}/>

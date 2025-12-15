@@ -246,14 +246,11 @@ def register_face():
             }), 400
         
         face_location = face_locations[0]
-        
-        # Check for mask
-        is_wearing_mask = detect_mask(img, face_location)
-        if is_wearing_mask:
-            return jsonify({
-                'success': False,
-                'message': 'Mask detected. Please remove mask completely before registration'
-            }), 400
+
+        # Check for mask (tạm thời tắt để tránh false positive khi đăng ký)
+        # Nếu sau này muốn bật lại, chỉ cần dùng detect_mask và xử lý theo nhu cầu.
+        # is_wearing_mask = detect_mask(img, face_location)
+        is_wearing_mask = False
         
         # Generate face encoding
         face_encodings = face_recognition.face_encodings(

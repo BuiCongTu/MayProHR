@@ -40,7 +40,7 @@ const getNavLinks = (roleName) =>
                 { title: 'Dashboard', path: '/dashboard' },
                 { title: 'Pay Management', path: '/payroll/' },
                 { title: 'Overtime Requests', path: '/overtime-request' },
-                { title: 'Attendance', path: '/attendance' },
+                { title: 'Attendance', path: '/attendance/register-face' },
                 { title: 'Reports', path: '/reports' },
             ];
             break;

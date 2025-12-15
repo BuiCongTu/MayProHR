@@ -259,7 +259,25 @@ const UserList = () =>
       <Card className="mb-4 shadow-sm">
         <Card.Body>
           <Row className="gy-3 align-items-end">
-            <Col md={8}>
+            <Col md={4}>
+              <Form.Group>
+                <Form.Label>Department</Form.Label>
+                <Form.Select
+                  value={deptLineFilters.departmentId || ''}
+                  onChange={handleDeptChange}
+                  disabled={departmentsLoading}
+                >
+                  <option value="">-- Select Department --</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name} (ID: {dept.id})
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            </Col>
+
+            <Col md={4}>
               <div className="mb-2 fw-semibold">
                 Department / Line / Sub Line / Work Unit
               </div>

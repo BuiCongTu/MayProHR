@@ -1,5 +1,5 @@
 import axios from 'axios';
-import BASE_API from './api';
+import { BASE_API } from './api';
 import { getToken } from './authService';
 
 const NOTIFICATION_API = BASE_API + '/notifications';
