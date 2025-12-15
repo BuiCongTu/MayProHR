@@ -98,7 +98,7 @@ public class UserController {
     }
 
     // Search employees by role_id, department_id and hierarchical line ids
-    // réponse department only; department + line; department + line + subline; 
+    // response department only; department + line; department + line + subline; 
     // department + line + subline + wordUnit
     @GetMapping("/search-by-structure")
     public ResponseEntity<ApiResponse<List<UserResponseDto>>> searchEmployeesByStructure(
@@ -156,38 +156,63 @@ public class UserController {
 
             TbLine cur = u.getLine();
             if (cur != null) {
-                // Level 1: word unit
-                workUnitIdVal = cur.getId();
-                workUnitNameVal = cur.getName();
+                TbLine parent = cur.getParent();
+                TbLine grandParent = (parent != null) ? parent.getParent() : null;
+                Integer lvl = cur.getLevel();
 
-                TbLine parent1 = cur.getParent();
-                if (parent1 != null) {
-                    // Level 2: Sub Line
-                    subLineIdVal = parent1.getId();
-                    subLineNameVal = parent1.getName();
-
-                    TbLine parent2 = parent1.getParent();
-                    if (parent2 != null) {
-                        // Level 3: Line
-                        lineIdVal = parent2.getId();
-                        lineNameVal = parent2.getName();
-                    } else {
-                        // If no grandparent, parent is the top Line
-                        lineIdVal = parent1.getId();
-                        lineNameVal = parent1.getName();
-                        // Then Work Unit is actually the Sub Line (no separate work unit)
-                        workUnitIdVal = null;
-                        workUnitNameVal = null;
+                if (lvl != null) {
+                    switch (lvl) {
+                        case 5: // Work Unit
+                            workUnitIdVal = cur.getId();
+                            workUnitNameVal = cur.getName();
+                            subLineIdVal = (parent != null) ? parent.getId() : null;
+                            subLineNameVal = (parent != null) ? parent.getName() : null;
+                            lineIdVal = (grandParent != null) ? grandParent.getId() : null;
+                            lineNameVal = (grandParent != null) ? grandParent.getName() : null;
+                            break;
+                        case 4: // Sub Line
+                            workUnitIdVal = null;
+                            workUnitNameVal = null;
+                            subLineIdVal = cur.getId();
+                            subLineNameVal = cur.getName();
+                            lineIdVal = (parent != null) ? parent.getId() : null;
+                            lineNameVal = (parent != null) ? parent.getName() : null;
+                            break;
+                        case 3: // Line
+                            workUnitIdVal = null;
+                            workUnitNameVal = null;
+                            subLineIdVal = null;
+                            subLineNameVal = null;
+                            lineIdVal = cur.getId();
+                            lineNameVal = cur.getName();
+                            break;
+                        default:
+                            workUnitIdVal = null;
+                            workUnitNameVal = null;
+                            subLineIdVal = null;
+                            subLineNameVal = null;
+                            lineIdVal = cur.getId();
+                            lineNameVal = cur.getName();
+                            break;
                     }
                 } else {
-                    // No parent
-                    lineIdVal = cur.getId();
-                    lineNameVal = cur.getName();
-                    // No subline/workunit
-                    subLineIdVal = null;
-                    subLineNameVal = null;
-                    workUnitIdVal = null;
-                    workUnitNameVal = null;
+                    // Fallback by ancestry depth when level is missing
+                    if (parent == null) {
+                        lineIdVal = cur.getId();
+                        lineNameVal = cur.getName();
+                    } else if (grandParent == null) {
+                        subLineIdVal = cur.getId();
+                        subLineNameVal = cur.getName();
+                        lineIdVal = parent.getId();
+                        lineNameVal = parent.getName();
+                    } else {
+                        workUnitIdVal = cur.getId();
+                        workUnitNameVal = cur.getName();
+                        subLineIdVal = parent.getId();
+                        subLineNameVal = parent.getName();
+                        lineIdVal = grandParent.getId();
+                        lineNameVal = grandParent.getName();
+                    }
                 }
             }
 

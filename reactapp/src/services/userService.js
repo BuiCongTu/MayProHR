@@ -21,7 +21,6 @@ export async function getUsersByStructure({ departmentId, lineId, roleId })
             }
         });
         const data = response.data;
-        // Unwrap common ApiResponse shape {success, data} or return raw array
         return Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
     } catch (err)
     {
