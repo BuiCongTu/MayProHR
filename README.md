@@ -15,3 +15,6 @@ pip install -r requirements_api.txt
 ```
 
 Xem chi tiết tại: `face_attendant_svm/SETUP_ENVIRONMENT.md`
+
+---- Flutter app Notification ----
+Important: The backend requires a firebase-service-account.json file for flutter app push-notifications. This file is not in the repo for security. Get this file and place it in springbootapp/src/main/resources/.
