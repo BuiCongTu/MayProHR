@@ -1,21 +1,24 @@
 
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import PayrollDashboard from './PayrollDashboard';
-import PayrollList from '../../components/ModuleC/PayrollList';
-import PayrollDetail from '../../components/ModuleC/PayrollDetail';
-import PayrollApproval from '../../components/ModuleC/PayrollApproval';
-import PayrollReport from '../../components/ModuleC/PayrollReport';
-import TaxCalculator from '../../components/ModuleC/TaxCalculator';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import AttendanceManagement from "../../components/ModuleA/AttendanceManagement";
+import LeaveRequestManagement from "../../components/ModuleA/LeaveRequestManagement";
 import CreatePayroll from '../../components/ModuleC/CreatePayroll';
 import EmplRecurAllowance from '../../components/ModuleC/EmplRecurAllowance';
+import EmployeeProductionInput from '../../components/ModuleC/EmployeeProductionInput';
 import HolidayManagement from "../../components/ModuleC/HolidayManagement";
-import TaxDeductionManagement from "../../components/ModuleC/TaxDeductionManagement";
-import TaxBracketManagement from "../../components/ModuleC/TaxBracketManagement";
-import ProductionManagement from "../../components/ModuleC/ProductionManagement";
+import PayrollApproval from '../../components/ModuleC/PayrollApproval';
+import PayrollDetail from '../../components/ModuleC/PayrollDetail';
+import PayrollList from '../../components/ModuleC/PayrollList';
+import PayrollReport from '../../components/ModuleC/PayrollReport';
 import ProductionLineManagement from "../../components/ModuleC/ProductionLineManagement";
+import ProductionManagement from "../../components/ModuleC/ProductionManagement";
+import TaxBracketManagement from "../../components/ModuleC/TaxBracketManagement";
+import TaxCalculator from '../../components/ModuleC/TaxCalculator';
+import TaxDeductionManagement from "../../components/ModuleC/TaxDeductionManagement";
+import PayrollDashboard from './PayrollDashboard';
 
-const PayrollRouter = () => {
+const PayrollRouter = () =>
+{
     return (
         <Routes>
             <Route path="/" element={<PayrollDashboard />} />
@@ -23,12 +26,15 @@ const PayrollRouter = () => {
             <Route path="/create" element={<CreatePayroll />} />
             <Route path="/report" element={<PayrollReport />} />
             <Route path="/tax-calculator" element={<TaxCalculator />} />
-            <Route path="/allowances/recurring" element={<EmplRecurAllowance />} />
-            <Route path="/holidays" element={<HolidayManagement />} />
-            <Route path="/tax-deduction" element={<TaxDeductionManagement />} />
-            <Route path="/tax-bracket" element={<TaxBracketManagement />} />
-            <Route path="/production" element={<ProductionManagement />} />
-            <Route path="/production-line" element={<ProductionLineManagement />} />
+            <Route path="/allowances/recurring" element={<EmplRecurAllowance />} /> // phụ cấp thường xuyên cho nhân viên test ok
+            <Route path="/holidays" element={<HolidayManagement />} /> //test ok
+            <Route path="/tax-deduction" element={<TaxDeductionManagement />} /> // giảm trừ gia cảnh test ok
+            <Route path="/tax-bracket" element={<TaxBracketManagement />} /> // bảng liệt kê thuế tính theo bậc test ok
+            <Route path="/production" element={<ProductionManagement />} /> // ok test
+            <Route path="/production-line" element={<ProductionLineManagement />} /> // bỏ qua không xài
+            <Route path="/employee-production" element={<EmployeeProductionInput />} /> //test ok
+            <Route path="/attendance" element={<AttendanceManagement />} />
+            <Route path="/leave-request" element={<LeaveRequestManagement />} />
 
 
             <Route path="/:payrollId/approve" element={<PayrollApproval />} />

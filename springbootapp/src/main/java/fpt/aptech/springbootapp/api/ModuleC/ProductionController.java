@@ -123,9 +123,14 @@ public class ProductionController {
 
             TbProduction p = new TbProduction();
             p.setDepartment(dept);
+            p.setName(request.getName());
             p.setDop(request.getDop());
             p.setProductCount(request.getProductCount());
             p.setUnitPrice(request.getUnitPrice() != null ? request.getUnitPrice() : java.math.BigDecimal.ZERO);
+            // Save optional hierarchy names if provided
+            p.setLineName(request.getLineName());
+            p.setSubLineName(request.getSubLineName());
+            p.setWorkUnitName(request.getWorkUnitName());
             p.setCreatedAt(Instant.now());
 
             TbProduction saved = productionRepo.save(p);
@@ -157,6 +162,10 @@ public class ProductionController {
                 p.setDepartment(dept);
             }
 
+            if (request.getName() != null) {
+                p.setName(request.getName());
+            }
+
             if (request.getDop() != null) {
                 p.setDop(request.getDop());
             }
@@ -172,6 +181,13 @@ public class ProductionController {
 
             if (request.getUnitPrice() != null) {
                 p.setUnitPrice(request.getUnitPrice());
+            }
+
+            // Update optional hierarchy names when provided (can be null to clear)
+            if (request.getLineName() != null || request.getSubLineName() != null || request.getWorkUnitName() != null) {
+                if (request.getLineName() != null) p.setLineName(request.getLineName());
+                if (request.getSubLineName() != null) p.setSubLineName(request.getSubLineName());
+                if (request.getWorkUnitName() != null) p.setWorkUnitName(request.getWorkUnitName());
             }
 
             TbProduction saved = productionRepo.save(p);
@@ -200,6 +216,39 @@ public class ProductionController {
 
             body.put("success", true);
             body.put("message", "Delete production successfully");
+            return ResponseEntity.ok(body);
+
+        } catch (Exception e) {
+            body.put("success", false);
+            body.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(body);
+        }
+    }
+
+    // Search productions by department + month (e.g., 2025-11)
+    @GetMapping("/search-by-structure")
+    public ResponseEntity<?> searchByStructure(
+            @RequestParam Integer departmentId,
+            @RequestParam(required = false) Integer lineId,
+            @RequestParam(required = false) Integer subLineId,
+            @RequestParam(required = false) Integer wordUnitId,
+            @RequestParam String month) { // YYYY-MM format
+
+        Map<String, Object> body = new HashMap<>();
+        try {
+            // Parse month YYYY-MM to LocalDate range
+            YearMonth ym = YearMonth.parse(month);
+            LocalDate startDate = ym.atDay(1);
+            LocalDate endDate = ym.atEndOfMonth();
+
+            List<TbProduction> productions = productionRepo.findAll().stream()
+                    .filter(p -> p.getDepartment() != null && p.getDepartment().getId().equals(departmentId))
+                    .filter(p -> p.getDop() != null && !p.getDop().isBefore(startDate) && !p.getDop().isAfter(endDate))
+                    .toList();
+
+            body.put("success", true);
+            body.put("message", "Get productions successfully");
+            body.put("data", productions);
             return ResponseEntity.ok(body);
 
         } catch (Exception e) {

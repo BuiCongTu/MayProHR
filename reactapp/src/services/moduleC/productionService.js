@@ -68,3 +68,21 @@ export const deleteProduction = async (id) =>
         throw error;
     }
 };
+
+// Search productions by structure (departmentId, lineId) and month (YYYY-MM)
+export const getProductionsByStructureMonth = async (departmentId, month) =>
+{
+    try
+    {
+        const params = {
+            departmentId,
+            month
+        };
+        const response = await axiosInstance.get(`${API_BASE}/search-by-structure`, { params });
+        return extractData(response);
+    } catch (error)
+    {
+        console.error('Error fetching productions by structure:', error);
+        throw error;
+    }
+};

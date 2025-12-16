@@ -2,13 +2,10 @@ package fpt.aptech.springbootapp.entities.ModuleC;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
-
-import org.hibernate.annotations.ColumnDefault;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-import fpt.aptech.springbootapp.entities.Core.TbDepartment;
+import fpt.aptech.springbootapp.entities.Core.TbUser;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -19,7 +16,6 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -30,49 +26,33 @@ import lombok.Setter;
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "tbProduction", indexes = {
-    @Index(name = "idx_dept_date", columnList = "department_id, DOP")
+@Table(name = "tbEmployeeProduction", indexes = {
+        @Index(name = "idx_emp_prod_month", columnList = "production_id, user_id")
 })
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-
-public class TbProduction {
-
+public class TbEmployeeProduction {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
     private Integer id;
 
-    @NotNull
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "department_id", nullable = false)
-    private TbDepartment department;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "production_id", nullable = false)
+    private TbProduction production; // month/department
 
-    @Column(name = "name", length = 255)
-    private String name;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private TbUser employee;
 
-    @Column(name = "line_name", length = 50)
-    private String lineName;
-
-    @Column(name = "sub_line_name", length = 50)
-    private String subLineName;
-
-    @Column(name = "work_unit_name", length = 50)
-    private String workUnitName;
-
-    @NotNull
     @Column(name = "product_count", nullable = false)
     private Integer productCount;
 
-    @NotNull
-    @Column(name = "DOP", nullable = false)
-    private LocalDate dop;
-
-    @ColumnDefault("0")
     @Column(name = "unit_price", precision = 15, scale = 1)
-    private BigDecimal unitPrice = BigDecimal.ZERO;
+    private BigDecimal unitPrice;
 
-    @ColumnDefault("getdate()")
     @Column(name = "created_at")
     private Instant createdAt;
 
+    @Column(name = "updated_at")
+    private Instant updatedAt;
 }

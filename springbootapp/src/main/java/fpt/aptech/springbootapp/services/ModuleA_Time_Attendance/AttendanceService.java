@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import fpt.aptech.springbootapp.dto.AttendanceDTO;
 import fpt.aptech.springbootapp.entities.Core.TbUser;
 import fpt.aptech.springbootapp.entities.ModuleA.TbAttendance;
 import fpt.aptech.springbootapp.repositories.ModuleA_Time_Attendance.AttendanceRepository;
@@ -127,10 +128,49 @@ public class AttendanceService {
      * Lấy attendance history của user trong khoảng thời gian
      */
     public List<TbAttendance> getAttendanceByUserAndDateRange(Integer userId, LocalDate startDate, LocalDate endDate) {
-        TbUser user = userRepository.findById(userId).orElse(null);
-        if (user == null) {
-            return List.of();
+        try {
+            // Try using native query first to avoid enum conversion issues
+            return attendanceRepository.findByUserAndDateRangeNative(userId, startDate, endDate);
+        } catch (Exception e) {
+            log.warn("Native query failed, falling back to JPQL", e);
+            TbUser user = userRepository.findById(userId).orElse(null);
+            if (user == null) {
+                return List.of();
+            }
+            return attendanceRepository.findByUserAndDateBetween(user, startDate, endDate);
         }
-        return attendanceRepository.findByUserAndDateBetween(user, startDate, endDate);
+    }
+
+    /**
+     * Lấy all attendance trong khoảng thời gian, có thể filter by userId
+     * Returns as DTO to avoid enum conversion issues
+     */
+    public List<AttendanceDTO> getAttendanceByDateRangeAsDTO(LocalDate startDate, LocalDate endDate, Integer userId) {
+        try {
+            List<Object[]> results;
+            if (userId != null) {
+                results = attendanceRepository.findAttendanceDataByUserAndDateRange(userId, startDate, endDate);
+            } else {
+                results = attendanceRepository.findAttendanceDataByDateRange(startDate, endDate);
+            }
+
+            return results.stream().map(row
+                    -> AttendanceDTO.builder()
+                            .id(row[0] != null ? ((Number) row[0]).intValue() : null)
+                            .userId(row[1] != null ? ((Number) row[1]).intValue() : null)
+                            .userName((String) row[2])
+                            .departmentId(row[3] != null ? ((Number) row[3]).intValue() : null)
+                            .departmentName((String) row[4])
+                            .date((LocalDate) row[5])
+                            .timeIn((LocalTime) row[6])
+                            .timeOut((LocalTime) row[7])
+                            .status((String) row[8])
+                            .reason((String) row[9])
+                            .build()
+            ).toList();
+        } catch (Exception e) {
+            log.error("Error fetching attendance as DTO", e);
+        return List.of();
+        }
     }
 }

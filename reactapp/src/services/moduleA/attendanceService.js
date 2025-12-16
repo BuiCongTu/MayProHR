@@ -41,6 +41,23 @@ const attendanceService = {
     return res.data;
   },
 
+  getByMonth: async (month, userId = null) => {
+    try {
+      const res = await axios.get(
+        `${API_BASE}/by-month`,
+        {
+          params: { month, ...(userId && { userId }) },
+          headers: getTokenHeader()
+        }
+      );
+      console.log('[attendanceService] getByMonth response:', res.data);
+      return res.data?.data || [];
+    } catch (error) {
+      console.error('[attendanceService] getByMonth error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+
   registerFace: async (userId, imageBase64) => {
     const res = await axios.post(
       `${API_BASE}/register-face`,

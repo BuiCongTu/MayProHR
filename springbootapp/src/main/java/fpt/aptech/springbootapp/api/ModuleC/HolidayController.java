@@ -1,7 +1,7 @@
 package fpt.aptech.springbootapp.api.ModuleC;
 
 import fpt.aptech.springbootapp.entities.System.TbHoliday;
-import fpt.aptech.springbootapp.repositories.System.HolidayRepositpry;
+import fpt.aptech.springbootapp.repositories.System.HolidayRepository;
 import fpt.aptech.springbootapp.repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -14,11 +14,11 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/holiday")
 public class HolidayController {
-    private HolidayRepositpry holidayRepo;
+    private HolidayRepository holidayRepo;
     private UserRepository userRepo;
 
     @Autowired
-    public HolidayController(HolidayRepositpry holidayRepo, UserRepository userRepo) {
+    public HolidayController(HolidayRepository holidayRepo, UserRepository userRepo) {
         this.holidayRepo = holidayRepo;
         this.userRepo = userRepo;
     }

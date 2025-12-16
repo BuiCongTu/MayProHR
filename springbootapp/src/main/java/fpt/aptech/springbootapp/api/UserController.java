@@ -1,11 +1,6 @@
 package fpt.aptech.springbootapp.api;
 
 import java.util.List;
-import java.util.Map;
-
-import fpt.aptech.springbootapp.dtos.request.DeviceTokenReq;
-import fpt.aptech.springbootapp.entities.Core.TbUser;
-import fpt.aptech.springbootapp.repositories.UserRepository;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -13,7 +8,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import fpt.aptech.springbootapp.dtos.request.UpdateProfileRequest;
 import fpt.aptech.springbootapp.dtos.response.ApiResponse;
@@ -96,14 +97,8 @@ public class UserController {
         }
     }
 
-    @PostMapping("/device-token")
-    public ResponseEntity<?> updateDeviceToken(@RequestBody DeviceTokenReq req) {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        userService.saveDeviceToken(email, req.getToken());
-        return ResponseEntity.ok().body(Map.of("message", "Token updated"));
-    }
-    // Search employees by role_id, department_id and hierarchical line ids
-    // response department only; department + line; department + line + subline; 
+    //role_id, department_id and hierarchical line ids
+    //department + line; department + line + subline;
     // department + line + subline + wordUnit
     @GetMapping("/search-by-structure")
     public ResponseEntity<ApiResponse<List<UserResponseDto>>> searchEmployeesByStructure(
@@ -148,9 +143,9 @@ public class UserController {
             dto.setPhone(u.getPhone());
             dto.setRoleId(u.getRole() != null ? u.getRole().getId() : null);
             dto.setRoleName(u.getRole() != null ? u.getRole().getName() : null);
-
             dto.setDepartmentId(u.getDepartment() != null ? u.getDepartment().getId() : null);
             dto.setDepartmentName(u.getDepartment() != null ? u.getDepartment().getName() : null);
+            dto.setSalaryType(u.getSalaryType());
 
             Integer lineIdVal = null;
             String lineNameVal = null;

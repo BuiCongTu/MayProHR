@@ -494,6 +494,15 @@ public class UserServiceImp implements UserService {
     }
 
     @Override
+    public List<UserResponseDto> getUsersByDepartmentAndSalaryType(Integer departmentId, String salaryType) {
+        List<TbUser> users = userRepo.findByDepartmentIdAndRoleName(departmentId, "Worker");
+        return users.stream()
+                .filter(u -> u.getSalaryType() != null && u.getSalaryType().toString().equalsIgnoreCase(salaryType))
+                .map(this::buildUserResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public UserResponseDto updateUserProfile(String loginId, UpdateProfileRequest request) {
         TbUser user;
@@ -515,7 +524,7 @@ public class UserServiceImp implements UserService {
             user.setEmail(request.getEmail());
         }
         if (request.getPhone() != null && !request.getPhone().isEmpty()) {
-            // Check if new phone already exists
+            // new phone already exists
             Optional<TbUser> existingUser = userRepo.findByPhone(request.getPhone());
             if (existingUser.isPresent() && !existingUser.get().getId().equals(user.getId())) {
                 throw new RuntimeException("Phone number already exists");

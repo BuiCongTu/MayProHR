@@ -569,7 +569,7 @@ CREATE TABLE tbAttendance (
     time_in TIME,
     time_out TIME,
     [status] VARCHAR(20) NOT NULL 
-        CHECK (status IN ('success', 'late', 'manual', 'error')),
+        CHECK (status IN ('SUCCESS', 'LATE', 'MANUAL', 'ERROR')),
     reason TEXT,
     manual_updated_by INT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -711,11 +711,15 @@ CREATE TABLE tb_overtime_ticket_employees (
 GO
 
 -- =============================================
--- 15. tbProduction - Sản lượng (theo bộ phận)
+-- 15. tbProduction - Sản lượng theo word unit
 -- =============================================
 CREATE TABLE tbProduction (
-    id INT IDENTITY(1000,1) PRIMARY KEY, 
+    id INT IDENTITY(1000,1) PRIMARY KEY,
+    name VARCHARV(255),
     department_id INT NOT NULL,
+    line_name VARCHAR(50),
+    sub_ine_name VARCHAR(50),
+    word_unit_name VARCHAR(50),
     product_count INT NOT NULL,
     DOP DATE NOT NULL,
     unit_price DECIMAL(15,1) DEFAULT 0,
@@ -727,6 +731,19 @@ CREATE TABLE tbProduction (
     INDEX idx_dept_date NONCLUSTERED (department_id, DOP)
 );
 GO
+
+CREATE TABLE tbEmployeeProduction (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id INT NOT NULL,
+    production_id INT NOT NULL,
+    product_count INT NOT NULL,
+    unit_price DECIMAL(18,2) NOT NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE(),
+
+    CONSTRAINT FK_EmpProd_User FOREIGN KEY (user_id) REFERENCES tbUser(user_id),
+    CONSTRAINT FK_EmpProd_Production FOREIGN KEY (production_id) REFERENCES tbProduction(id)
+);
 -- =============================================
 -- 16. tbPayroll - Bảng lương
 -- =============================================
@@ -1020,6 +1037,18 @@ ALTER TABLE tbEmployeePayroll ADD
     personal_income_tax DECIMAL(15,2) DEFAULT 0,
     tax_deduction_total DECIMAL(15,2) DEFAULT 0;
 
+
+
+
+
+
+
+
+
+
+
+
+
 -- Chèn bậc thuế 2026
 INSERT INTO tbTaxBracket VALUES
 (1, 0, 10000000, 5.00, 'Bracket 1: 0-10M @ 5%', 1, GETDATE()),
@@ -1088,9 +1117,9 @@ GO
 -- 8. tbAttendance - 3 samples
 INSERT INTO tbAttendance (user_id, [date], time_in, time_out, [status], reason, manual_updated_by)
 VALUES
-    (1011, '2025-11-26', '07:28:00', '16:32:00', 'success', NULL, NULL),
-    (1012, '2025-11-26', '07:45:00', '16:30:00', 'late', N'Traffic congestion', NULL),
-    (1013, '2025-11-26', '08:00:00', '16:30:00', 'manual', N'Forgot to check in/out', 1001);
+    (1011, '2025-11-26', '07:28:00', '16:32:00', 'SUCCESS', NULL, NULL),
+    (1012, '2025-11-26', '07:45:00', '16:30:00', 'LATE', N'Traffic congestion', NULL),
+    (1013, '2025-11-26', '08:00:00', '16:30:00', 'MANUAL', N'Forgot to check in/out', 1001);
 GO
 
 -- 9. tbLeaveRequest - 3 samples
@@ -1320,7 +1349,7 @@ BEGIN
             @d,
             '08:00',
             '17:00',
-            'success'
+            'SUCCESS'
         FROM tbUser u
         WHERE u.department_id=@DeptFinishing
           AND u.role_id IN (SELECT role_id FROM @roleIds);
@@ -1350,7 +1379,7 @@ DROP TABLE #tmpLeave;
 DELETE tbAttendance WHERE user_id=@leave1 AND [date] BETWEEN '2025-11-10' AND '2025-11-14';
 
 INSERT INTO tbAttendance(user_id,[date],[status],reason,manual_updated_by)
-SELECT @leave1, d, 'manual', 'Annual Leave', @createdBy
+SELECT @leave1, d, 'MANUAL', 'Annual Leave', @createdBy
 FROM (
     SELECT '2025-11-10' UNION ALL
     SELECT '2025-11-11' UNION ALL
@@ -1365,7 +1394,7 @@ BEGIN
     DELETE tbAttendance WHERE user_id=@leave2 AND [date] BETWEEN '2025-11-17' AND '2025-11-21';
 
     INSERT INTO tbAttendance(user_id,[date],[status],reason,manual_updated_by)
-    SELECT @leave2, d, 'manual', 'Annual Leave', @createdBy
+    SELECT @leave2, d, 'MANUAL', 'Annual Leave', @createdBy
     FROM (
         SELECT '2025-11-17' UNION ALL
         SELECT '2025-11-18' UNION ALL

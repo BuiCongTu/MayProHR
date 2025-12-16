@@ -40,6 +40,8 @@ public interface UserService {
 
     List<UserResponseDto> getUsersByDepartment(Integer departmentId);
 
+    List<UserResponseDto> getUsersByDepartmentAndSalaryType(Integer departmentId, String salaryType);
+
     // Profile management
     UserResponseDto getUserByLoginId(String loginId);
 
