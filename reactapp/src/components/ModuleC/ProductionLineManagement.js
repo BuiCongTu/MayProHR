@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
-import {
-    getProductionLines,
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import useDepartmentLineFilters from '../../hooks/useDepartmentLineFilters';
+import
+{
     createProductionLine,
-    updateProductionLine,
-    deleteProductionLine
+    deleteProductionLine,
+    getProductionLines,
+    updateProductionLine
 } from '../../services/moduleC/productionLineService';
+import { createProduction } from '../../services/moduleC/productionService';
 import '../../styles/payroll.css';
+import LineSelector from './LineSelector';
 
 const ProductionLineManagement = () =>
 {
@@ -26,6 +30,17 @@ const ProductionLineManagement = () =>
         totalWorkingHours: '',
         productSalaryPerHour: ''
     });
+
+    // New: Monthly Production creation state
+    const deptLine = useDepartmentLineFilters();
+    const [monthly, setMonthly] = useState({
+        departmentId: '',
+        month: '', // yyyy-MM
+        productCount: '',
+        unitPrice: ''
+    });
+    const [creatingProduction, setCreatingProduction] = useState(false);
+    const [lastCreatedProduction, setLastCreatedProduction] = useState(null);
 
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -62,6 +77,15 @@ const ProductionLineManagement = () =>
         loadLines();
     }, []);
 
+    // Keep monthly.departmentId in sync with selected department from hook
+    useEffect(() =>
+    {
+        if (deptLine.filters.departmentId && monthly.departmentId !== String(deptLine.filters.departmentId))
+        {
+            setMonthly(prev => ({ ...prev, departmentId: String(deptLine.filters.departmentId) }));
+        }
+    }, [deptLine.filters.departmentId]);
+
     const handleFilterSubmit = async (e) =>
     {
         e.preventDefault();
@@ -90,9 +114,52 @@ const ProductionLineManagement = () =>
         }));
     };
 
+    const handleMonthlyChange = (e) =>
+    {
+        const { name, value } = e.target;
+        setMonthly(prev => ({ ...prev, [name]: value }));
+    };
+
+    // Compute mapping for selected line path to lineId/sublineId based on level logic 3/4/5
+    const currentPath = deptLine.filters.linePath || [];
+    const selectedNode = useMemo(() => currentPath.length > 0 ? currentPath[currentPath.length - 1] : null, [currentPath]);
+    const derivedIds = useMemo(() =>
+    {
+        if (!selectedNode) return { lineId: '', sublineId: '' };
+        const lvl = selectedNode.level;
+        const parent = currentPath.length >= 2 ? currentPath[currentPath.length - 2] : null;
+        const grand = currentPath.length >= 3 ? currentPath[currentPath.length - 3] : null;
+        if (lvl === 5)
+        {
+            return { lineId: grand?.id ? String(grand.id) : '', sublineId: parent?.id ? String(parent.id) : '' };
+        } else if (lvl === 4)
+        {
+            return { lineId: parent?.id ? String(parent.id) : '', sublineId: String(selectedNode.id) };
+        } else if (lvl === 3)
+        {
+            return { lineId: String(selectedNode.id), sublineId: '' };
+        }
+        return { lineId: '', sublineId: '' };
+    }, [selectedNode, currentPath]);
+
+    const applyDerivedIdsToForm = () =>
+    {
+        setForm(prev => ({
+            ...prev,
+            lineId: derivedIds.lineId,
+            sublineId: derivedIds.sublineId
+        }));
+    };
+
     const handleSubmit = async (e) =>
     {
         e.preventDefault();
+
+        // If user selected via LineSelector, prefer derived ids
+        if (derivedIds.lineId || derivedIds.sublineId)
+        {
+            applyDerivedIdsToForm();
+        }
 
         if (!form.productionId)
         {
@@ -163,6 +230,41 @@ const ProductionLineManagement = () =>
         }
     };
 
+    const handleCreateMonthlyProduction = async (e) =>
+    {
+        e.preventDefault();
+        if (!monthly.departmentId) { setError('Department is required'); return; }
+        if (!monthly.month) { setError('Month is required'); return; }
+        if (!monthly.productCount || Number(monthly.productCount) <= 0) { setError('Product count must be > 0'); return; }
+        if (!monthly.unitPrice || Number(monthly.unitPrice) < 0) { setError('Unit price must be >= 0'); return; }
+        try
+        {
+            setCreatingProduction(true);
+            setError('');
+            setInfo('');
+            const dop = `${monthly.month}-01`;
+            const payload = {
+                department: { id: Number(monthly.departmentId) },
+                productCount: Number(monthly.productCount),
+                dop,
+                unitPrice: Number(monthly.unitPrice)
+            };
+            const created = await createProduction(payload);
+            setLastCreatedProduction(created);
+            if (created?.id)
+            {
+                setForm(prev => ({ ...prev, productionId: String(created.id) }));
+                setInfo(`Created Production #${created.id} for ${monthly.month}`);
+            }
+        } catch (err)
+        {
+            setError(err?.response?.data?.message || err.message || 'Failed to create production');
+        } finally
+        {
+            setCreatingProduction(false);
+        }
+    };
+
     const handleRowClick = (pl) =>
     {
         setEditingId(pl.id);
@@ -222,6 +324,59 @@ const ProductionLineManagement = () =>
                     {info && <Alert variant="success">{info}</Alert>}
                 </div>
             )}
+
+            {/* Create Monthly Production */}
+            <Card className="mb-4 shadow-sm">
+                <Card.Header className="bg-light">Create Monthly Production</Card.Header>
+                <Card.Body>
+                    <Form onSubmit={handleCreateMonthlyProduction}>
+                        <Row className="gy-3 align-items-end">
+                            <Col md={3}>
+                                <Form.Group>
+                                    <Form.Label>Department</Form.Label>
+                                    <Form.Select
+                                        value={deptLine.filters.departmentId || ''}
+                                        onChange={(e) => deptLine.handleDepartmentChange(e)}
+                                    >
+                                        <option value="">-- Select Department --</option>
+                                        {deptLine.departments.map(d => (
+                                            <option key={d.id} value={d.id}>{d.name}</option>
+                                        ))}
+                                    </Form.Select>
+                                </Form.Group>
+                            </Col>
+                            <Col md={2}>
+                                <Form.Group>
+                                    <Form.Label>Month</Form.Label>
+                                    <Form.Control type="month" name="month" value={monthly.month} onChange={handleMonthlyChange} />
+                                </Form.Group>
+                            </Col>
+                            <Col md={2}>
+                                <Form.Group>
+                                    <Form.Label>Product Count</Form.Label>
+                                    <Form.Control type="number" name="productCount" min="1" value={monthly.productCount} onChange={handleMonthlyChange} />
+                                </Form.Group>
+                            </Col>
+                            <Col md={2}>
+                                <Form.Group>
+                                    <Form.Label>Unit Price</Form.Label>
+                                    <Form.Control type="number" name="unitPrice" min="0" step="0.1" value={monthly.unitPrice} onChange={handleMonthlyChange} />
+                                </Form.Group>
+                            </Col>
+                            <Col md={3} className="text-end">
+                                <Button type="submit" disabled={creatingProduction}>
+                                    {creatingProduction ? 'Creating...' : 'Create Production'}
+                                </Button>
+                            </Col>
+                        </Row>
+                        {lastCreatedProduction && (
+                            <div className="mt-2 small text-muted">
+                                Created: # {lastCreatedProduction.id} • Count: {lastCreatedProduction.productCount} • Unit: {lastCreatedProduction.unitPrice} • DOP: {lastCreatedProduction.dop}
+                            </div>
+                        )}
+                    </Form>
+                </Card.Body>
+            </Card>
 
             {/* Filter */}
             <Card className="mb-4 shadow-sm">
@@ -294,28 +449,44 @@ const ProductionLineManagement = () =>
                                     />
                                 </Form.Group>
                             </Col>
-                            <Col md={3}>
+                            <Col md={9}>
                                 <Form.Group>
-                                    <Form.Label>Line ID</Form.Label>
-                                    <Form.Control
-                                        type="number"
-                                        name="lineId"
-                                        value={form.lineId}
-                                        onChange={handleFormChange}
-                                        min="1"
-                                    />
-                                </Form.Group>
-                            </Col>
-                            <Col md={3}>
-                                <Form.Group>
-                                    <Form.Label>Subline ID</Form.Label>
-                                    <Form.Control
-                                        type="number"
-                                        name="sublineId"
-                                        value={form.sublineId}
-                                        onChange={handleFormChange}
-                                        min="1"
-                                    />
+                                    <Form.Label>Department / Line / SubLine / WorkUnit</Form.Label>
+                                    <div className="d-flex align-items-center gap-2">
+                                        <Form.Select
+                                            style={{ maxWidth: 260 }}
+                                            value={deptLine.filters.departmentId || ''}
+                                            onChange={(e) => deptLine.handleDepartmentChange(e)}
+                                        >
+                                            <option value="">-- Select Department --</option>
+                                            {deptLine.departments.map(d => (
+                                                <option key={d.id} value={d.id}>{d.name}</option>
+                                            ))}
+                                        </Form.Select>
+                                        <Button
+                                            type="button"
+                                            variant="outline-primary"
+                                            disabled={!deptLine.filters.departmentId}
+                                            onClick={() => deptLine.setShowLineSelector(true)}
+                                        >
+                                            Select Line
+                                        </Button>
+                                        <div className="small text-muted">
+                                            {selectedNode ? (
+                                                <>
+                                                    Selected: <Badge bg="secondary">{currentPath.map(n => n.name).join(' / ')}</Badge>
+                                                </>
+                                            ) : 'No line selected'}
+                                        </div>
+                                    </div>
+                                    {deptLine.showLineSelector && (
+                                        <div className="mt-3">
+                                            <LineSelector
+                                                departmentId={deptLine.selectedDeptForLines || deptLine.filters.departmentId}
+                                                onLineSelected={deptLine.handleLineSelected}
+                                            />
+                                        </div>
+                                    )}
                                 </Form.Group>
                             </Col>
                             <Col md={3}>
@@ -386,46 +557,46 @@ const ProductionLineManagement = () =>
                     ) : (
                         <Table striped hover responsive className="mb-0">
                             <thead className="bg-light">
-                            <tr>
-                                <th>ID</th>
-                                <th>Production ID</th>
-                                <th>Line ID</th>
-                                <th>Subline ID</th>
-                                <th>Count Contribution</th>
-                                <th>Total Working Hours</th>
-                                <th>Product Salary / Hour</th>
-                                <th>Action</th>
-                            </tr>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Production ID</th>
+                                    <th>Line ID</th>
+                                    <th>Subline ID</th>
+                                    <th>Count Contribution</th>
+                                    <th>Total Working Hours</th>
+                                    <th>Product Salary / Hour</th>
+                                    <th>Action</th>
+                                </tr>
                             </thead>
                             <tbody>
-                            {lines.map(pl => (
-                                <tr
-                                    key={pl.id}
-                                    onClick={() => handleRowClick(pl)}
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    <td>#{pl.id}</td>
-                                    <td>{pl.production?.id}</td>
-                                    <td>{pl.line?.id}</td>
-                                    <td>{pl.subline?.id}</td>
-                                    <td>{pl.countContribution}</td>
-                                    <td>{pl.totalWorkingHours}</td>
-                                    <td>{pl.productSalaryPerHour}</td>
-                                    <td>
-                                        <Button
-                                            size="sm"
-                                            variant="outline-danger"
-                                            onClick={(e) =>
-                                            {
-                                                e.stopPropagation();
-                                                handleDelete(pl.id);
-                                            }}
-                                        >
-                                            Delete
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))}
+                                {lines.map(pl => (
+                                    <tr
+                                        key={pl.id}
+                                        onClick={() => handleRowClick(pl)}
+                                        style={{ cursor: 'pointer' }}
+                                    >
+                                        <td>#{pl.id}</td>
+                                        <td>{pl.production?.id}</td>
+                                        <td>{pl.line?.id}</td>
+                                        <td>{pl.subline?.id}</td>
+                                        <td>{pl.countContribution}</td>
+                                        <td>{pl.totalWorkingHours}</td>
+                                        <td>{pl.productSalaryPerHour}</td>
+                                        <td>
+                                            <Button
+                                                size="sm"
+                                                variant="outline-danger"
+                                                onClick={(e) =>
+                                                {
+                                                    e.stopPropagation();
+                                                    handleDelete(pl.id);
+                                                }}
+                                            >
+                                                Delete
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </Table>
                     )}

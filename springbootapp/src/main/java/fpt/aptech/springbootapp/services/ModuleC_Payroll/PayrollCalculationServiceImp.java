@@ -33,6 +33,7 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
     private final AttendanceRepository attendsRepo;
     private final OvertimeTicketEmployeeRepository otTERepo;
     private final ProductionLineRepo prodLineRepo;
+    private final fpt.aptech.springbootapp.repositories.ModuleC_Payroll.EmployeeProductionRepo employeeProductionRepo;
     private final LeaveRequestRepo leaveRequestRepo;
     private final HolidayService holidayService;
     private final PersonalIncomeTaxCalService taxCalculationService;
@@ -49,6 +50,7 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
             AttendanceRepository attendsRepo,
             OvertimeTicketEmployeeRepository otTERepo,
             ProductionLineRepo prodLineRepo,
+            fpt.aptech.springbootapp.repositories.ModuleC_Payroll.EmployeeProductionRepo employeeProductionRepo,
             HolidayService holidayService,
             LeaveRequestRepo leaveRequestRepo,
             PersonalIncomeTaxCalService taxCalculationService,
@@ -56,6 +58,7 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
         this.attendsRepo = attendsRepo;
         this.otTERepo = otTERepo;
         this.prodLineRepo = prodLineRepo;
+        this.employeeProductionRepo = employeeProductionRepo;
         this.holidayService = holidayService;
         this.leaveRequestRepo = leaveRequestRepo;
         this.taxCalculationService = taxCalculationService;
@@ -210,37 +213,56 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
     }
 
     //tinh luong ProductBase
-    // A = productCount * unitPrice 
-    // B= A * countContribution:
+    // Dùng bảng tbEmployeeProduction nếu có nhập; fallback sang tbProductionLine (subline) nếu chưa nhập
+    // A = productCount * unitPrice
     // C = 26 * 8 + overtimeHours
-    //productBonus = A / C * (26*8)
+    // productBonus = (A / C) * (26*8)
     @Override
     public BigDecimal calProductBonus(TbUser user, YearMonth yearMonth, PayrollCalculationDTO dto) {
         if (user.getSalaryType() != TbUser.SalaryType.ProductBased || user.getLine() == null) {
             return BigDecimal.ZERO;
         }
-
         LocalDate monthDate = yearMonth.atDay(1);
+
+        // 1) Prefer employee-specific production if exists
+        var empProds = employeeProductionRepo.findByEmployeeAndMonth(user.getId(), monthDate);
+        if (!empProds.isEmpty()) {
+            BigDecimal total = BigDecimal.ZERO;
+            BigDecimal totalOt = getTotalOvertimeHours(user, yearMonth);
+            BigDecimal C = HOURS_PER_MONTH.add(totalOt);
+
+            for (var ep : empProds) {
+                BigDecimal A = new BigDecimal(ep.getProductCount())
+                        .multiply(ep.getUnitPrice() != null ? ep.getUnitPrice() : ep.getProduction().getUnitPrice());
+                BigDecimal productSalaryPerHour = A.divide(C, SCALE, RoundingMode.HALF_UP);
+                BigDecimal bonus = productSalaryPerHour.multiply(HOURS_PER_MONTH);
+                total = total.add(bonus);
+
+                dto.setProductCount(ep.getProductCount());
+                dto.setUnitPrice(ep.getUnitPrice() != null ? ep.getUnitPrice() : ep.getProduction().getUnitPrice());
+                dto.setTotalWorkingHours(C.longValue());
+                dto.setProductSalaryPerHour(productSalaryPerHour);
+            }
+
+            return total.setScale(SCALE, RoundingMode.HALF_UP);
+        }
+
+        // 2) Fallback to subline-based allocation if no employee-specific input
         List<TbProductionLine> productionLines = prodLineRepo
                 .findByMonthAndSubline(monthDate, user.getLine().getId());
-
         if (productionLines.isEmpty()) {
             return BigDecimal.ZERO;
         }
 
         BigDecimal totalProductBonus = BigDecimal.ZERO;
         BigDecimal totalOvertimeHours = getTotalOvertimeHours(user, yearMonth);
-
         for (TbProductionLine pl : productionLines) {
             BigDecimal A = new BigDecimal(pl.getProduction().getProductCount())
                     .multiply(pl.getProduction().getUnitPrice());
-
             BigDecimal B = A.multiply(new BigDecimal(pl.getCountContribution()));
             BigDecimal C = HOURS_PER_MONTH.add(totalOvertimeHours);
-
             BigDecimal productSalaryPerHour = B.divide(C, SCALE, RoundingMode.HALF_UP);
             BigDecimal bonus = productSalaryPerHour.multiply(HOURS_PER_MONTH);
-
             totalProductBonus = totalProductBonus.add(bonus);
 
             dto.setProductCount(pl.getProduction().getProductCount());
@@ -249,7 +271,6 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
             dto.setTotalWorkingHours(pl.getTotalWorkingHours());
             dto.setProductSalaryPerHour(productSalaryPerHour);
         }
-
         return totalProductBonus.setScale(SCALE, RoundingMode.HALF_UP);
     }
 
