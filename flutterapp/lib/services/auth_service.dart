@@ -116,8 +116,27 @@ class AuthService {
   /// Logout
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(tokenKey);
-    await prefs.remove(roleKey);
+    final token = prefs.getString(tokenKey);
+
+    if (token != null) {
+      try {
+        final url = Uri.parse(
+            '${ApiConfig.baseUrl}${ApiConfig.removeDeviceTokenEndpoint}');
+
+        await http.post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ).timeout(const Duration(seconds: 2));
+
+        print("FCM Token cleared on server.");
+      } catch (e) {
+        print("Warning: Failed to clear server token: $e");
+      }
+    }
+    await prefs.clear();
   }
 
   /// Get token
