@@ -32,4 +32,5 @@ class ApiConfig {
   static const String myOvertimeEndpoint = '/api/app/overtime/my-invites';
   static const String respondOvertimeEndpoint = '/api/app/overtime/respond';
   static const String updateDeviceTokenEndpoint = '/api/user/device-token';
+  static const String removeDeviceTokenEndpoint = '/api/user/remove-device-token';
 }
