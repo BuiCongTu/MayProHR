@@ -1,4 +1,3 @@
-
 import { Navigate, Route, Routes } from 'react-router-dom';
 import AttendanceManagement from "../../components/ModuleA/AttendanceManagement";
 import LeaveRequestManagement from "../../components/ModuleA/LeaveRequestManagement";
@@ -33,9 +32,8 @@ const PayrollRouter = () =>
             <Route path="/production" element={<ProductionManagement />} /> // ok test
             <Route path="/production-line" element={<ProductionLineManagement />} /> // bỏ qua không xài
             <Route path="/employee-production" element={<EmployeeProductionInput />} /> //test ok
-            <Route path="/attendance" element={<AttendanceManagement />} />
+            <Route path="/attendance" element={<AttendanceManagement />} /> // test ok
             <Route path="/leave-request" element={<LeaveRequestManagement />} />
-
 
             <Route path="/:payrollId/approve" element={<PayrollApproval />} />
             <Route path="/:payrollId" element={<PayrollDetail />} />

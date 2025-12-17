@@ -262,10 +262,8 @@ public class AttendanceController {
             LocalDate startDate = LocalDate.of(year, monthNum, 1);
             LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
 
-            log.info("Fetching attendance - Month: {}, Year: {}, UserId: {}, Start: {}, End: {}",
-                    monthNum, year, userId, startDate, endDate);
+            log.info("Querying attendances têt - startDate: {}, endDate: {}, userId: {}", startDate, endDate, userId);
 
-            // Use DTO method to avoid enum conversion issues
             java.util.List<AttendanceDTO> attendances = attendanceService.getAttendanceByDateRangeAsDTO(startDate, endDate, userId);
 
             log.info("Found {} attendance records", attendances.size());
@@ -274,17 +272,19 @@ public class AttendanceController {
             response.put("success", true);
             response.put("month", month);
             response.put("totalRecords", attendances.size());
-            response.put("data", attendances.stream().map(att -> Map.of(
-                    "id", att.getId(),
-                    "userId", att.getUserId(),
-                    "userName", att.getUserName() != null ? att.getUserName() : "",
-                    "departmentId", att.getDepartmentId() != null ? att.getDepartmentId() : "",
-                    "departmentName", att.getDepartmentName() != null ? att.getDepartmentName() : "",
-                    "date", att.getDate() != null ? att.getDate().toString() : "",
-                    "timeIn", att.getTimeIn() != null ? att.getTimeIn().toString() : null,
-                    "timeOut", att.getTimeOut() != null ? att.getTimeOut().toString() : null,
-                    "status", att.getStatus() != null ? att.getStatus().toUpperCase() : "SUCCESS"
-            )).toList());
+            response.put("data", attendances.stream().map(att -> {
+                Map<String, Object> attMap = new HashMap<>();
+                attMap.put("id", att.getId());
+                attMap.put("userId", att.getUserId());
+                attMap.put("userName", att.getUserName() != null ? att.getUserName() : "");
+                attMap.put("departmentId", att.getDepartmentId() != null ? att.getDepartmentId() : "");
+                attMap.put("departmentName", att.getDepartmentName() != null ? att.getDepartmentName() : "");
+                attMap.put("date", att.getDate() != null ? att.getDate() : "");
+                attMap.put("timeIn", att.getTimeIn() != null ? att.getTimeIn() : null);
+                attMap.put("timeOut", att.getTimeOut() != null ? att.getTimeOut(): null);
+                attMap.put("status", att.getStatus() != null ? att.getStatus().toUpperCase() : "SUCCESS");
+                return attMap;
+            }).toList());
 
             return ResponseEntity.ok(response);
 
