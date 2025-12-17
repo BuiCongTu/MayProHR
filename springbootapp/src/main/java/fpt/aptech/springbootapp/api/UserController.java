@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import fpt.aptech.springbootapp.dtos.request.UpdateProfileRequest;
@@ -86,9 +87,39 @@ public class UserController {
     }
 
     @PostMapping("/device-token")
+    @Transactional
     public ResponseEntity<?> updateDeviceToken(@RequestBody DeviceTokenReq req) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        userService.saveDeviceToken(email, req.getToken());
+        TbUser currentUser = userRepository.findByEmail(email).orElse(null);
+        if (currentUser == null) {
+            return ResponseEntity.status(401).body(ApiResponse.error("User not found"));
+        }
+        String newToken = req.getToken();
+
+        List<TbUser> previousOwner = userRepository.findByDeviceToken(newToken);
+        for (TbUser owner : previousOwner) {
+            if(!owner.getId().equals(currentUser.getId())){
+                owner.setDeviceToken(null);
+                userRepository.save(owner);
+                System.out.println("DEBUG: Remove device token for user " + owner.getFullName());
+            }
+        }
+
+        currentUser.setDeviceToken(newToken);
+        userRepository.save(currentUser);
+        //userService.saveDeviceToken(email, req.getToken());
         return ResponseEntity.ok().body(Map.of("message", "Token updated"));
+    }
+
+    @PostMapping("/remove-device-token")
+    public ResponseEntity<?> removeDeviceToken() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        TbUser currentUser = userRepository.findByEmail(email).orElse(null);
+        if (currentUser != null) {
+            currentUser.setDeviceToken(null);
+            userRepository.save(currentUser);
+            return ResponseEntity.ok().body(Map.of("message", "Token removed"));
+        }
+        return ResponseEntity.status(401).body(Map.of("message", "User not found"));
     }
 }

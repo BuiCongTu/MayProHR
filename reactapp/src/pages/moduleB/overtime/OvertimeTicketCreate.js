@@ -243,7 +243,29 @@ export default function OvertimeTicketCreate() {
     };
 
     // --- AUTO-FILL ---
-    const handleAutoDistribute = () => {
+    const handleAutoDistribute = async () => {
+        if (!selectedRequest) return;
+
+        setCheckingAvailability(true);
+        const freshConflicts = new Map();
+
+        const employeeIdsToCheck = deptEmployees.map(u => u.id);
+        if (employeeIdsToCheck.length > 0) {
+            try {
+                const response = await checkEmployeeAvailability(selectedRequest.id, employeeIdsToCheck);
+                if (Array.isArray(response)) {
+                    response.forEach(res => {
+                        if (!res.available) freshConflicts.set(res.employeeId, res.reason);
+                    });
+                }
+                setBackendConflicts(freshConflicts);
+            } catch (err) {
+                console.error("Auto-fill availability check failed", err);
+                setError("Auto-fill failed: Could not verify availability.");
+                setCheckingAvailability(false);
+                return;
+            }
+        }
         const newAllocations = { ...allocations };
         const usedEmployeeIds = new Set();
         Object.values(newAllocations).forEach(list => list.forEach(u => usedEmployeeIds.add(u.id)));
@@ -258,7 +280,9 @@ export default function OvertimeTicketCreate() {
 
                 // 1. Native
                 const native = deptEmployees.filter(u =>
-                    u.lineId === line.lineId && !usedEmployeeIds.has(u.id) && !backendConflicts.has(u.id)
+                    u.lineId === line.lineId
+                    && !usedEmployeeIds.has(u.id)
+                    && !freshConflicts.has(u.id)
                 );
                 const addNative = native.slice(0, needed);
                 addNative.forEach(u => usedEmployeeIds.add(u.id));
@@ -268,7 +292,9 @@ export default function OvertimeTicketCreate() {
                 if (currentList.length < gap) {
                     const stillNeeded = gap - currentList.length;
                     const borrowed = deptEmployees.filter(u =>
-                        !usedEmployeeIds.has(u.id) && !backendConflicts.has(u.id) && !getSiblingConflict(u, line.lineId)
+                        !usedEmployeeIds.has(u.id)
+                        && !freshConflicts.has(u.id)
+                        && !getSiblingConflict(u, line.lineId)
                     );
                     const addBorrow = borrowed.slice(0, stillNeeded);
                     addBorrow.forEach(u => usedEmployeeIds.add(u.id));
