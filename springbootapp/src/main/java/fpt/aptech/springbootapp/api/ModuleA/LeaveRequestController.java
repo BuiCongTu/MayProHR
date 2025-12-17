@@ -8,6 +8,7 @@ import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -45,19 +46,39 @@ public class LeaveRequestController {
             @RequestParam(required = false) Integer userId,
             @RequestParam(required = false) String status) {
         try {
-            List<TbLeaveRequest> requests = leaveRequestRepo.findAll();
+            log.info("[LeaveRequestController] getAllLeaveRequests called - userId: {}, status: {}", userId, status);
+
+            List<TbLeaveRequest> requests = leaveRequestRepo.findAllWithDetails();
+            log.info("[LeaveRequestController] findAllWithDetails() returned: {} records", requests.size());
+
+            for (TbLeaveRequest lr : requests) {
+                Integer deptId = lr.getUser() != null && lr.getUser().getDepartment() != null
+                        ? lr.getUser().getDepartment().getId()
+                        : null;
+
+                log.info("[LeaveRequestController] Leave Request - ID: {}, User: {}, UserId: {}, DeptId: {}, StartDate: {}, EndDate: {}, Status: {}",
+                        lr.getId(),
+                        lr.getUser() != null ? lr.getUser().getFullName() : "NULL",
+                        lr.getUser() != null ? lr.getUser().getId() : "NULL",
+                        deptId,
+                        lr.getStartDate(),
+                        lr.getEndDate(),
+                        lr.getStatus());
+            }
 
             if (userId != null) {
                 requests = requests.stream()
                         .filter(r -> r.getUser() != null && r.getUser().getId().equals(userId))
                         .toList();
+                log.info("[LeaveRequestController] After userId filter: {} records", requests.size());
             }
 
             if (status != null && !status.isBlank()) {
-                String statusUpper = status.toUpperCase();
+                String statusLower = status.toLowerCase();
                 requests = requests.stream()
-                        .filter(r -> r.getStatus() != null && r.getStatus().toString().equals(statusUpper))
+                        .filter(r -> r.getStatus() != null && r.getStatus().toString().toLowerCase().equals(statusLower))
                         .toList();
+                log.info("[LeaveRequestController] After status filter: {} records", requests.size());
             }
 
             Map<String, Object> response = new HashMap<>();
@@ -66,11 +87,12 @@ public class LeaveRequestController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("Error fetching leave requests", e);
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "Error: " + e.getMessage()
-            ));
+            log.error("[LeaveRequestController] Error fetching leave requests", e);
+            e.printStackTrace();
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
         }
     }
 
@@ -80,10 +102,10 @@ public class LeaveRequestController {
             Optional<TbLeaveRequest> request = leaveRequestRepo.findById(id);
 
             if (request.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "success", false,
-                        "message", "Leave request not found"
-                ));
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "Leave request not found");
+                return ResponseEntity.badRequest().body(errorResponse);
             }
 
             Map<String, Object> response = new HashMap<>();
@@ -93,10 +115,10 @@ public class LeaveRequestController {
 
         } catch (Exception e) {
             log.error("Error fetching leave request", e);
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "Error: " + e.getMessage()
-            ));
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
         }
     }
 
@@ -105,24 +127,31 @@ public class LeaveRequestController {
     public ResponseEntity<Map<String, Object>> createLeaveRequest(@RequestBody TbLeaveRequest request) {
         try {
             if (request.getUser() == null || request.getUser().getId() == null) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "success", false,
-                        "message", "userId is required"
-                ));
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "userId is required");
+                return ResponseEntity.badRequest().body(errorResponse);
             }
 
             if (request.getStartDate() == null || request.getEndDate() == null) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "success", false,
-                        "message", "startDate and endDate are required"
-                ));
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "startDate and endDate are required");
+                return ResponseEntity.badRequest().body(errorResponse);
             }
 
             if (request.getStartDate().isAfter(request.getEndDate())) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "success", false,
-                        "message", "startDate must be before endDate"
-                ));
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "startDate must be before endDate");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+
+            if (request.getLeaveReason() == null || request.getLeaveReason().getId() == null) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "leaveReason is required");
+                return ResponseEntity.badRequest().body(errorResponse);
             }
 
             TbUser user = userRepository.findById(request.getUser().getId())
@@ -141,10 +170,10 @@ public class LeaveRequestController {
 
         } catch (Exception e) {
             log.error("Error creating leave request", e);
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "Error: " + e.getMessage()
-            ));
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
         }
     }
 
@@ -157,18 +186,22 @@ public class LeaveRequestController {
             Optional<TbLeaveRequest> existing = leaveRequestRepo.findById(id);
 
             if (existing.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "success", false,
-                        "message", "Leave request not found"
-                ));
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "Leave request not found");
+                return ResponseEntity.badRequest().body(errorResponse);
             }
 
             TbLeaveRequest leaveRequest = existing.get();
 
-            if (request.getStartDate() != null) {
+            if (request.getStartDate() != null && request.getEndDate() != null) {
+                if (request.getStartDate().isAfter(request.getEndDate())) {
+                    Map<String, Object> errorResponse = new HashMap<>();
+                    errorResponse.put("success", false);
+                    errorResponse.put("message", "startDate must be before endDate");
+                    return ResponseEntity.badRequest().body(errorResponse);
+                }
                 leaveRequest.setStartDate(request.getStartDate());
-            }
-            if (request.getEndDate() != null) {
                 leaveRequest.setEndDate(request.getEndDate());
             }
             if (request.getReason() != null) {
@@ -188,10 +221,10 @@ public class LeaveRequestController {
 
         } catch (Exception e) {
             log.error("Error updating leave request", e);
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "Error: " + e.getMessage()
-            ));
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
         }
     }
 
@@ -202,10 +235,10 @@ public class LeaveRequestController {
             Optional<TbLeaveRequest> existing = leaveRequestRepo.findById(id);
 
             if (existing.isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "success", false,
-                        "message", "Leave request not found"
-                ));
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "Leave request not found");
+                return ResponseEntity.badRequest().body(errorResponse);
             }
 
             leaveRequestRepo.deleteById(id);
@@ -217,48 +250,88 @@ public class LeaveRequestController {
 
         } catch (Exception e) {
             log.error("Error deleting leave request", e);
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "Error: " + e.getMessage()
-            ));
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
         }
     }
 
-    // Get leave requests by user and date range
-    @GetMapping("/by-user/{userId}")
-    public ResponseEntity<Map<String, Object>> getLeaveRequestsByUser(
-            @PathVariable Integer userId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+    @GetMapping("/by-month")
+    public ResponseEntity<Map<String, Object>> getLeaveRequestByMonth(
+            @RequestParam String month,
+            @RequestParam Integer departmentId,
+            @RequestParam(required = false) Integer userId) {
         try {
-            List<TbLeaveRequest> requests = leaveRequestRepo.findAll().stream()
-                    .filter(r -> r.getUser() != null && r.getUser().getId().equals(userId))
-                    .toList();
-
-            if (fromDate != null) {
-                LocalDate finalFromDate = fromDate;
-                requests = requests.stream()
-                        .filter(r -> !r.getStartDate().isBefore(finalFromDate))
-                        .toList();
+            if (departmentId == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "departmentId is required"
+                ));
             }
 
-            if (toDate != null) {
-                LocalDate finalToDate = toDate;
-                requests = requests.stream()
-                        .filter(r -> !r.getEndDate().isAfter(finalToDate))
-                        .toList();
+            String[] parts = month.split("-");
+            if (parts.length != 2) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Invalid month format. Use YYYY-MM"
+                ));
             }
+
+            int year = Integer.parseInt(parts[0]);
+            int monthNum = Integer.parseInt(parts[1]);
+
+            LocalDate startDate = LocalDate.of(year, monthNum, 1);
+            LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
+
+            log.info("Querying leave requests - startDate: {}, endDate: {}, departmentId: {}, userId: {}",
+                    startDate, endDate, departmentId, userId);
+
+            List<TbLeaveRequest> leaveRequests;
+            if (userId != null) {
+                // User luôn thuộc department đã chọn (user list FE lấy theo department)
+                leaveRequests = leaveRequestRepo.findByUserIdAndDateRange(userId, startDate, endDate);
+            } else {
+                leaveRequests = leaveRequestRepo.findByDateRangeAndDepartment(startDate, endDate, departmentId);
+            }
+
+            log.info("Found {} leave request records", leaveRequests.size());
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
+            response.put("month", month);
+            response.put("departmentId", departmentId);
             response.put("userId", userId);
-            response.put("count", requests.size());
-            response.put("data", requests);
+            response.put("totalRecords", leaveRequests.size());
+            response.put("data", leaveRequests.stream().map(lr -> {
+                Map<String, Object> lrMap = new HashMap<>();
+                lrMap.put("id", lr.getId());
+                lrMap.put("userId", lr.getUser() != null ? lr.getUser().getId() : null);
+                lrMap.put("userName", lr.getUser() != null ? lr.getUser().getFullName() : "");
+                lrMap.put("departmentId", lr.getUser() != null && lr.getUser().getDepartment() != null
+                        ? lr.getUser().getDepartment().getId() : null);
+                lrMap.put("departmentName", lr.getUser() != null && lr.getUser().getDepartment() != null
+                        ? lr.getUser().getDepartment().getName() : "");
+                lrMap.put("startDate", lr.getStartDate() != null ? lr.getStartDate().toString() : "");
+                lrMap.put("endDate", lr.getEndDate() != null ? lr.getEndDate().toString() : "");
+                lrMap.put("leaveReason", lr.getLeaveReason() != null ? lr.getLeaveReason().toString() : "");
+                lrMap.put("type", lr.getType() != null ? lr.getType().toString() : "");
+                lrMap.put("reason", lr.getReason() != null ? lr.getReason() : "");
+                lrMap.put("status", lr.getStatus() != null ? lr.getStatus().toString() : "pending");
+                return lrMap;
+            }).toList());
+
             return ResponseEntity.ok(response);
 
-        } catch (Exception e) {
-            log.error("Error fetching leave requests by user", e);
+        } catch (NumberFormatException e) {
+            log.error("Invalid month format: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Invalid month format. Use YYYY-MM"
+            ));
+        } catch (Exception e) {
+            log.error("Error getting leave requests by month", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                     "success", false,
                     "message", "Error: " + e.getMessage()
             ));

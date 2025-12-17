@@ -1,7 +1,7 @@
-CREATE DATABASE MayPayHR8;
+CREATE DATABASE MayPayHR;
 GO
 
-USE MayPayHR8;
+USE MayPayHR;
 GO
 
 -- =============================================
@@ -133,7 +133,7 @@ CREATE TABLE tbLine (
     CONSTRAINT FK_Line_Department FOREIGN KEY (department_id) REFERENCES tbDepartment(department_id),
     CONSTRAINT FK_Line_Manager FOREIGN KEY (manager_id) REFERENCES tbUser(user_id),
     CONSTRAINT UQ_Line_Name_Dept UNIQUE (department_id, name),
-    CONSTRAINT [FK_Line_Parent] FOREIGN KEY ([parent_id]) REFERENCES [dbo].[tbLine] ([line_id])
+    CONSTRAINT [FK_Line_Parent] FOREIGN KEY ([parent_id]) REFERENCES tbLine(line_id)
 );
 GO
 
@@ -715,7 +715,7 @@ GO
 -- =============================================
 CREATE TABLE tbProduction (
     id INT IDENTITY(1000,1) PRIMARY KEY,
-    name VARCHARV(255),
+    name VARCHAR(255),
     department_id INT NOT NULL,
     line_name VARCHAR(50),
     sub_ine_name VARCHAR(50),
@@ -880,8 +880,8 @@ CREATE TABLE [dbo].[tb_face_training] (
     [face_embedding]     VARBINARY (MAX)    NULL,
     [notes]              NVARCHAR (MAX)     NULL,
     PRIMARY KEY CLUSTERED ([face_id] ASC),
-    CONSTRAINT [FK3upin7y3jjed4ynf5uh6r4tna] FOREIGN KEY ([user_id]) REFERENCES [dbo].[tbUser] ([user_id]) ON DELETE CASCADE,
-    CONSTRAINT [FKhql4hs07406pqtb6t2wp31j2o] FOREIGN KEY ([trained_by_user_id]) REFERENCES [dbo].[tbUser] ([user_id])
+    CONSTRAINT [FK3upin7y3jjed4ynf5uh6r4tna] FOREIGN KEY ([user_id]) REFERENCES tbUser(user_id) ON DELETE CASCADE,
+    CONSTRAINT [FKhql4hs07406pqtb6t2wp31j2o] FOREIGN KEY ([trained_by_user_id]) REFERENCES tbUser(user_id)
 );
 
 -- =============================================
@@ -901,8 +901,8 @@ CREATE TABLE [dbo].[tb_face_scan_log] (
     [scan_image_path]    VARCHAR (500)      NULL,
     PRIMARY KEY CLUSTERED ([id] ASC),
     CHECK ([scan_type]='CHECK_OUT' OR [scan_type]='CHECK_IN'),
-    CONSTRAINT [FK165tcaoyq7vnyfdit10rtx892] FOREIGN KEY ([matched_face_id]) REFERENCES [dbo].[tb_face_training] ([face_id]),
-    CONSTRAINT [FKio6b8istfatnwcoyv3k9pdcv1] FOREIGN KEY ([user_id]) REFERENCES [dbo].[tbUser] ([user_id])
+    CONSTRAINT [FK165tcaoyq7vnyfdit10rtx892] FOREIGN KEY ([matched_face_id]) REFERENCES tb_face_training(face_id),
+    CONSTRAINT [FKio6b8istfatnwcoyv3k9pdcv1] FOREIGN KEY ([user_id]) REFERENCES tbUser(user_id)
 );
 GO
 
@@ -1502,3 +1502,32 @@ ADD CONSTRAINT FK_tbPayrollAllowance_employeePayroll
     FOREIGN KEY (employee_payroll_id)
     REFERENCES tbEmployeePayroll(id);
 GO
+
+
+
+-- SELECT TOP 10 * FROM tbAttendance ORDER BY date DESC;
+
+-- -- Check for November 2025 + Department 1005
+-- SELECT COUNT(*) FROM tbAttendance a
+-- JOIN tbUser u ON a.user_id = u.user_id
+-- WHERE YEAR(a.date) = 2025 AND MONTH(a.date) = 11 AND u.department_id = 1005;
+
+-- -- Check user 1013
+-- SELECT * FROM tbLeaveRequest;
+
+-- SELECT TOP 5 
+--     a.attendance_id,
+--     a.user_id,
+--     a.date,
+--     a.time_in,
+--     a.time_out,
+--     CONVERT(VARCHAR(12), a.time_in, 108) AS time_in_formatted,
+--     CONVERT(VARCHAR(12), a.time_out, 108) AS time_out_formatted
+-- FROM tbAttendance a
+-- WHERE a.user_id = 1013
+-- ORDER BY a.date DESC
+
+
+--    SELECT u.user_id, u.full_name, u.department_id, lr.request_id, lr.start_date
+--    FROM tbLeaveRequest lr
+--    JOIN tbUser u ON lr.user_id = u.user_id;
