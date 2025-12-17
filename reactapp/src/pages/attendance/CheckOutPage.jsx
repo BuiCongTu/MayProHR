@@ -1,6 +1,6 @@
-import axios from 'axios';
 import { useState } from 'react';
 import CameraCapture from '../../components/attendance/CameraCapture';
+import attendanceService from '../../services/moduleA/attendanceService';
 
 const CheckOutPage = () => {
   const [loading, setLoading] = useState(false);
@@ -13,38 +13,25 @@ const CheckOutPage = () => {
     setResult(null);
 
     try {
-      const response = await axios.post('/api/attendance/checkout', {
-        imageBase64
-      });
-
-      if (response.data.success) {
-        setResult(response.data);
-        
-        // Success notification
-        showNotification('success', 
-          `Tạm biệt ${response.data.fullName}! Check-out thành công lúc ${response.data.timeOut}`
-        );
+      const response = await attendanceService.checkOutByFace(imageBase64);
+      if (response.success) {
+        setResult(response);
+        showNotification('success', `Tạm biệt ${response.fullName}! Check-out thành công lúc ${response.timeOut}`);
       } else {
-        setError(response.data.message);
+        setError(response.message);
+        showNotification('error', response.message);
       }
     } catch (err) {
-      const errorMessage = err.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.';
-      setError(errorMessage);
-      showNotification('error', errorMessage);
+      const msg = err.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.';
+      setError(msg);
+      showNotification('error', msg);
     } finally {
       setLoading(false);
     }
   };
 
-  const showNotification = (type, message) => {
-    // You can use a toast library here (react-toastify, etc.)
-    alert(message);
-  };
-
-  const reset = () => {
-    setResult(null);
-    setError(null);
-  };
+  const showNotification = (type, message) => alert(message);
+  const reset = () => { setResult(null); setError(null); };
 
   const formatWorkingHours = (hours) => {
     if (!hours) return 'N/A';
@@ -62,25 +49,18 @@ const CheckOutPage = () => {
 
       {!result ? (
         <>
-          <CameraCapture 
-            onCapture={handleCapture}
-            autoCapture={false}
-          />
-
+          <CameraCapture onCapture={handleCapture} autoCapture={false} />
           {loading && (
             <div style={styles.loadingOverlay}>
               <div style={styles.spinner}></div>
               <p>Đang nhận diện khuôn mặt...</p>
             </div>
           )}
-
           {error && (
             <div style={styles.errorBox}>
               <h3>❌ Thất Bại</h3>
               <p>{error}</p>
-              <button onClick={reset} style={styles.retryButton}>
-                Thử Lại
-              </button>
+              <button onClick={reset} style={styles.retryButton}>Thử Lại</button>
             </div>
           )}
         </>
@@ -88,28 +68,23 @@ const CheckOutPage = () => {
         <div style={styles.successBox}>
           <div style={styles.successIcon}>👋</div>
           <h2>Chấm Công Ra Ca Thành Công!</h2>
-          
           <div style={styles.infoGrid}>
             <div style={styles.infoItem}>
               <span style={styles.infoLabel}>Nhân viên:</span>
               <span style={styles.infoValue}>{result.fullName}</span>
             </div>
-            
             <div style={styles.infoItem}>
               <span style={styles.infoLabel}>Ngày:</span>
               <span style={styles.infoValue}>{result.date}</span>
             </div>
-            
             <div style={styles.infoItem}>
               <span style={styles.infoLabel}>Giờ vào:</span>
               <span style={styles.infoValue}>{result.timeIn}</span>
             </div>
-            
             <div style={styles.infoItem}>
               <span style={styles.infoLabel}>Giờ ra:</span>
               <span style={styles.infoValue}>{result.timeOut}</span>
             </div>
-            
             <div style={{...styles.infoItem, gridColumn: '1 / -1'}}>
               <span style={styles.infoLabel}>Tổng giờ làm việc:</span>
               <span style={{...styles.infoValue, fontSize: '24px', color: '#4CAF50'}}>
@@ -117,36 +92,9 @@ const CheckOutPage = () => {
               </span>
             </div>
           </div>
-
-          <div style={styles.summaryCard}>
-            <h3 style={styles.summaryTitle}>📊 Tổng Kết Ngày Làm Việc</h3>
-            <div style={styles.summaryContent}>
-              <div style={styles.summaryItem}>
-                <span className="emoji">⏰</span>
-                <span>Giờ vào: {result.timeIn}</span>
-              </div>
-              <div style={styles.summaryItem}>
-                <span className="emoji">🏁</span>
-                <span>Giờ ra: {result.timeOut}</span>
-              </div>
-              <div style={styles.summaryItem}>
-                <span className="emoji">⏱️</span>
-                <span>Làm việc: {formatWorkingHours(result.workingHours)}</span>
-              </div>
-              <div style={styles.summaryItem}>
-                <span className="emoji">{result.status === 'SUCCESS' ? '✅' : '⚠️'}</span>
-                <span>{result.status === 'SUCCESS' ? 'Đúng giờ' : 'Trễ'}</span>
-              </div>
-            </div>
-          </div>
-
           <div style={styles.actions}>
-            <button onClick={reset} style={styles.doneButton}>
-              Hoàn Tất
-            </button>
-            <a href="/attendance/history" style={styles.historyLink}>
-              Xem Lịch Sử
-            </a>
+            <button onClick={reset} style={styles.doneButton}>Hoàn Tất</button>
+            <a href="/attendance/history" style={styles.historyLink}>Xem Lịch Sử</a>
           </div>
         </div>
       )}

@@ -1,19 +1,33 @@
 package fpt.aptech.springbootapp.entities.ModuleC;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+
+import org.hibernate.annotations.ColumnDefault;
+
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import fpt.aptech.springbootapp.entities.Core.TbUser;
-import jakarta.persistence.*;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Index;
-import jakarta.persistence.Table;
-import jakarta.validation.constraints.*;
-import lombok.*;
-import org.hibernate.annotations.*;
 
-import java.math.*;
-import java.time.*;
+import fpt.aptech.springbootapp.entities.Core.TbUser;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
 @Setter
@@ -21,11 +35,12 @@ import java.time.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "tbEmployeePayroll", indexes = {
-        @Index(name = "idx_user_payroll", columnList = "user_id, payroll_id")
+    @Index(name = "idx_user_payroll", columnList = "user_id, payroll_id")
 })
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "payroll", "user"})
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class TbEmployeePayroll {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false)
@@ -85,5 +100,15 @@ public class TbEmployeePayroll {
     @ColumnDefault("getdate()")
     @Column(name = "created_at")
     private Instant createdAt;
+
+    // Time-base allocation fields (Branch D)
+    @Column(name = "timebase_hours", precision = 10, scale = 2)
+    private BigDecimal timeBaseHours;
+
+    @Column(name = "timebase_weight", precision = 10, scale = 2)
+    private BigDecimal timeBaseWeight;
+
+    @Column(name = "timebase_allocated_salary", precision = 15, scale = 2)
+    private BigDecimal timeBaseAllocatedSalary;
 
 }

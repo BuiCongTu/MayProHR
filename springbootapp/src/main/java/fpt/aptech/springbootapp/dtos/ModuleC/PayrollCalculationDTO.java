@@ -1,15 +1,18 @@
 package fpt.aptech.springbootapp.dtos.ModuleC;
 
-import lombok.*;
-
 import java.math.BigDecimal;
-import java.time.LocalDate;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class PayrollCalculationDTO {
+
     private Integer userId;
     private String userName;
     private String salaryType;  // ProductBased, TimeBased
@@ -37,13 +40,20 @@ public class PayrollCalculationDTO {
     private BigDecimal overtimeMultiplier;  // 1.5 or 2.0
     private BigDecimal overtimePay;
 
+    // trọng số tính luong
+    private BigDecimal wageCoefficient; // hệ số lương
+    private BigDecimal workingDays; // số ngày công thực tế
+    private BigDecimal regularHours; // giờ làm thường
+    private BigDecimal otWeekdayHours; // giờ OT ngày thường
+    private BigDecimal otHolidayHours; // giờ OT lễ/chủ nhật
+    private BigDecimal weight; // trọng số: (regularHours + otWeekdayHours*1.5 + otHolidayHours*2.0) * wageCoefficient
+
     // --- KHOẢN KHẤU TRỪ & TRỢ CẤP ---
     private BigDecimal allowance;
     private BigDecimal totalDeduction;
 
     //thue thu nhap ca nhan
     private TaxCalculationDTO taxCalculation;
-
 
     // --- TỔNG LƯƠNG ---
     private BigDecimal totalPay;

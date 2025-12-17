@@ -67,3 +67,5 @@ MayPayHR.git/
 target/
 .venv/
 .idea/
+springbootapp/src/main/resources/application.properties
+springbootapp/src/main/resources/application.properties

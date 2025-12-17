@@ -1,15 +1,19 @@
-import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table } from 'react-bootstrap';
+import useDepartmentLineFilters from '../../hooks/useDepartmentLineFilters';
 import { getAllDepartments } from '../../services/departmentService';
-import {
-    getProductions,
+import
+{
     createProduction,
-    updateProduction,
-    deleteProduction
+    deleteProduction,
+    getProductions,
+    updateProduction
 } from '../../services/moduleC/productionService';
 import '../../styles/payroll.css';
+import LineSelector from './LineSelector';
 
-const ProductionManagement = () =>{
+const ProductionManagement = () =>
+{
     const [departments, setDepartments] = useState([]);
     const [departmentsLoading, setDepartmentsLoading] = useState(true);
 
@@ -24,13 +28,44 @@ const ProductionManagement = () =>{
     const [form, setForm] = useState({
         departmentId: '',
         dopMonth: '',
+        name: '',
         productCount: '',
-        unitPrice: ''
+        unitPrice: '',
+        lineName: '',
+        subLineName: '',
+        workUnitName: ''
     });
 
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [info, setInfo] = useState('');
+
+    // Line/SubLine/WorkUnit selection
+    const deptLine = useDepartmentLineFilters();
+    const currentPath = deptLine.filters.linePath || [];
+    const selectedNode = useMemo(() => currentPath.length > 0 ? currentPath[currentPath.length - 1] : null, [currentPath]);
+    const derivedNames = useMemo(() =>
+    {
+        if (!selectedNode) return { lineName: '', subLineName: '', workUnitName: '' };
+        const lvl = selectedNode.level;
+        const parent = currentPath.length >= 2 ? currentPath[currentPath.length - 2] : null;
+        const grand = currentPath.length >= 3 ? currentPath[currentPath.length - 3] : null;
+        if (lvl === 5)
+        {
+            return { lineName: grand?.name || '', subLineName: parent?.name || '', workUnitName: selectedNode.name };
+        } else if (lvl === 4)
+        {
+            return { lineName: parent?.name || '', subLineName: selectedNode.name, workUnitName: '' };
+        } else if (lvl === 3)
+        {
+            return { lineName: selectedNode.name, subLineName: '', workUnitName: '' };
+        }
+        return { lineName: '', subLineName: '', workUnitName: '' };
+    }, [selectedNode, currentPath]);
+    const applyDerivedNames = () =>
+    {
+        setForm(prev => ({ ...prev, ...derivedNames }));
+    };
 
     // Load departments
     useEffect(() =>
@@ -64,7 +99,7 @@ const ProductionManagement = () =>{
             const monthValue = override.month !== undefined ? override.month : filterMonth;
 
             const filters = {};
-            if (deptId) filters.departmentId = deptId``;
+            if (deptId) filters.departmentId = deptId;
             if (monthValue)
             {
                 // filterMonth dạng YYYY-MM
@@ -106,14 +141,14 @@ const ProductionManagement = () =>{
     const handleFilterSubmit = async (e) =>
     {
         e.preventDefault();
-        await loadProductions({departmentId: filterDeptId, month: filterMonth});
+        await loadProductions({ departmentId: filterDeptId, month: filterMonth });
     };
 
     const handleClearFilter = async () =>
     {
         setFilterDeptId('');
         setFilterMonth('');
-        await loadProductions({departmentId: '', month: ''});
+        await loadProductions({ departmentId: '', month: '' });
     };
 
     const handleFormChange = (e) =>
@@ -139,6 +174,12 @@ const ProductionManagement = () =>{
             setError('Please select production month');
             return;
         }
+        // Require Work Unit selection
+        // if (!selectedNode || selectedNode.level !== 5)
+        // {
+        //     setError('Please select a Work Unit (level 5)');
+        //     return;
+        // }
         if (!form.productCount || Number(form.productCount) < 0)
         {
             setError('productCount must be >= 0');
@@ -164,7 +205,8 @@ const ProductionManagement = () =>{
             const [yearStr, monthStr] = form.dopMonth.split('-');
             const year = Number(yearStr);
             const month = Number(monthStr);
-            if (Number.isNaN(year) || Number.isNaN(month)) {
+            if (Number.isNaN(year) || Number.isNaN(month))
+            {
                 setError('Invalid production month');
                 return;
             }
@@ -174,9 +216,13 @@ const ProductionManagement = () =>{
 
             const payload = {
                 department: { id: Number(form.departmentId) },
+                name: form.name,
                 dop: dop,
                 productCount: Number(form.productCount),
-                unitPrice: Number(form.unitPrice)
+                unitPrice: Number(form.unitPrice),
+                lineName: derivedNames.lineName,
+                subLineName: derivedNames.subLineName,
+                workUnitName: derivedNames.workUnitName
             };
 
             if (editingId == null)
@@ -211,8 +257,12 @@ const ProductionManagement = () =>{
         setForm({
             departmentId: p.department?.id != null ? String(p.department.id) : '',
             dopMonth: p.dop ? p.dop.substring(0, 7) : '',
+            name: p.name || '',
             productCount: p.productCount != null ? String(p.productCount) : '',
-            unitPrice: p.unitPrice != null ? String(p.unitPrice) : ''
+            unitPrice: p.unitPrice != null ? String(p.unitPrice) : '',
+            lineName: p.lineName || '',
+            subLineName: p.subLineName || '',
+            workUnitName: p.workUnitName || ''
         });
     };
 
@@ -222,8 +272,12 @@ const ProductionManagement = () =>{
         setForm({
             departmentId: '',
             dopMonth: '',
+            name: '',
             productCount: '',
-            unitPrice: ''
+            unitPrice: '',
+            lineName: '',
+            subLineName: '',
+            workUnitName: ''
         });
     };
 
@@ -334,7 +388,7 @@ const ProductionManagement = () =>{
                         <Row className="gy-3">
                             <Col md={3}>
                                 <Form.Group>
-                                    <Form.Label>Department</Form.Label>
+                                    <Form.Label>Department <span style={{ color: 'red' }}>*</span></Form.Label>
                                     {departmentsLoading ? (
                                         <Spinner animation="border" size="sm" />
                                     ) : (
@@ -355,7 +409,7 @@ const ProductionManagement = () =>{
                             </Col>
                             <Col md={3}>
                                 <Form.Group>
-                                    <Form.Label>Production Month</Form.Label>
+                                    <Form.Label>Production Month <span style={{ color: 'red' }}>*</span></Form.Label>
                                     <Form.Control
                                         type="month"
                                         name="dopMonth"
@@ -364,6 +418,82 @@ const ProductionManagement = () =>{
                                     />
                                 </Form.Group>
                             </Col>
+                            <Col md={3}>
+                                <Form.Group>
+                                    <Form.Label>Production Name</Form.Label>
+                                    <Form.Control
+                                        type="text"
+                                        name="name"
+                                        value={form.name}
+                                        onChange={handleFormChange}
+                                        placeholder="e.g., Product A, Product B"
+                                    />
+                                </Form.Group>
+                            </Col>
+                        </Row>
+                        <Row className="gy-3">
+                            <Col md={6}>
+                                <Form.Group>
+                                    <Form.Label>Line / Sub Line / Work Unit<span style={{ color: 'red' }}>*</span></Form.Label>
+                                    <div className="d-flex align-items-center gap-2">
+                                        <Form.Select
+                                            style={{ maxWidth: 260 }}
+                                            value={deptLine.filters.departmentId || ''}
+                                            onChange={(e) => { deptLine.handleDepartmentChange(e); setForm(prev => ({ ...prev, departmentId: e.target.value || '' })); }}
+                                        >
+                                            <option value="">-- Select Department --</option>
+                                            {departments.map(d => (
+                                                <option key={d.id} value={d.id}>{d.name}</option>
+                                            ))}
+                                        </Form.Select>
+                                        <Button
+                                            type="button"
+                                            variant="outline-primary"
+                                            disabled={!deptLine.filters.departmentId}
+                                            onClick={() => deptLine.setShowLineSelector(true)}
+                                        >
+                                            Select Unit
+                                        </Button>
+                                        <div className="small text-muted">
+                                            {selectedNode ? (
+                                                <>
+                                                    Selected: <Badge bg="secondary">{currentPath.map(n => n.name).join(' / ')}</Badge>
+                                                </>
+                                            ) : 'No unit selected'}
+                                        </div>
+                                    </div>
+                                    {deptLine.showLineSelector && (
+                                        <div className="mt-3">
+                                            <LineSelector
+                                                departmentId={deptLine.selectedDeptForLines || deptLine.filters.departmentId}
+                                                onLineSelected={(node, path) => { deptLine.handleLineSelected(node, path); }}
+                                            />
+                                        </div>
+                                    )}
+                                </Form.Group>
+                            </Col>
+                        </Row>
+                        <Row className="gy-3 mt-2">
+                            <Col md={4}>
+                                <Form.Group>
+                                    <Form.Label>Line Name <span style={{ color: 'red' }}>*</span></Form.Label>
+                                    <Form.Control value={derivedNames.lineName} readOnly />
+                                </Form.Group>
+                            </Col>
+                            <Col md={4}>
+                                <Form.Group>
+                                    <Form.Label>Sub Line Name <span style={{ color: 'red' }}>*</span></Form.Label>
+                                    <Form.Control value={derivedNames.subLineName} readOnly />
+                                </Form.Group>
+                            </Col>
+                            <Col md={4}>
+                                <Form.Group>
+                                    <Form.Label>Work Unit Name</Form.Label>
+                                    <Form.Control value={derivedNames.workUnitName} readOnly />
+                                </Form.Group>
+                            </Col>
+                        </Row>
+                        <Row className="gy-3 mt-2">
                             <Col md={3}>
                                 <Form.Group>
                                     <Form.Label>Product Count <span style={{ color: 'red' }}>*</span></Form.Label>
@@ -393,7 +523,7 @@ const ProductionManagement = () =>{
                             </Col>
                         </Row>
                         <div className="mt-3 text-end">
-                            <Button type="submit" disabled={saving}>
+                            <Button type="submit" disabled={saving} onClick={applyDerivedNames}>
                                 {saving ? 'Saving...' : (editingId ? 'Update Production' : 'Save Production')}
                             </Button>
                         </div>
@@ -418,48 +548,56 @@ const ProductionManagement = () =>{
                     ) : (
                         <Table striped hover responsive className="mb-0">
                             <thead className="bg-light">
-                            <tr>
-                                <th>ID</th>
-                                <th>Date</th>
-                                <th>Department</th>
-                                <th>Product Count</th>
-                                <th>Unit Price</th>
-                                <th>Total</th>
-                                <th>Action</th>
-                            </tr>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Date</th>
+                                    <th>Name</th>
+                                    <th>Department</th>
+                                    <th>Line</th>
+                                    <th>Sub Line</th>
+                                    <th>Work Unit</th>
+                                    <th>Product Count</th>
+                                    <th>Unit Price</th>
+                                    <th>Total</th>
+                                    <th>Action</th>
+                                </tr>
                             </thead>
                             <tbody>
-                            {productions.map(p => (
-                                <tr
-                                    key={p.id}
-                                    onClick={() => handleRowClick(p)}
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    <td>#{p.id}</td>
-                                    <td>{p.dop}</td>
-                                    <td>{getDeptName(p.department?.id)}</td>
-                                    <td>{p.productCount}</td>
-                                    <td>{p.unitPrice?.toLocaleString('vi-VN')} đ</td>
-                                    <td>
-                                        {(p.productCount != null && p.unitPrice != null)
-                                            ? (p.productCount * Number(p.unitPrice)).toLocaleString('vi-VN') + ' đ'
-                                            : '-'}
-                                    </td>
-                                    <td>
-                                        <Button
-                                            size="sm"
-                                            variant="outline-danger"
-                                            onClick={(e) =>
-                                            {
-                                                e.stopPropagation();
-                                                handleDelete(p.id);
-                                            }}
-                                        >
-                                            Delete
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))}
+                                {productions.map(p => (
+                                    <tr
+                                        key={p.id}
+                                        onClick={() => handleRowClick(p)}
+                                        style={{ cursor: 'pointer' }}
+                                    >
+                                        <td>#{p.id}</td>
+                                        <td>{p.dop}</td>
+                                        <td>{p.name || '-'}</td>
+                                        <td>{getDeptName(p.department?.id)}</td>
+                                        <td>{p.lineName || '-'}</td>
+                                        <td>{p.subLineName || '-'}</td>
+                                        <td>{p.workUnitName || '-'}</td>
+                                        <td>{p.productCount}</td>
+                                        <td>{p.unitPrice?.toLocaleString('vi-VN')} đ</td>
+                                        <td>
+                                            {(p.productCount != null && p.unitPrice != null)
+                                                ? (p.productCount * Number(p.unitPrice)).toLocaleString('vi-VN') + ' đ'
+                                                : '-'}
+                                        </td>
+                                        <td>
+                                            <Button
+                                                size="sm"
+                                                variant="outline-danger"
+                                                onClick={(e) =>
+                                                {
+                                                    e.stopPropagation();
+                                                    handleDelete(p.id);
+                                                }}
+                                            >
+                                                Delete
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </Table>
                     )}

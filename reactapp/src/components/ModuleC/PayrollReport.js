@@ -58,7 +58,6 @@ const PayrollReport = () =>
             setLoading(true);
             setError('');
 
-            // Tạo params động dựa vào bộ lọc
             const params = {};
             if (filterYear) params.year = filterYear;
             if (filterMonth) params.month = filterMonth;
@@ -108,7 +107,6 @@ const PayrollReport = () =>
 
             const workbook = XLSX.utils.book_new();
 
-            // Sheet 1: Tóm tắt
             const summaryData = [
                 ['SALARY REPORT', ''],
                 ['Year', filterYear],

@@ -10,8 +10,7 @@ const PayrollDashboard = () =>
         totalPayroll: 0,
         approvedPayroll: 0,
         pendingPayroll: 0,
-        totalSalaryExpense: 0,
-        monthlyTrend: []
+        totalSalaryExpense: 0
     });
     const [recentPayrolls, setRecentPayrolls] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -29,27 +28,38 @@ const PayrollDashboard = () =>
             setLoading(true);
             setError('');
 
-            // Fetch statistics
-            const statsResponse = await axiosInstance.get('/payroll/statistics');
-            let statsData = null;
-            if (statsResponse.data.success === false)
+            const currentYear = new Date().getFullYear();
+            const reportResponse = await axiosInstance.get('/payroll/report', {
+                params: { year: currentYear }
+            });
+
+            let reportData = [];
+            if (reportResponse.data.success === false)
             {
-                // Error response
-            } else if (statsResponse.data.data)
+                setError(reportResponse.data.message || 'Failed to load statistics');
+            } else if (reportResponse.data.data)
             {
-                statsData = statsResponse.data.data;
-            } else if (statsResponse.data.totalPayroll)
+                reportData = reportResponse.data.data || [];
+            } else if (Array.isArray(reportResponse.data))
             {
-                // Direct response
-                statsData = statsResponse.data;
+                reportData = reportResponse.data;
             }
 
-            if (statsData)
-            {
-                setStats(statsData);
-            }
+            // Tính lại các thống kê từ reportData
+            const totalPayroll = reportData.length;
+            const approvedPayroll = reportData.filter(r => r.status === 'approved').length;
+            const pendingPayroll = reportData.filter(r => r.status === 'pending').length;
+            const totalSalaryExpense = reportData.reduce((sum, r) => sum + (r.totalSalary || 0), 0);
 
-            // Fetch recent payrolls
+            setStats(prev => ({
+                ...prev,
+                totalPayroll,
+                approvedPayroll,
+                pendingPayroll,
+                totalSalaryExpense
+            }));
+
+            // Fetch recent payrolls (giữ nguyên như cũ)
             const recentResponse = await axiosInstance.get('/payroll/recent?limit=5');
             let recentData = [];
             if (recentResponse.data.success !== false)

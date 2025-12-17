@@ -1,96 +1,47 @@
-import axios from 'axios';
 import { useEffect, useState } from 'react';
+import attendanceService from '../../services/moduleA/attendanceService';
 
 const HistoryPage = () => {
+  const [currentUser, setCurrentUser] = useState(null);
   const [attendanceData, setAttendanceData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [userId, setUserId] = useState(null);
-  const [view, setView] = useState('personal'); // 'personal' or 'department'
 
   useEffect(() => {
-    // Get current user from auth context/local storage
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-      setUserId(currentUser.userId);
-      fetchAttendance(currentUser.userId, selectedDate);
-    }
+    const userStr = localStorage.getItem('user');
+    if (userStr) setCurrentUser(JSON.parse(userStr));
   }, []);
 
-  const getCurrentUser = () => {
-    // Placeholder - implement based on your auth system
-    // e.g., from localStorage, Context API, Redux, etc.
-    const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
-  };
+  useEffect(() => {
+    if (currentUser?.userId) fetchAttendance(currentUser.userId, selectedDate);
+  }, [currentUser, selectedDate]);
 
-  const fetchAttendance = async (uid, date) => {
+  const fetchAttendance = async (userId, date) => {
     setLoading(true);
     setError(null);
-
     try {
-      const response = await axios.get(`/api/attendance/history/${uid}`, {
-        params: { date }
-      });
-
-      if (response.data.success) {
-        setAttendanceData(Array.isArray(response.data.data) ? response.data.data : [response.data.data]);
-      } else {
-        setAttendanceData([]);
-      }
+      const data = await attendanceService.getHistory(userId, date);
+      const attendances = data.attendances || [];
+      setAttendanceData(attendances.map(a => ({...a, workingHours: parseFloat(a.workingHours || 0)})));
     } catch (err) {
       setError('Không thể tải lịch sử chấm công');
-      console.error('Failed to fetch attendance:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDateChange = (e) => {
-    const newDate = e.target.value;
-    setSelectedDate(newDate);
-    if (userId) {
-      fetchAttendance(userId, newDate);
-    }
-  };
-
+  const handleDateChange = (e) => setSelectedDate(e.target.value);
   const formatWorkingHours = (hours) => {
-    if (!hours) return 'N/A';
-    const h = Math.floor(hours);
-    const m = Math.round((hours - h) * 60);
+    const h = Math.floor(hours); const m = Math.round((hours - h) * 60);
     return `${h}h ${m}m`;
   };
-
   const getStatusBadge = (status) => {
-    const styles = {
-      SUCCESS: { bg: '#e8f5e9', color: '#4CAF50', text: '✓ Đúng giờ' },
-      LATE: { bg: '#fff3cd', color: '#ff9800', text: '⚠ Trễ' },
-      ABSENT: { bg: '#ffebee', color: '#f44336', text: '✗ Vắng' },
-      INCOMPLETE: { bg: '#e3f2fd', color: '#2196F3', text: '◐ Chưa hoàn tất' },
-    };
-
-    const style = styles[status] || styles.INCOMPLETE;
-
-    return (
-      <span style={{
-        backgroundColor: style.bg,
-        color: style.color,
-        padding: '5px 12px',
-        borderRadius: '15px',
-        fontSize: '14px',
-        fontWeight: 'bold',
-      }}>
-        {style.text}
-      </span>
-    );
+    const styles = { SUCCESS:{bg:'#e8f5e9', color:'#4CAF50', text:'✓ Đúng giờ'}, LATE:{bg:'#fff3cd', color:'#ff9800', text:'⚠ Trễ'}, ABSENT:{bg:'#ffebee', color:'#f44336', text:'✗ Vắng'} };
+    const s = styles[status] || {bg:'#e3f2fd', color:'#2196F3', text:'◐ Chưa hoàn tất'};
+    return <span style={{backgroundColor:s.bg,color:s.color,padding:'5px 12px',borderRadius:'15px',fontSize:'14px',fontWeight:'bold'}}>{s.text}</span>;
   };
-
-  const calculateTotalHours = () => {
-    return attendanceData.reduce((total, record) => {
-      return total + (record.workingHours || 0);
-    }, 0);
-  };
+  const calculateTotalHours = () => attendanceData.reduce((t,r)=>t+(r.workingHours||0),0);
 
   return (
     <div style={styles.container}>
@@ -99,123 +50,32 @@ const HistoryPage = () => {
         <p style={styles.subtitle}>Xem lịch sử check-in/check-out của bạn</p>
       </div>
 
-      {/* Date Picker & View Selector */}
       <div style={styles.controlsBar}>
-        <div style={styles.datePickerContainer}>
+        <div>
           <label style={styles.label}>📅 Chọn Ngày:</label>
-          <input 
-            type="date" 
-            value={selectedDate}
-            onChange={handleDateChange}
-            style={styles.dateInput}
-          />
-        </div>
-
-        <div style={styles.viewSelector}>
-          <button 
-            style={{
-              ...styles.viewButton, 
-              ...(view === 'personal' ? styles.activeViewButton : {})
-            }}
-            onClick={() => setView('personal')}
-          >
-            👤 Cá Nhân
-          </button>
-          <button 
-            style={{
-              ...styles.viewButton, 
-              ...(view === 'department' ? styles.activeViewButton : {})
-            }}
-            onClick={() => setView('department')}
-          >
-            👥 Phòng Ban
-          </button>
+          <input type="date" value={selectedDate} onChange={handleDateChange} style={styles.dateInput} />
         </div>
       </div>
 
-      {/* Summary Cards */}
-      {view === 'personal' && (
-        <div style={styles.summaryCards}>
-          <div style={styles.summaryCard}>
-            <div style={styles.cardIcon}>⏰</div>
-            <div style={styles.cardContent}>
-              <div style={styles.cardLabel}>Tổng Giờ Làm</div>
-              <div style={styles.cardValue}>{formatWorkingHours(calculateTotalHours())}</div>
-            </div>
-          </div>
+      {loading && <div style={styles.loadingContainer}><div style={styles.spinner}></div><p>Đang tải dữ liệu...</p></div>}
+      {error && <div style={styles.errorBox}><h3>❌ Lỗi</h3><p>{error}</p><button onClick={()=>fetchAttendance(currentUser.userId, selectedDate)} style={styles.retryButton}>Thử Lại</button></div>}
 
-          <div style={styles.summaryCard}>
-            <div style={styles.cardIcon}>✅</div>
-            <div style={styles.cardContent}>
-              <div style={styles.cardLabel}>Ngày Đúng Giờ</div>
-              <div style={styles.cardValue}>
-                {attendanceData.filter(r => r.status === 'SUCCESS').length}
-              </div>
-            </div>
-          </div>
-
-          <div style={styles.summaryCard}>
-            <div style={styles.cardIcon}>⚠️</div>
-            <div style={styles.cardContent}>
-              <div style={styles.cardLabel}>Ngày Trễ</div>
-              <div style={styles.cardValue}>
-                {attendanceData.filter(r => r.status === 'LATE').length}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Loading State */}
-      {loading && (
-        <div style={styles.loadingContainer}>
-          <div style={styles.spinner}></div>
-          <p>Đang tải dữ liệu...</p>
-        </div>
-      )}
-
-      {/* Error State */}
-      {error && (
-        <div style={styles.errorBox}>
-          <h3>❌ Lỗi</h3>
-          <p>{error}</p>
-          <button onClick={() => fetchAttendance(userId, selectedDate)} style={styles.retryButton}>
-            Thử Lại
-          </button>
-        </div>
-      )}
-
-      {/* Attendance Table */}
-      {!loading && !error && attendanceData.length > 0 && (
+      {!loading && !error && attendanceData.length>0 && (
         <div style={styles.tableContainer}>
           <table style={styles.table}>
             <thead>
-              <tr style={styles.tableHeader}>
-                <th style={styles.th}>Ngày</th>
-                <th style={styles.th}>Giờ Vào</th>
-                <th style={styles.th}>Giờ Ra</th>
-                <th style={styles.th}>Tổng Giờ</th>
-                <th style={styles.th}>Trạng Thái</th>
+              <tr>
+                <th>Ngày</th><th>Giờ Vào</th><th>Giờ Ra</th><th>Tổng Giờ</th><th>Trạng Thái</th>
               </tr>
             </thead>
             <tbody>
-              {attendanceData.map((record, index) => (
-                <tr key={index} style={styles.tableRow}>
-                  <td style={styles.td}>
-                    {new Date(record.date).toLocaleDateString('vi-VN')}
-                  </td>
-                  <td style={styles.td}>
-                    {record.timeIn ? new Date(record.timeIn).toLocaleTimeString('vi-VN') : '-'}
-                  </td>
-                  <td style={styles.td}>
-                    {record.timeOut ? new Date(record.timeOut).toLocaleTimeString('vi-VN') : '-'}
-                  </td>
-                  <td style={styles.td}>
-                    {formatWorkingHours(record.workingHours)}
-                  </td>
-                  <td style={styles.td}>
-                    {getStatusBadge(record.status)}
-                  </td>
+              {attendanceData.map((r,i)=>(
+                <tr key={i}>
+                  <td>{new Date(r.date).toLocaleDateString('vi-VN')}</td>
+                  <td>{r.timeIn?new Date(r.timeIn).toLocaleTimeString('vi-VN'):'-'}</td>
+                  <td>{r.timeOut?new Date(r.timeOut).toLocaleTimeString('vi-VN'):'-'}</td>
+                  <td>{formatWorkingHours(r.workingHours)}</td>
+                  <td>{getStatusBadge(r.status)}</td>
                 </tr>
               ))}
             </tbody>
@@ -223,24 +83,11 @@ const HistoryPage = () => {
         </div>
       )}
 
-      {/* Empty State */}
-      {!loading && !error && attendanceData.length === 0 && (
+      {!loading && !error && attendanceData.length===0 && (
         <div style={styles.emptyState}>
           <div style={styles.emptyIcon}>📭</div>
           <h3>Không Có Dữ Liệu</h3>
           <p>Chưa có bản ghi chấm công cho ngày này.</p>
-        </div>
-      )}
-
-      {/* Export Button */}
-      {attendanceData.length > 0 && (
-        <div style={styles.exportContainer}>
-          <button style={styles.exportButton}>
-            📥 Xuất Excel
-          </button>
-          <button style={styles.printButton}>
-            🖨️ In Báo Cáo
-          </button>
         </div>
       )}
     </div>
