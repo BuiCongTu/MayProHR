@@ -124,14 +124,12 @@ public interface AttendanceRepository extends JpaRepository<TbAttendance, Long> 
     @Query("SELECT a FROM TbAttendance a WHERE a.user = :user AND a.date BETWEEN :startDate AND :endDate AND a.status = :attendanceStatus ORDER BY a.date DESC")
     List<TbAttendance> findByUserAndDateBetweenAndStatus(TbUser user, LocalDate startDate, LocalDate endDate, TbAttendance.AttendanceStatus attendanceStatus);
 
-    // Native query to get attendance by date range without enum conversion issues
     @Query(value = "SELECT * FROM tbAttendance WHERE DATE BETWEEN :startDate AND :endDate ORDER BY DATE DESC", nativeQuery = true)
     java.util.List<TbAttendance> findAttendanceByDateRangeNative(
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate
     );
 
-    // Native query to get attendance by user and date range without enum conversion issues
     @Query(value = "SELECT a.* FROM tbAttendance a WHERE a.user_id = :userId AND a.date BETWEEN :startDate AND :endDate ORDER BY a.date DESC", nativeQuery = true)
     java.util.List<TbAttendance> findByUserAndDateRangeNative(
             @Param("userId") Integer userId,
@@ -139,14 +137,13 @@ public interface AttendanceRepository extends JpaRepository<TbAttendance, Long> 
             @Param("endDate") LocalDate endDate
     );
 
-    // Raw SQL to get attendance data as DTO (avoiding enum mapping)
     @Query(value = "SELECT "
             + "a.attendance_id as id, "
             + "a.user_id as userId, "
             + "u.full_name as userName, "
             + "u.department_id as departmentId, "
             + "d.name as departmentName, "
-            + "a.date, "
+            + "CAST(a.date AS DATE) as date, "
             + "a.time_in as timeIn, "
             + "a.time_out as timeOut, "
             + "UPPER(a.status) as status, "
@@ -154,7 +151,7 @@ public interface AttendanceRepository extends JpaRepository<TbAttendance, Long> 
             + "FROM tbAttendance a "
             + "JOIN tbUser u ON a.user_id = u.user_id "
             + "LEFT JOIN tbDepartment d ON u.department_id = d.department_id "
-            + "WHERE a.date BETWEEN :startDate AND :endDate "
+            + "WHERE CAST(a.date AS DATE) BETWEEN :startDate AND :endDate "
             + "ORDER BY a.date DESC",
             nativeQuery = true)
     List<Object[]> findAttendanceDataByDateRange(
@@ -162,14 +159,13 @@ public interface AttendanceRepository extends JpaRepository<TbAttendance, Long> 
             @Param("endDate") LocalDate endDate
     );
 
-    // Raw SQL to get attendance data for specific user as DTO
     @Query(value = "SELECT "
             + "a.attendance_id as id, "
             + "a.user_id as userId, "
             + "u.full_name as userName, "
             + "u.department_id as departmentId, "
             + "d.name as departmentName, "
-            + "a.date, "
+            + "CAST(a.date AS DATE) as date, "
             + "a.time_in as timeIn, "
             + "a.time_out as timeOut, "
             + "UPPER(a.status) as status, "
@@ -177,7 +173,7 @@ public interface AttendanceRepository extends JpaRepository<TbAttendance, Long> 
             + "FROM tbAttendance a "
             + "JOIN tbUser u ON a.user_id = u.user_id "
             + "LEFT JOIN tbDepartment d ON u.department_id = d.department_id "
-            + "WHERE a.user_id = :userId AND a.date BETWEEN :startDate AND :endDate "
+            + "WHERE a.user_id = :userId AND CAST(a.date AS DATE) BETWEEN :startDate AND :endDate "
             + "ORDER BY a.date DESC",
             nativeQuery = true)
     List<Object[]> findAttendanceDataByUserAndDateRange(

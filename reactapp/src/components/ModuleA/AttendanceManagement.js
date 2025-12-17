@@ -63,6 +63,7 @@ const AttendanceManagement = () =>
       } catch (err)
       {
         console.error('Error loading users:', err);
+        setError('Failed to load employees: ' + (err?.message || 'Unknown error'));
         setUsers([]);
       } finally
       {
@@ -87,17 +88,18 @@ const AttendanceManagement = () =>
       setError('');
       setInfo('');
 
-      // If user is selected, fetch specific user's attendance; otherwise all in department or all
+      const monthFormatted = filterMonth.length === 7 ? filterMonth : filterMonth.slice(0, 7);
+
       const userId = filterUserId ? parseInt(filterUserId) : null;
-      console.log('[AttendanceManagement] Fetching - Month:', filterMonth, 'UserId:', userId);
-      const data = await attendanceService.getByMonth(filterMonth, userId);
+      console.log('[AttendanceManagement] Fetching - Month:', monthFormatted, 'UserId:', userId);
+      const data = await attendanceService.getByMonth(monthFormatted, userId);
 
       console.log('[AttendanceManagement] Attendance data:', data);
       setAttendances(Array.isArray(data) ? data : []);
 
       if (data.length === 0)
       {
-        setInfo(`No attendance records for ${filterMonth}`);
+        setInfo(`No attendance records for ${monthFormatted}`);
       }
     } catch (err)
     {
@@ -128,8 +130,26 @@ const AttendanceManagement = () =>
     const u = users.find(usr => usr.id === parseInt(userId));
     return u?.fullName || '-';
   };
+    const calculateWorkingHours = (timeIn, timeOut) => {
+        if (!timeIn || !timeOut) return '-';
 
-  return (
+        const [hIn, mIn] = timeIn.split(':').map(Number);
+        const [hOut, mOut] = timeOut.split(':').map(Number);
+
+        const minutesIn = hIn * 60 + mIn;
+        const minutesOut = hOut * 60 + mOut;
+
+        const diffMinutes = minutesOut - minutesIn;
+        if (diffMinutes < 0) return '-';
+
+        const hours = Math.floor(diffMinutes / 60);
+        const minutes = diffMinutes % 60;
+
+        return `${hours}h ${minutes}m`;
+    };
+
+
+    return (
     <div className="payroll-list-container p-4">
       <h2>Attendance Management</h2>
 
@@ -229,6 +249,7 @@ const AttendanceManagement = () =>
                   <th>Employee</th>
                   <th>Time In</th>
                   <th>Time Out</th>
+                  <th>Working Hours</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -238,12 +259,19 @@ const AttendanceManagement = () =>
                     <td>{att.date}</td>
                     <td>{att.departmentName || '-'}</td>
                     <td>{att.userName || '-'}</td>
-                    <td>{att.timeIn || '-'}</td>
-                    <td>{att.timeOut || '-'}</td>
+                    <td>{att.timeIn ? att.timeIn.substring(0, 5) : '-'}</td>
+                    <td>{att.timeOut ? att.timeOut.substring(0, 5) : '-'}</td>
+                    <td>{calculateWorkingHours(att.timeIn, att.timeOut)}</td>
                     <td>
-                      <span className={`badge bg-${att.status === 'SUCCESS' ? 'success' : att.status === 'LATE' ? 'warning' : 'danger'}`}>
-                        {att.status}
+                      <span className={`badge bg-${
+                          att.status === 'SUCCESS' ? 'success' :
+                              att.status === 'LATE' ? 'warning' :
+                                  att.status === 'MANUAL' ? 'info' :
+                                      'danger'
+                      }`}>
+                        {att.status || 'UNKNOWN'}
                       </span>
+
                     </td>
                   </tr>
                 ))}

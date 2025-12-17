@@ -28,8 +28,8 @@ public class TbAttendance {
     @JoinColumn(name = "user_id", nullable = false)
     private TbUser user;
 
-    @NotNull
-    @Column(name = "\"date\"", nullable = false)
+    @Column(name = "date")
+    @Temporal(TemporalType.DATE)
     private LocalDate date;
 
     @Column(name = "time_in")
