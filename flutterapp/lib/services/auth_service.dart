@@ -1,6 +1,8 @@
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../configs/api_config.dart';
 
 class AuthService {
@@ -8,7 +10,8 @@ class AuthService {
   static const roleKey = "role";
 
   //// Login
-  static Future<Map<String, dynamic>?> login(String phone, String password) async {
+  static Future<Map<String, dynamic>?> login(
+      String phone, String password) async {
     final url = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.loginEndpoint}');
     try {
       final response = await http.post(url,
@@ -28,13 +31,19 @@ class AuthService {
           await prefs.setString(tokenKey, token);
           await prefs.setString(roleKey, roleName);
 
-          return {"token": token, "role": roleName};
+          return {"token": token, "role": roleName, "user": userData};
         } else {
-          return {"error": responseData["message"] ?? "Login failed due to server logic."};
+          return {
+            "error":
+                responseData["message"] ?? "Login failed due to server logic."
+          };
         }
       } else {
         final errorData = jsonDecode(response.body);
-        return {"error": errorData["message"] ?? "Login failed with status code ${response.statusCode}"};
+        return {
+          "error": errorData["message"] ??
+              "Login failed with status code ${response.statusCode}"
+        };
       }
     } catch (e) {
       return {"error": e.toString()};
@@ -67,12 +76,14 @@ class AuthService {
   // }
 
   /// Register
-  static Future<bool> register(String phone, String password, String fullName) async {
+  static Future<bool> register(
+      String phone, String password, String fullName) async {
     final url = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.registerEndpoint}');
     try {
       final response = await http.post(url,
           headers: {"Content-Type": "application/json"},
-          body: jsonEncode({"phone": phone, "password": password, "fullName": fullName}));
+          body: jsonEncode(
+              {"phone": phone, "password": password, "fullName": fullName}));
 
       return response.statusCode == 200;
     } catch (e) {
@@ -82,7 +93,8 @@ class AuthService {
 
   /// Forgot password -> backend trả OTP
   static Future<String?> forgotPassword(String phone) async {
-    final url = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.forgotPasswordEndpoint}');
+    final url =
+        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.forgotPasswordEndpoint}');
     try {
       final response = await http.post(url,
           headers: {"Content-Type": "application/json"},
@@ -100,12 +112,15 @@ class AuthService {
   }
 
   /// Reset password
-  static Future<bool> resetPassword(String phone, String otp, String newPassword) async {
-    final url = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.resetPasswordEndpoint}');
+  static Future<bool> resetPassword(
+      String phone, String otp, String newPassword) async {
+    final url =
+        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.resetPasswordEndpoint}');
     try {
       final response = await http.post(url,
           headers: {"Content-Type": "application/json"},
-          body: jsonEncode({"phone": phone, "otp": otp, "newPassword": newPassword}));
+          body: jsonEncode(
+              {"phone": phone, "otp": otp, "newPassword": newPassword}));
 
       return response.statusCode == 200;
     } catch (e) {
@@ -152,7 +167,8 @@ class AuthService {
   }
 
   static Future<bool> saveDeviceToken(String deviceToken) async {
-    final url = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.updateDeviceTokenEndpoint}');
+    final url =
+        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.updateDeviceTokenEndpoint}');
 
     String? jwt = await getToken();
 
@@ -172,7 +188,8 @@ class AuthService {
         print("Device token saved successfully.");
         return true;
       } else {
-        print("Failed to save device token: ${response.statusCode} - ${response.body}");
+        print(
+            "Failed to save device token: ${response.statusCode} - ${response.body}");
         return false;
       }
     } catch (e) {

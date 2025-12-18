@@ -1,6 +1,8 @@
 import 'dart:convert';
+
 import 'package:flutterapp/configs/api_config.dart';
 import 'package:http/http.dart' as http;
+
 import '../models/payroll_model.dart';
 
 class PayrollService {
@@ -29,7 +31,8 @@ class PayrollService {
             .map((item) => PayrollModel.fromJson(item as Map<String, dynamic>))
             .toList();
       } else {
-        throw Exception('Error HTTP: ${response.statusCode} - ${response.body}');
+        throw Exception(
+            'Error HTTP: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       throw Exception('Connection error: $e');
@@ -56,11 +59,18 @@ class PayrollService {
       );
 
       if (response.statusCode == 200) {
-        Map<String, dynamic> jsonData = jsonDecode(response.body);
-
-        return PayrollModel.fromJson(jsonData);
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          // Inject year/month into the JSON so UI can format properly
+          decoded['year'] = year;
+          decoded['month'] = month;
+          return PayrollModel.fromJson(decoded);
+        } else {
+          throw Exception('Unexpected response format');
+        }
       } else {
-        throw Exception('HTTP Error: ${response.statusCode} - ${response.body}');
+        throw Exception(
+            'HTTP Error: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       throw Exception('Connection error: $e');
@@ -90,7 +100,8 @@ class PayrollService {
         List<dynamic> years = jsonData['years'] ?? [];
         return years.map((y) => y as int).toList();
       } else {
-        throw Exception('HTTP Error: ${response.statusCode} - ${response.body}');
+        throw Exception(
+            'HTTP Error: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       throw Exception('Connection Error: $e');
@@ -123,7 +134,8 @@ class PayrollService {
         List<dynamic> months = jsonData['months'] ?? [];
         return months.map((m) => m as int).toList();
       } else {
-        throw Exception('HTTP error: ${response.statusCode} - ${response.body}');
+        throw Exception(
+            'HTTP error: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       throw Exception('Connection error: $e');
@@ -155,7 +167,8 @@ class PayrollService {
             .map((item) => PayrollModel.fromJson(item as Map<String, dynamic>))
             .toList();
       } else {
-        throw Exception('HTTP error: ${response.statusCode} - ${response.body}');
+        throw Exception(
+            'HTTP error: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       throw Exception('Connection error: $e');

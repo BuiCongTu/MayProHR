@@ -369,54 +369,73 @@ public class PayrollController {
     }
 
     //Quan lys bang luong
-    @GetMapping("/{payrollId}")
-    public ResponseEntity<?> getPayrollDetails(@PathVariable Integer payrollId) {
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getPayrollDetail(@PathVariable("id") Integer payrollId) {
         try {
-            TbPayroll payroll = payrollRepo.findById(payrollId)
-                    .orElseThrow(() -> new RuntimeException("Payroll not found"));
+            PayrollResponseDTO dto = payrollService.getPayrollDetail(payrollId);
 
-            PayrollResponseDTO dto = new PayrollResponseDTO();
-            dto.setPayrollId(payroll.getId());
-            dto.setMonth(payroll.getMonth());
-            dto.setDepartmentName(payroll.getDepartment().getName());
-            dto.setTotalSalary(payroll.getTotalSalary());
-            dto.setStatus(payroll.getStatus().toString());
-            dto.setCreatedDate(payroll.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate());
-
-            List<PayrollResponseDTO.EmployeePayrollDetailDTO> employees = payroll.getEmployeePayrolls()
-                    .stream()
-                    .map(ep -> {
-                        PayrollResponseDTO.EmployeePayrollDetailDTO empDto
-                                = new PayrollResponseDTO.EmployeePayrollDetailDTO();
-                        empDto.setEmployeeId(ep.getUser().getId());
-                        empDto.setEmployeeName(ep.getUser().getFullName());
-                        empDto.setSalaryType(ep.getUser().getSalaryType().toString());
-                        empDto.setBaseSalary(ep.getBaseSalary());
-                        empDto.setProductBonus(ep.getProductBonus());
-                        empDto.setOvertimePay(ep.getOvertimePay());
-                        empDto.setAllowance(ep.getAllowance());
-                        empDto.setDeduction(ep.getDeduction());
-                        empDto.setTotalPay(ep.getTotalPay());
-                        empDto.setNote(ep.getNote());
-                        return empDto;
-                    })
-                    .collect(Collectors.toList());
-
-            dto.setEmployees(employees);
-            Map<String, Object> body = new HashMap<>();
+            HashMap<String, Object> body = new HashMap<>();
             body.put("success", true);
-            body.put("message", "Get payroll details successfully");
             body.put("data", dto);
+
             return ResponseEntity.ok(body);
         } catch (Exception e) {
-            Map<String, Object> body = new HashMap<>();
+            HashMap<String, Object> body = new HashMap<>();
             body.put("success", false);
-            body.put("message", "error: " + e.getMessage());
-            body.put("data", null);
+            body.put("message", e.getMessage());
+
             return ResponseEntity.badRequest().body(body);
         }
-
     }
+
+//    @GetMapping("/{payrollId}") bỏ qua
+//    public ResponseEntity<?> getPayrollDetails(@PathVariable Integer payrollId) {
+//        try {
+//            TbPayroll payroll = payrollRepo.findById(payrollId)
+//                    .orElseThrow(() -> new RuntimeException("Payroll not found"));
+//
+//            PayrollResponseDTO dto = new PayrollResponseDTO();
+//            dto.setPayrollId(payroll.getId());
+//            dto.setMonth(payroll.getMonth());
+//            dto.setDepartmentName(payroll.getDepartment().getName());
+//            dto.setTotalSalary(payroll.getTotalSalary());
+//            dto.setStatus(payroll.getStatus().toString());
+//            dto.setCreatedDate(payroll.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate());
+//
+//            List<PayrollResponseDTO.EmployeePayrollDetailDTO> employees = payroll.getEmployeePayrolls()
+//                    .stream()
+//                    .map(ep -> {
+//                        PayrollResponseDTO.EmployeePayrollDetailDTO empDto
+//                                = new PayrollResponseDTO.EmployeePayrollDetailDTO();
+//                        empDto.setEmployeeId(ep.getUser().getId());
+//                        empDto.setEmployeeName(ep.getUser().getFullName());
+//                        empDto.setSalaryType(ep.getUser().getSalaryType().toString());
+//                        empDto.setBaseSalary(ep.getBaseSalary());
+//                        empDto.setProductBonus(ep.getProductBonus());
+//                        empDto.setOvertimePay(ep.getOvertimePay());
+//                        empDto.setAllowance(ep.getAllowance());
+//                        empDto.setDeduction(ep.getDeduction());
+//                        empDto.setTotalPay(ep.getTotalPay());
+//                        empDto.setNote(ep.getNote());
+//                        return empDto;
+//                    })
+//                    .collect(Collectors.toList());
+//
+//            dto.setEmployees(employees);
+//            Map<String, Object> body = new HashMap<>();
+//            body.put("success", true);
+//            body.put("message", "Get payroll details successfully");
+//            body.put("data", dto);
+//            return ResponseEntity.ok(body);
+//        } catch (Exception e) {
+//            Map<String, Object> body = new HashMap<>();
+//            body.put("success", false);
+//            body.put("message", "error: " + e.getMessage());
+//            body.put("data", null);
+//            return ResponseEntity.badRequest().body(body);
+//        }
+//
+//    }
 
     //lay history luong cua nhan vien
     @GetMapping("/employee-history")
@@ -424,30 +443,43 @@ public class PayrollController {
         try {
             List<TbEmployeePayroll> payrolls = employeePayrollRepo.findByUserId(userId);
 
-            List<PayrollResponseDTO.EmployeePayrollDetailDTO> dtos = payrolls
+            // Map TbEmployeePayrollDTO
+            List<fpt.aptech.springbootapp.dtos.response.TbEmployeePayrollDTO> dtos = payrolls
                     .stream()
                     .map(ep -> {
-                        PayrollResponseDTO.EmployeePayrollDetailDTO empDto
-                                = new PayrollResponseDTO.EmployeePayrollDetailDTO();
-                        empDto.setEmployeeId(ep.getUser().getId());
-                        empDto.setEmployeeName(ep.getUser().getFullName());
-                        empDto.setSalaryType(ep.getUser().getSalaryType().toString());
-                        empDto.setBaseSalary(ep.getBaseSalary());
-                        empDto.setProductBonus(ep.getProductBonus());
-                        empDto.setOvertimePay(ep.getOvertimePay());
-                        empDto.setAllowance(ep.getAllowance());
-                        empDto.setDeduction(ep.getDeduction());
-                        empDto.setTotalPay(ep.getTotalPay());
-                        return empDto;
+                        fpt.aptech.springbootapp.dtos.response.TbEmployeePayrollDTO dto =
+                                new fpt.aptech.springbootapp.dtos.response.TbEmployeePayrollDTO();
+
+                        dto.setEmployeePayrollId(ep.getId());
+
+                        if (ep.getUser() != null) {
+                            dto.setUserId(ep.getUser().getId());
+                            dto.setEmployeeCode(ep.getUser().getId());
+                            dto.setFullName(ep.getUser().getFullName());
+                        }
+
+                        dto.setBaseSalary(ep.getBaseSalary());
+                        dto.setAllowance(ep.getAllowance());
+                        dto.setProductBonus(ep.getProductBonus());
+                        dto.setOvertimePay(ep.getOvertimePay());
+                        dto.setDeduction(ep.getDeduction());
+                        dto.setPersonalIncomeTax(ep.getPersonalIncomeTax());
+                        dto.setTaxDeductionTotal(ep.getTaxDeductionTotal());
+                        dto.setTotalPay(ep.getTotalPay());
+                        dto.setNote(ep.getNote());
+                        dto.setCreatedAt(ep.getCreatedAt());
+
+                        return dto;
                     })
                     .collect(Collectors.toList());
-            Map<String, Object> body = new HashMap<>();
+
+            HashMap<String, Object> body = new HashMap<>();
             body.put("success", true);
             body.put("message", "Get payroll history successfully");
             body.put("data", dtos);
             return ResponseEntity.ok(body);
         } catch (Exception e) {
-            Map<String, Object> body = new HashMap<>();
+            HashMap<String, Object> body = new HashMap<>();
             body.put("success", false);
             body.put("message", "error: " + e.getMessage());
             body.put("data", null);

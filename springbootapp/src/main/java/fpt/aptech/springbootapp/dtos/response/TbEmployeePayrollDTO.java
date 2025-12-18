@@ -1,39 +1,60 @@
 package fpt.aptech.springbootapp.dtos.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Date;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class TbEmployeePayrollDTO {
-    private Integer payrollId;
-    private Integer employeeId;
-    private String employeeName;
-    private Integer payrollMonth;
-    private Integer payrollYear;
+    private Integer employeePayrollId;
+    private Integer userId;
+    private Integer employeeCode;
+    private String fullName;
+
     private BigDecimal baseSalary;
-    private BigDecimal bonus;
+    private BigDecimal allowance;
+    private BigDecimal productBonus;
+    private BigDecimal overtimePay;
     private BigDecimal deduction;
-    private BigDecimal totalSalary;
-    private String status;
-    private Date createdAt;
-    private Date updatedAt;
+    private BigDecimal personalIncomeTax;
+    private BigDecimal taxDeductionTotal;
+    private BigDecimal totalPay;
 
-    private PayrollDetailDTO payroll;
+    // Thông tin hien thị popup
+    private BigDecimal totalWorkDays;
+    private BigDecimal totalOvertimeHours;
+    private BigDecimal totalProductionQuantity;
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class PayrollDetailDTO {
-        private Integer payrollId;
-        private Integer departmentId;
-        private String departmentName;
-        private BigDecimal payrollAmount;
-        private String payrollStatus;
-    }
+    private String note;
+    private Instant createdAt;
+
+
+//    private Integer payrollId;
+//    private Integer employeeId;
+//    private String employeeName;
+//
+//    private Integer payrollMonth;
+//    private Integer payrollYear;
+//    private BigDecimal baseSalary;
+//    private BigDecimal bonus;
+//    private BigDecimal deduction;
+//    private BigDecimal totalSalary;
+//    private String status;
+//    private Date createdAt;
+//    private Date updatedAt;
+//
+//    private PayrollDetailDTO payroll;
+//
+//    @Data
+//    @NoArgsConstructor
+//    @AllArgsConstructor
+//    public static class PayrollDetailDTO {
+//        private Integer payrollId;
+//        private Integer departmentId;
+//        private String departmentName;
+//        private BigDecimal payrollAmount;
+//        private String payrollStatus;
+//    }
 }

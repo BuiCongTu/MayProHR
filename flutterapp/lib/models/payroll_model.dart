@@ -49,9 +49,15 @@ class PayrollModel {
     }
 
     return PayrollModel(
-      id: json['id'] is int ? json['id'] as int : (json['id'] is String ? int.tryParse(json['id']) : null),
-      month: json['month'] is int ? json['month'] as int : (json['month'] is String ? int.tryParse(json['month']) : null),
-      year: json['year'] is int ? json['year'] as int : (json['year'] is String ? int.tryParse(json['year']) : null),
+      id: json['id'] is int
+          ? json['id'] as int
+          : (json['id'] is String ? int.tryParse(json['id']) : null),
+      month: json['month'] is int
+          ? json['month'] as int
+          : (json['month'] is String ? int.tryParse(json['month']) : null),
+      year: json['year'] is int
+          ? json['year'] as int
+          : (json['year'] is String ? int.tryParse(json['year']) : null),
       date: parseDate(json['date'] ?? json['date_time'] ?? json['dateCreated']),
       createdAt: parseDate(json['createdAt'] ?? json['created_at']),
       baseSalary: parseDouble(json['baseSalary'] ?? json['base_salary']),
@@ -99,14 +105,15 @@ class PayrollModel {
   /// Computed total income: prefer provided server value, otherwise sum positive components.
   double get totalIncome =>
       _totalIncome ??
-          (baseSalary ?? 0.0) +
-              (productBonus ?? 0.0) +
-              (overtimePay ?? 0.0) +
-              (allowance ?? 0.0);
+      (baseSalary ?? 0.0) +
+          (productBonus ?? 0.0) +
+          (overtimePay ?? 0.0) +
+          (allowance ?? 0.0);
 
   /// Formats a numeric amount as currency (Vietnamese locale used here).
   String formatCurrency(double amount) {
-    final f = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
+    final f =
+        NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
     return f.format(amount);
   }
 }
