@@ -30,10 +30,11 @@ const PayrollRouter = () =>
             <Route path="/tax-deduction" element={<TaxDeductionManagement />} /> // giảm trừ gia cảnh test ok
             <Route path="/tax-bracket" element={<TaxBracketManagement />} /> // bảng liệt kê thuế tính theo bậc test ok
             <Route path="/production" element={<ProductionManagement />} /> // ok test
-            <Route path="/production-line" element={<ProductionLineManagement />} /> // bỏ qua không xài
-            <Route path="/employee-production" element={<EmployeeProductionInput />} /> //test ok
-            <Route path="/attendance" element={<AttendanceManagement />} /> // test ok
-            <Route path="/leave-request" element={<LeaveRequestManagement />} />
+            <Route path="/employee-production" element={<EmployeeProductionInput />} /> //sản lượng của từng Emp theo tháng test ok
+            <Route path="/attendance" element={<AttendanceManagement />} /> // bảng chấm công test ok
+            <Route path="/leave-request" element={<LeaveRequestManagement />} /> // xin nghỉ phép test oko
+
+            {/*bỏ qua không xài <Route path="/production-line" element={<ProductionLineManagement />} /> */}
 
             <Route path="/:payrollId/approve" element={<PayrollApproval />} />
             <Route path="/:payrollId" element={<PayrollDetail />} />

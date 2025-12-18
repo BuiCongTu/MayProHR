@@ -5,9 +5,17 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import fpt.aptech.springbootapp.dtos.ModuleC.PayrollResponseDTO;
+import fpt.aptech.springbootapp.dtos.response.TbEmployeePayrollDTO;
+import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.EmployeeProductionRepo;
+import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.PayrollRepo;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +24,7 @@ import fpt.aptech.springbootapp.dtos.ModuleC.TimeBaseAllocDTO;
 import fpt.aptech.springbootapp.dtos.ModuleC.TimeBaseAllocationResult;
 import fpt.aptech.springbootapp.entities.Core.TbUser;
 import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeePayroll;
+import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeeProduction;
 import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeeWorkTime;
 import fpt.aptech.springbootapp.entities.ModuleC.TbPayroll;
 import fpt.aptech.springbootapp.repositories.UserRepository;
@@ -28,6 +37,8 @@ import lombok.RequiredArgsConstructor;
 public class PayrollServiceImp implements PayrollService {
 
     private EmployeePayrollRepo employeePayrollRepo;
+    private final PayrollRepo payrollRepo;
+    private final EmployeeProductionRepo employeeProductionRepo;
 
     private UserRepository userRepository;
     private final EmployeeWorkTimeRepository ewtrepo;
@@ -37,11 +48,15 @@ public class PayrollServiceImp implements PayrollService {
     public PayrollServiceImp(EmployeePayrollRepo employeePayrollRepo,
             UserRepository userRepository,
             EmployeeWorkTimeRepository ewtrepo,
-            PayrollCalculationService payrollCalService) {
+            PayrollCalculationService payrollCalService,
+                             PayrollRepo payrollRepo,
+                             EmployeeProductionRepo employeeProductionRepo) {
         this.employeePayrollRepo = employeePayrollRepo;
         this.userRepository = userRepository;
         this.ewtrepo = ewtrepo;
         this.payrollCalService = payrollCalService;
+        this.payrollRepo = payrollRepo;
+        this.employeeProductionRepo = employeeProductionRepo;
     }
 
     @Override
@@ -293,4 +308,114 @@ public class PayrollServiceImp implements PayrollService {
             });
         }
     }
+
+    @Override
+    public PayrollResponseDTO getPayrollDetail(Integer payrollId) {
+        TbPayroll payroll = payrollRepo.findById(payrollId)
+                .orElseThrow(() -> new EntityNotFoundException("Payroll not found: " + payrollId));
+
+        PayrollResponseDTO dto = new PayrollResponseDTO();
+        dto.setPayrollId(payroll.getId());
+        dto.setDepartmentId(payroll.getDepartment() != null ? payroll.getDepartment().getId() : null);
+        dto.setDepartmentName(
+                payroll.getDepartment() != null ? payroll.getDepartment().getName() : null
+        );
+        dto.setMonth(payroll.getMonth());
+        dto.setTotalSalary(payroll.getTotalSalary());
+        dto.setStatus(payroll.getStatus() != null ? payroll.getStatus().name() : null);
+        dto.setCreatedAt(payroll.getCreatedAt());
+
+        // 1. Lấy danh sách employee payroll
+        List<TbEmployeePayroll> eps = employeePayrollRepo.findByPayrollId(payrollId);
+
+        // 2. Lấy danh sách WorkTime cho payroll và build HashMap<employeePayrollId, TbEmployeeWorkTime>
+        List<TbEmployeeWorkTime> workTimes = ewtrepo.findByPayrollId(payrollId);
+        Map<Integer, TbEmployeeWorkTime> workTimeMap = new HashMap<>();
+        for (TbEmployeeWorkTime wt : workTimes) {
+            if (wt.getEmployeePayroll() != null && wt.getEmployeePayroll().getId() != null) {
+                workTimeMap.put(wt.getEmployeePayroll().getId(), wt);
+            }
+        }
+
+        // 3. Lấy danh sách EmployeeProduction cho department + month,
+        //    build HashMap<userId, totalProductCount>
+        Map<Integer, BigDecimal> productionQtyMap = new HashMap<>();
+        if (payroll.getDepartment() != null && payroll.getMonth() != null) {
+            List<TbEmployeeProduction> prodList = employeeProductionRepo.findByDepartmentAndMonth(
+                    payroll.getDepartment().getId(),
+                    payroll.getMonth()
+            );
+
+            for (TbEmployeeProduction epProd : prodList) {
+                if (epProd.getEmployee() == null || epProd.getEmployee().getId() == null) {
+                    continue;
+                }
+                Integer userId = epProd.getEmployee().getId();
+                BigDecimal current = productionQtyMap.getOrDefault(userId, BigDecimal.ZERO);
+                BigDecimal qty = epProd.getProductCount() != null
+                        ? BigDecimal.valueOf(epProd.getProductCount())
+                        : BigDecimal.ZERO;
+                productionQtyMap.put(userId, current.add(qty));
+            }
+        }
+
+        // 4. Map sang DTO, sử dụng HashMap để lấy WorkTime và Production
+        List<TbEmployeePayrollDTO> employeeDTOs = eps.stream()
+                .map(ep -> mapToEmployeePayrollDTO(ep, workTimeMap, productionQtyMap))
+                .collect(Collectors.toList());
+
+        dto.setEmployeePayrolls(employeeDTOs);
+
+        return dto;
+    }
+
+    private TbEmployeePayrollDTO mapToEmployeePayrollDTO(
+            TbEmployeePayroll ep,
+            Map<Integer, TbEmployeeWorkTime> workTimeMap,
+            Map<Integer, BigDecimal> productionQtyMap
+    ) {
+        TbEmployeePayrollDTO dto = new TbEmployeePayrollDTO();
+        dto.setEmployeePayrollId(ep.getId());
+
+        if (ep.getUser() != null) {
+            dto.setUserId(ep.getUser().getId());
+            dto.setEmployeeCode(ep.getUser().getId());
+            dto.setFullName(ep.getUser().getFullName());
+        }
+
+        dto.setBaseSalary(ep.getBaseSalary());
+        dto.setAllowance(ep.getAllowance());
+        dto.setProductBonus(ep.getProductBonus());
+        dto.setOvertimePay(ep.getOvertimePay());
+        dto.setDeduction(ep.getDeduction());
+        dto.setPersonalIncomeTax(ep.getPersonalIncomeTax());
+        dto.setTaxDeductionTotal(ep.getTaxDeductionTotal());
+        dto.setTotalPay(ep.getTotalPay());
+
+        // Lấy WorkTime từ HashMap thay vì ep.getWorkTime()
+        TbEmployeeWorkTime wt = workTimeMap.get(ep.getId());
+        if (wt != null) {
+            dto.setTotalWorkDays(wt.getWorkingDays());
+            // Tổng OT = otWeekday + otHoliday
+            BigDecimal otTotal = BigDecimal.ZERO;
+            if (wt.getOtWeekdayHours() != null) {
+                otTotal = otTotal.add(wt.getOtWeekdayHours());
+            }
+            if (wt.getOtHolidayHours() != null) {
+                otTotal = otTotal.add(wt.getOtHolidayHours());
+            }
+            dto.setTotalOvertimeHours(otTotal);
+        }
+
+        // Lấy tổng sản lượng theo userId từ HashMap
+        if (ep.getUser() != null && ep.getUser().getId() != null) {
+            BigDecimal qty = productionQtyMap.get(ep.getUser().getId());
+            dto.setTotalProductionQuantity(qty != null ? qty : BigDecimal.ZERO);
+        }
+
+        dto.setNote(ep.getNote());
+        dto.setCreatedAt(ep.getCreatedAt());
+        return dto;
+    }
+
 }

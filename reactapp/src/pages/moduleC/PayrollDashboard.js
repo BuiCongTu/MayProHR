@@ -23,8 +23,7 @@ const PayrollDashboard = () =>
 
     const fetchDashboardData = async () =>
     {
-        try
-        {
+        try {
             setLoading(true);
             setError('');
 
@@ -34,14 +33,11 @@ const PayrollDashboard = () =>
             });
 
             let reportData = [];
-            if (reportResponse.data.success === false)
-            {
+            if (reportResponse.data.success === false) {
                 setError(reportResponse.data.message || 'Failed to load statistics');
-            } else if (reportResponse.data.data)
-            {
+            } else if (reportResponse.data.data) {
                 reportData = reportResponse.data.data || [];
-            } else if (Array.isArray(reportResponse.data))
-            {
+            } else if (Array.isArray(reportResponse.data)) {
                 reportData = reportResponse.data;
             }
 
@@ -62,23 +58,18 @@ const PayrollDashboard = () =>
             // Fetch recent payrolls (giữ nguyên như cũ)
             const recentResponse = await axiosInstance.get('/payroll/recent?limit=5');
             let recentData = [];
-            if (recentResponse.data.success !== false)
-            {
-                if (recentResponse.data.data)
-                {
+            if (recentResponse.data.success !== false){
+                if (recentResponse.data.data) {
                     recentData = recentResponse.data.data || [];
-                } else if (Array.isArray(recentResponse.data))
-                {
+                } else if (Array.isArray(recentResponse.data)) {
                     recentData = recentResponse.data;
                 }
             }
             setRecentPayrolls(recentData);
-        } catch (err)
-        {
+        } catch (err) {
             console.error('Failed to load dashboard:', err);
             setError(err.response?.data?.message || 'Unable to load dashboard data');
-        } finally
-        {
+        } finally {
             setLoading(false);
         }
     };
@@ -89,19 +80,16 @@ const PayrollDashboard = () =>
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
             currency: 'VND',
-            maximumFractionDigits: 0
-        }).format(value);
+            maximumFractionDigits: 0}).format(value);
     };
 
-    if (loading)
-    {
+    if (loading) {
         return (
             <div className="text-center p-5">
                 <Spinner animation="border" role="status">
                     <span className="visually-hidden">Loading...</span>
                 </Spinner>
-            </div>
-        );
+            </div>);
     }
 
     return (
@@ -154,8 +142,6 @@ const PayrollDashboard = () =>
 
             </Row>
 
-            {/* Charts removed to improve performance */}
-
             {/* Quick Actions */}
             <Row className="mb-4">
                 <Col lg={12}>
@@ -165,18 +151,10 @@ const PayrollDashboard = () =>
                         </Card.Header>
                         <Card.Body>
                             <div className="d-grid gap-2 d-md-flex">
-                                <Link to="/payroll/list" className="btn btn-primary">
-                                    Payroll List
-                                </Link>
-                                <Link to="/payroll/create" className="btn btn-success">
-                                    ➕ Create New
-                                </Link>
-                                <Link to="/payroll/report" className="btn btn-info">
-                                    Report
-                                </Link>
-                                <Link to="/payroll/tax-calculator" className="btn btn-warning">
-                                    Tax Calculator
-                                </Link>
+                                <Link to="/payroll/list" className="btn btn-primary">Payroll List</Link>
+                                <Link to="/payroll/create" className="btn btn-success">Create New</Link>
+                                <Link to="/payroll/report" className="btn btn-info">Report</Link>
+                                <Link to="/payroll/tax-calculator" className="btn btn-warning">Tax Calculator</Link>
                             </div>
                         </Card.Body>
                     </Card>

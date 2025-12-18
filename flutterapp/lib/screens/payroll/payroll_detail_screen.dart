@@ -1,19 +1,48 @@
 import 'package:flutter/material.dart';
+
 import '../../models/payroll_model.dart';
 
 class PayrollDetailScreen extends StatelessWidget {
-  final PayrollModel payroll;
+  final PayrollModel? payroll;
 
   const PayrollDetailScreen({
     super.key,
-    required this.payroll,
+    this.payroll,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (payroll == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Payroll Detail'),
+          centerTitle: true,
+          elevation: 2,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.info_outline, size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
+              const Text(
+                'No payroll information available',
+                style: TextStyle(fontSize: 18, color: Colors.grey),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Go Back'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Lương Tháng ${payroll.getMonthYear()}'),
+        title: Text('Payroll for ${payroll!.getMonthYear()}'),
         centerTitle: true,
         elevation: 2,
       ),
@@ -23,38 +52,33 @@ class PayrollDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSectionCard(
-              title: 'Các Khoản Cộng',
+              title: 'Income Items',
               items: [
-                ('Lương Cơ Bản', payroll.baseSalary ?? 0.0),
-                ('Thưởng Sản Phẩm', payroll.productBonus ?? 0.0),
-                ('Lương Tăng Ca', payroll.overtimePay ?? 0.0),
-                ('Phụ Cấp', payroll.allowance ?? 0.0),
+                ('Basic Salary', payroll!.baseSalary ?? 0.0),
+                ('Product Bonus', payroll!.productBonus ?? 0.0),
+                ('Overtime Pay', payroll!.overtimePay ?? 0.0),
+                ('Allowance', payroll!.allowance ?? 0.0),
               ],
               showTotal: true,
-              totalLabel: 'Tổng Thu Nhập',
-              totalAmount: payroll.totalIncome,
+              totalLabel: 'Total Income',
+              totalAmount: payroll!.totalIncome,
             ),
             const SizedBox(height: 16),
-
             _buildSectionCard(
-              title: 'Các Khoản Trừ',
+              title: 'Deduction Items',
               items: [
-                ('Khấu Trừ', payroll.deduction ?? 0.0),
+                ('Deduction', payroll!.deduction ?? 0.0),
               ],
               showTotal: false,
             ),
             const SizedBox(height: 24),
-
             _buildTotalPaySection(),
             const SizedBox(height: 24),
-
-            if (payroll.note != null && payroll.note!.isNotEmpty)
+            if (payroll!.note != null && payroll!.note!.isNotEmpty)
               _buildNoteSection(),
             const SizedBox(height: 24),
-
             _buildInfoSection(),
             const SizedBox(height: 24),
-
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -64,7 +88,7 @@ class PayrollDetailScreen extends StatelessWidget {
                   backgroundColor: Colors.blue,
                 ),
                 child: const Text(
-                  'Quay Lại',
+                  'Go Back',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -100,12 +124,10 @@ class PayrollDetailScreen extends StatelessWidget {
               ),
             ),
             const Divider(height: 16, thickness: 1),
-
             ...items.map((item) {
               final (label, amount) = item;
               return _buildDetailRow(label, amount);
             }),
-
             if (showTotal && totalLabel != null && totalAmount != null) ...[
               const Divider(height: 16, thickness: 1),
               _buildDetailRow(
@@ -122,11 +144,11 @@ class PayrollDetailScreen extends StatelessWidget {
   }
 
   Widget _buildDetailRow(
-      String label,
-      double amount, {
-        bool isBold = false,
-        Color? color,
-      }) {
+    String label,
+    double amount, {
+    bool isBold = false,
+    Color? color,
+  }) {
     final payrollModel = PayrollModel(totalPay: amount);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -155,7 +177,7 @@ class PayrollDetailScreen extends StatelessWidget {
   }
 
   Widget _buildTotalPaySection() {
-    final payrollModel = PayrollModel(totalPay: payroll.totalPay ?? 0.0);
+    final payrollModel = PayrollModel(totalPay: payroll!.totalPay ?? 0.0);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -178,7 +200,7 @@ class PayrollDetailScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const Text(
-            'Lương Thực Nhận',
+            'Salary Received',
             style: TextStyle(
               color: Colors.white,
               fontSize: 14,
@@ -187,7 +209,7 @@ class PayrollDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            payrollModel.formatCurrency(payroll.totalPay ?? 0.0),
+            payrollModel.formatCurrency(payroll!.totalPay ?? 0.0),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 32,
@@ -217,7 +239,7 @@ class PayrollDetailScreen extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 const Text(
-                  'Ghi Chú',
+                  'Note:',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -227,7 +249,7 @@ class PayrollDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              payroll.note!,
+              payroll!.note!,
               style: const TextStyle(
                 fontSize: 13,
                 color: Colors.grey,
@@ -249,7 +271,7 @@ class PayrollDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Thông Tin Lương',
+              'Payroll Information',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
@@ -257,24 +279,24 @@ class PayrollDetailScreen extends StatelessWidget {
             ),
             const Divider(height: 16, thickness: 1),
             _buildInfoItem(
-              'Mã Lương',
-              payroll.id?.toString() ?? 'N/A',
+              'Payroll ID',
+              payroll!.id?.toString() ?? 'N/A',
             ),
             _buildInfoItem(
-              'Ngày Tạo',
-              payroll.createdAt != null
-                  ? '${payroll.createdAt!.day}/${payroll.createdAt!.month}/${payroll.createdAt!.year}'
+              'Created At',
+              payroll!.createdAt != null
+                  ? '${payroll!.createdAt!.day}/${payroll!.createdAt!.month}/${payroll!.createdAt!.year}'
                   : 'N/A',
             ),
             _buildInfoItem(
-              'Tổng Thu Nhập',
-              PayrollModel(totalPay: payroll.totalIncome)
-                  .formatCurrency(payroll.totalIncome),
+              'Total Income',
+              PayrollModel(totalPay: payroll!.totalIncome)
+                  .formatCurrency(payroll!.totalIncome),
             ),
             _buildInfoItem(
-              'Khấu Trừ',
-              PayrollModel(totalPay: payroll.deduction ?? 0.0)
-                  .formatCurrency(payroll.deduction ?? 0.0),
+              'Deduction',
+              PayrollModel(totalPay: payroll!.deduction ?? 0.0)
+                  .formatCurrency(payroll!.deduction ?? 0.0),
             ),
           ],
         ),

@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+import fpt.aptech.springbootapp.dtos.ModuleC.PayrollResponseDTO;
 import org.springframework.stereotype.Service;
 
 import fpt.aptech.springbootapp.dtos.ModuleC.TimeBaseAllocDTO;
@@ -42,5 +43,5 @@ public interface PayrollService {
     TimeBaseAllocDTO getTimeBaseAllocationForEmployee(Integer userId, Integer year, Integer month);
 
     void clearTimeBaseAllocation(Integer year, Integer month, List<Integer> employeeIds);
-
+    PayrollResponseDTO getPayrollDetail(Integer payrollId);
 }

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
-import '../overtime/my_overtime_screen.dart';
 import '../auth/login_screen.dart';
-import '../payroll/payroll_detail_screen.dart';
+import '../overtime/my_overtime_screen.dart';
+import '../payroll/my_payroll_select_screen.dart';
 
 class UserHome extends StatelessWidget {
   const UserHome({super.key});
@@ -22,7 +22,7 @@ class UserHome extends StatelessWidget {
               auth.logout();
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (context) => const LoginScreen()),
-                    (Route<dynamic> route) => false,
+                (Route<dynamic> route) => false,
               );
             },
             icon: const Icon(Icons.logout),
@@ -73,6 +73,7 @@ class UserHome extends StatelessWidget {
                 ),
               ),
             ),
+
             const SizedBox(height: 24),
 
             const Text(
@@ -98,9 +99,7 @@ class UserHome extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => PayrollDetailScreen(
-                            payroll: auth.currentUser?['payroll'],
-                          ),
+                          builder: (context) => const MyPayrollSelectScreen(),
                         ),
                       );
                     },
@@ -140,12 +139,12 @@ class UserHome extends StatelessWidget {
   }
 
   Widget _buildMenuCard(
-      BuildContext context, {
-        required String title,
-        required IconData icon,
-        required Color color,
-        required VoidCallback onTap,
-      }) {
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
