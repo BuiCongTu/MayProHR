@@ -28,7 +28,7 @@ class AuthService {
           await prefs.setString(tokenKey, token);
           await prefs.setString(roleKey, roleName);
 
-          return {"token": token, "role": roleName};
+          return {"token": token, "role": roleName, "user": userData};
         } else {
           return {"error": responseData["message"] ?? "Login failed due to server logic."};
         }
