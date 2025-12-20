@@ -1,27 +1,30 @@
 package fpt.aptech.springbootapp.services.implementations;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import fpt.aptech.springbootapp.dtos.ModuleB.ProposalDTO;
-import fpt.aptech.springbootapp.dtos.ModuleB.requests.*;
-import fpt.aptech.springbootapp.entities.Core.TbUser;
-import fpt.aptech.springbootapp.entities.ModuleB.TbProposal;
-import fpt.aptech.springbootapp.mappers.ModuleB.ProposalMapper;
-import fpt.aptech.springbootapp.repositories.DepartmentRepository;
-import fpt.aptech.springbootapp.repositories.RoleRepository;
-import fpt.aptech.springbootapp.repositories.UserRepository;
-import fpt.aptech.springbootapp.repositories.ModuleB.ProposalRepository;
-import fpt.aptech.springbootapp.services.interfaces.ProposalService;
-import fpt.aptech.springbootapp.specifications.ProposalSpecification;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Map;
-import java.util.Optional;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import fpt.aptech.springbootapp.dtos.ModuleB.ProposalDTO;
+import fpt.aptech.springbootapp.dtos.ModuleB.requests.PositionChangeRequest;
+import fpt.aptech.springbootapp.dtos.ModuleB.requests.SalaryIncreaseRequest;
+import fpt.aptech.springbootapp.dtos.ModuleB.requests.SkillLevelChangeRequest;
+import fpt.aptech.springbootapp.entities.Core.TbUser;
+import fpt.aptech.springbootapp.entities.ModuleB.TbProposal;
+import fpt.aptech.springbootapp.mappers.ModuleB.ProposalMapper;
+import fpt.aptech.springbootapp.repositories.DepartmentRepository;
+import fpt.aptech.springbootapp.repositories.ModuleB.ProposalRepository;
+import fpt.aptech.springbootapp.repositories.RoleRepository;
+import fpt.aptech.springbootapp.repositories.UserRepository;
+import fpt.aptech.springbootapp.services.interfaces.ProposalService;
+import fpt.aptech.springbootapp.specifications.ProposalSpecification;
 
 @Service
 public class ProposalServiceImpl implements ProposalService {
@@ -57,28 +60,34 @@ public class ProposalServiceImpl implements ProposalService {
     @Override
     @Transactional
     public ProposalDTO createSalaryIncreaseProposal(SalaryIncreaseRequest req) {
-        TbUser proposer = userRepository.findById(req.getProposerId())
-                .orElseThrow(() -> new IllegalArgumentException("Proposer not found"));
-        TbUser target = userRepository.findById(req.getTargetUserId())
-                .orElseThrow(() -> new IllegalArgumentException("Target user not found"));
-
-        // check last salary increase within 12 months
-        Optional<TbProposal> last = proposalRepository.findFirstByTargetUserIdAndTypeOrderByCreatedAtDesc(
-                target.getId(), TbProposal.ProposalType.SalaryIncrease);
-
-        if (last.isPresent()) {
-            Instant lastTime = last.get().getCreatedAt();
-            if (lastTime != null && lastTime.isAfter(Instant.now().minus(365, ChronoUnit.DAYS))) {
-                throw new IllegalStateException("Salary was already proposed/changed within last 12 months");
-            }
+        if (req.getIncreaseAmount() == null || req.getIncreaseAmount() <= 0) {
+            throw new RuntimeException("Invalid increase amount");
         }
 
-        // validate increase amount by role (basic rules)
-        validateIncreaseByRole(target, req.getIncreaseAmount());
+        TbUser targetUser = userRepository.findById(req.getTargetUserId())
+                .orElseThrow(() -> new RuntimeException("Target employee not found"));
 
-        TbProposal p = ProposalMapper.fromSalaryRequest(req, proposer, target);
-        proposalRepository.save(p);
-        return ProposalMapper.toDTO(p);
+        BigDecimal currentSalary = targetUser.getBaseSalary() != null ? targetUser.getBaseSalary() : BigDecimal.ZERO;
+        BigDecimal increaseAmount = BigDecimal.valueOf(req.getIncreaseAmount());
+
+        // Check new salary > current salary
+        if (increaseAmount.compareTo(BigDecimal.ZERO) <= 0
+                || currentSalary.add(increaseAmount).compareTo(currentSalary) <= 0) {
+            throw new RuntimeException("Invalid increase amount");
+        }
+
+        TbProposal proposal = new TbProposal();
+        proposal.setProposer(userRepository.findById(req.getProposerId()).orElseThrow());
+        proposal.setTargetUser(targetUser);
+        String details = String.format("{\"increase\": %d}", req.getIncreaseAmount());
+        proposal.setDetails(details);
+        proposal.setReason(req.getReason());
+        proposal.setType(TbProposal.ProposalType.SalaryIncrease);
+        proposal.setStatus(TbProposal.ProposalStatus.pending);
+        proposal.setCreatedAt(Instant.now());
+
+        proposalRepository.save(proposal);
+        return ProposalMapper.toDTO(proposal);
     }
 
     // ---------- CREATE Position ----------
@@ -148,25 +157,37 @@ public class ProposalServiceImpl implements ProposalService {
         proposalRepository.save(p);
 
         // TODO: send notification (notificationService.notify(...))
-
         return ProposalMapper.toDTO(p);
     }
 
     // ---------- helpers ----------
     private void validateIncreaseByRole(TbUser target, Integer increase) {
-        if (increase == null || increase <= 0) throw new IllegalArgumentException("Invalid increase amount");
+        if (increase == null || increase <= 0) {
+            throw new IllegalArgumentException("Invalid increase amount");
+        }
         // example rule mapping (adjust values to your business):
         String roleName = target.getRole() != null ? target.getRole().getName() : "Worker";
         int min;
         switch (roleName) {
-            case "Factory Director": min = 500000; break;
-            case "Factory Manager": min = 400000; break;
-            case "Manager": min = 300000; break;
+            case "Factory Director":
+                min = 500000;
+                break;
+            case "Factory Manager":
+                min = 400000;
+                break;
+            case "Manager":
+                min = 300000;
+                break;
             case "Leader":
-            case "Assistant Leader": min = 250000; break;
-            default: min = 200000;
+            case "Assistant Leader":
+                min = 250000;
+                break;
+            default:
+                min = 200000;
         }
-        if (increase < min) throw new IllegalArgumentException("Increase amount is below allowed minimum for role");
+        if (increase < min) {
+            throw new IllegalArgumentException("Increase amount is below allowed minimum for role");
+        }
     }
 
     private void applyApprovedEffects(TbProposal p) {
@@ -178,7 +199,9 @@ public class ProposalServiceImpl implements ProposalService {
                 if (inc != null) {
                     Integer increase = (inc instanceof Number) ? ((Number) inc).intValue() : Integer.parseInt(inc.toString());
                     TbUser target = p.getTargetUser();
-                    if (target.getBaseSalary() == null) target.setBaseSalary(java.math.BigDecimal.ZERO);
+                    if (target.getBaseSalary() == null) {
+                        target.setBaseSalary(java.math.BigDecimal.ZERO);
+                    }
                     target.setBaseSalary(target.getBaseSalary().add(java.math.BigDecimal.valueOf(increase)));
                     userRepository.save(target);
 
@@ -201,7 +224,7 @@ public class ProposalServiceImpl implements ProposalService {
                     departmentRepository.findById(deptId).ifPresent(d -> target.setDepartment(d));
                 }
                 if (newSalaryObj != null && !"null".equals(newSalaryObj.toString())) {
-                    Integer newSalary = (newSalaryObj instanceof Number) ? ((Number)newSalaryObj).intValue() : Integer.parseInt(newSalaryObj.toString());
+                    Integer newSalary = (newSalaryObj instanceof Number) ? ((Number) newSalaryObj).intValue() : Integer.parseInt(newSalaryObj.toString());
                     target.setBaseSalary(java.math.BigDecimal.valueOf(newSalary));
                 }
                 userRepository.save(target);

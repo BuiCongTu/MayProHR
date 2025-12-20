@@ -1,19 +1,32 @@
 package fpt.aptech.springbootapp.api.ModuleC;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import fpt.aptech.springbootapp.entities.System.TbHoliday;
 import fpt.aptech.springbootapp.repositories.System.HolidayRepository;
 import fpt.aptech.springbootapp.repositories.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.time.*;
-import java.util.*;
-
 
 @RestController
 @RequestMapping("/api/holiday")
 public class HolidayController {
+
     private HolidayRepository holidayRepo;
     private UserRepository userRepo;
 
@@ -59,7 +72,6 @@ public class HolidayController {
         }
     }
 
-
     //lay holiday theo id
     @GetMapping("/{id}")
     public ResponseEntity<?> getHolidayById(@PathVariable Integer id) {
@@ -77,7 +89,6 @@ public class HolidayController {
             return ResponseEntity.badRequest().body(body);
         }
     }
-
 
     //create holiday
     @PostMapping
@@ -125,7 +136,7 @@ public class HolidayController {
     // Update holiday
     @PutMapping("/{id}")
     public ResponseEntity<?> updateHoliday(@PathVariable Integer id,
-                                           @RequestBody TbHoliday request) {
+            @RequestBody TbHoliday request) {
         Map<String, Object> body = new HashMap<>();
         try {
             TbHoliday holiday = holidayRepo.findById(id)
@@ -190,5 +201,22 @@ public class HolidayController {
         }
     }
 
-
+    //trả về ngày được chọn có phải ngày lễ hoặc ngày chủ nhật hay không
+    @GetMapping("/isHolidayOrSunday/{date}")
+    public ResponseEntity<?> isHolidayOrSunday(@PathVariable String date) {
+        Map<String, Object> body = new HashMap<>();
+        try {
+            LocalDate localDate = LocalDate.parse(date);
+            boolean isSunday = localDate.getDayOfWeek() == java.time.DayOfWeek.SUNDAY;
+            boolean isHoliday = holidayRepo.existsByHolidayDate(localDate);
+            boolean result = isSunday || isHoliday;
+            body.put("success", true);
+            body.put("data", result);
+            return ResponseEntity.ok(body);
+        } catch (Exception e) {
+            body.put("success", false);
+            body.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(body);
+        }
+    }
 }

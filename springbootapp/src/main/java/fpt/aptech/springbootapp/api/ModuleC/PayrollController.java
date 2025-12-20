@@ -1187,4 +1187,51 @@ public class PayrollController {
         private String approverNote;
     }
 
+    // Cập nhật dữ liệu công việc (ngày công, OT, etc) của employee trong payroll
+    @PutMapping("/employee-payroll/{employeePayrollId}")
+    public ResponseEntity<?> updateEmployeeWorkData(
+            @PathVariable Integer employeePayrollId,
+            @RequestBody Map<String, Object> workData) {
+        try {
+            TbEmployeePayroll ep = employeePayrollRepo.findById(employeePayrollId)
+                    .orElseThrow(() -> new RuntimeException("Employee payroll not found: " + employeePayrollId));
+
+            // Cập nhật các trường được gửi từ FE
+            if (workData.containsKey("actualWorkingDays")) {
+                Object val = workData.get("actualWorkingDays");
+//                ep.setActualWorkingDays(val != null ? Double.parseDouble(val.toString()) : 0);
+            }
+            if (workData.containsKey("paidLeaveDays")) {
+                Object val = workData.get("paidLeaveDays");
+//                ep.setPaidLeaveDays(val != null ? Double.parseDouble(val.toString()) : 0);
+            }
+            if (workData.containsKey("unpaidLeaveDays")) {
+                Object val = workData.get("unpaidLeaveDays");
+//                ep.setUnpaidLeaveDays(val != null ? Double.parseDouble(val.toString()) : 0);
+            }
+            if (workData.containsKey("otWeekdayHours")) {
+                Object val = workData.get("otWeekdayHours");
+//                ep.setOtWeekdayHours(val != null ? Double.parseDouble(val.toString()) : 0);
+            }
+            if (workData.containsKey("otHolidayHours")) {
+                Object val = workData.get("otHolidayHours");
+//                ep.setOtHolidayHours(val != null ? Double.parseDouble(val.toString()) : 0);
+            }
+
+            TbEmployeePayroll updated = employeePayrollRepo.save(ep);
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", true);
+            body.put("message", "Update employee work data successfully");
+            body.put("data", updated);
+            return ResponseEntity.ok(body);
+
+        } catch (Exception e) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", false);
+            body.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(body);
+        }
+    }
+
 }

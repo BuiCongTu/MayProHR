@@ -295,38 +295,41 @@ function PositionProposalForm()
         !!formData.newDepartment &&
         !!formData.reason.trim();
 
-    const handleSubmit = async (e) =>
-    {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError(null);
         setSuccess(null);
-        if (!formData.targetUser || !formData.newRole || !formData.newDepartment)
-        {
+
+        if (!formData.targetUser || !formData.newRole || !formData.newDepartment) {
             setError('Please select employee, new role and new department.');
             return;
         }
 
-        if (!formData.reason.trim())
-        {
+        if (!formData.reason.trim()) {
             setError('Please provide a reason for this position change.');
             return;
         }
+
+        // Lấy line/sub-line/work unit mới nếu có
+        const newLineId = newLinePath[0]?.id || null;
+        const newSubLineId = newLinePath.length >= 3 ? newLinePath[newLinePath.length - 2]?.id : null;
+        const newWorkUnitId = newLinePath.length > 0 ? newLinePath[newLinePath.length - 1]?.id : null;
 
         const payload = {
             proposerId: formData.proposerId,
             targetUserId: formData.targetUser.id,
             newRoleId: formData.newRole.id,
             newDepartmentId: formData.newDepartment.id,
-            newSalary: formData.newSalary
-                ? parseInt(formData.newSalary, 10)
-                : null,
+            newSalary: formData.newSalary ? parseInt(formData.newSalary, 10) : null,
             salaryType: formData.salaryType || null,
-            reason: formData.reason.trim()
+            reason: formData.reason.trim(),
+            lineId: newLineId,
+            subLineId: newSubLineId,
+            workUnitId: newWorkUnitId
         };
 
         setLoading(true);
-        try
-        {
+        try {
             await createPositionChangeProposal(payload);
             setSuccess('Position change proposal created successfully.');
             setFormData((prev) => ({
@@ -337,8 +340,8 @@ function PositionProposalForm()
                 newSalary: '',
                 reason: ''
             }));
-        } catch (err)
-        {
+            setNewLinePath([]);
+        } catch (err) {
             console.error(err);
             const msg =
                 err?.response?.data?.message ||
@@ -346,11 +349,11 @@ function PositionProposalForm()
                 err?.message ||
                 'Failed to create position change proposal.';
             setError(msg);
-        } finally
-        {
+        } finally {
             setLoading(false);
         }
     };
+
 
     return (
         <Container maxWidth="md" sx={{ mt: 4 }}>

@@ -1,15 +1,26 @@
 package fpt.aptech.springbootapp.api.ModuleB;
 
-import fpt.aptech.springbootapp.dtos.ModuleB.ProposalDTO;
-import fpt.aptech.springbootapp.dtos.ModuleB.requests.*;
-import fpt.aptech.springbootapp.entities.ModuleB.TbProposal.ProposalType;
-import fpt.aptech.springbootapp.filter.ProposalFilter;
-import fpt.aptech.springbootapp.services.interfaces.ProposalService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import fpt.aptech.springbootapp.dtos.ModuleB.ProposalDTO;
+import fpt.aptech.springbootapp.dtos.ModuleB.requests.PositionChangeRequest;
+import fpt.aptech.springbootapp.dtos.ModuleB.requests.RejectRequest;
+import fpt.aptech.springbootapp.dtos.ModuleB.requests.SalaryIncreaseRequest;
+import fpt.aptech.springbootapp.dtos.ModuleB.requests.SkillLevelChangeRequest;
+import fpt.aptech.springbootapp.entities.ModuleB.TbProposal.ProposalType;
+import fpt.aptech.springbootapp.filter.ProposalFilter;
+import fpt.aptech.springbootapp.services.interfaces.ProposalService;
 
 @RestController
 @RequestMapping("/api/proposal")

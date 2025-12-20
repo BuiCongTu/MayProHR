@@ -1,4 +1,11 @@
-13/12
+1. Xoá cache browser + node_modules:
+
+cd reactapp
+rm -rf node_modules package-lock.json
+npm install
+npm start
+
+# 1. Python
 # Face Attendance System - Environment Setup
 
 MacOs/Linux chạy:
@@ -15,6 +22,17 @@ python3 -m venv venv
 venv\Scripts\activate
 pip install -r requirements_api.txt
 bash startPythonApi.sh
+
+# 2. Spring Bootcd springbootapp
+./mvnw spring-boot:run
+
+# 3. React
+cd reactapp
+npm start
+
+chay mobile:
+emulator -avd Medium_Phone_API_36.1 -read-only
+
 
 9/12
 Ví dụ cách tính thuế TNCN 2026 đối với cá nhân cư trú có ký HĐLĐ trên 03 tháng:

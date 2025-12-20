@@ -12,7 +12,7 @@ import org.springframework.http.HttpMethod; // Added this import
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
-import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -25,13 +25,15 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
-import fpt.aptech.springbootapp.securities.JwtAuthenticationFilter; // Added this import
-import fpt.aptech.springbootapp.securities.JwtUtils;
+import fpt.aptech.springbootapp.securities.JwtAuthenticationFilter;
+import fpt.aptech.springbootapp.securities.JwtUtils; // Added this import
 import fpt.aptech.springbootapp.services.implementations.CustomUserDetailsService;
 
 @Configuration
 @EnableWebSecurity
-@EnableGlobalMethodSecurity(prePostEnabled = true)
+// @EnableGlobalMethodSecurity(prePostEnabled = true)
+@EnableMethodSecurity(prePostEnabled = true)
+
 public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;

@@ -1,5 +1,6 @@
 package fpt.aptech.springbootapp.entities.ModuleC;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import fpt.aptech.springbootapp.entities.Core.TbDepartment;
 import fpt.aptech.springbootapp.entities.Core.TbUser;
@@ -71,6 +72,7 @@ public class TbPayroll {
 
     @ColumnDefault("getdate()")
     @Column(name = "created_at")
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS")
     private Instant createdAt;
 
     @OneToMany(mappedBy = "payroll", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

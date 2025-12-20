@@ -1,4 +1,3 @@
-// factory director
 import React from 'react';
 import { getCurrentUser } from '../../../services/authService';
 import ProposalList from './ProposalList';

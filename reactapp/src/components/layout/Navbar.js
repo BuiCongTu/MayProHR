@@ -1,14 +1,20 @@
-import { Logout as LogoutIcon, Notifications, Person, CheckCircle, Error as ErrorIcon, Info, Menu as MenuIcon } from '@mui/icons-material';
-import {
-    AppBar, Avatar, Badge, Box, Button, Divider, IconButton, Menu, MenuItem, Toolbar, Typography, ListItemIcon,
-    Drawer, List, ListItem, ListItemButton, ListItemText
+import { CheckCircle, Error as ErrorIcon, Info, Logout as LogoutIcon, Menu as MenuIcon, Notifications, Person } from '@mui/icons-material';
+import
+{
+    AppBar, Avatar, Badge, Box, Button, Divider,
+    Drawer,
+    IconButton,
+    List, ListItem, ListItemButton,
+    ListItemIcon,
+    ListItemText,
+    Menu, MenuItem, Toolbar, Typography
 } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { getCurrentUser, isAuthenticated } from '../../services/authService';
-import { useWebSocket } from '../../contexts/WebSocketContext';
-import { getMyNotifications, markAsRead, markAllAsRead } from '../../services/notificationService';
 import { toast } from 'react-toastify';
+import { useWebSocket } from '../../contexts/WebSocketContext';
+import { getCurrentUser, isAuthenticated } from '../../services/authService';
+import { getMyNotifications, markAllAsRead, markAsRead } from '../../services/notificationService';
 
 const drawerWidth = 240;
 
@@ -30,6 +36,7 @@ const getNavLinks = (roleName) =>
                 { title: 'Attendance', path: '/attendance' },
                 { title: 'Overtime Requests', path: '/overtime-request' },
                 { title: 'Overtime Tickets', path: '/overtime-ticket' },
+
                 { title: 'Reports', path: '/reports' },
             ];
             break;
@@ -38,9 +45,13 @@ const getNavLinks = (roleName) =>
         case 'FManager':
             links = [
                 { title: 'Dashboard', path: '/dashboard' },
+                { title: 'Employee List', path: '/users' },
                 { title: 'Pay Management', path: '/payroll/' },
                 { title: 'Overtime Requests', path: '/overtime-request' },
+                { title: 'Salary Proposal', path: '/salary-proposal' },
                 { title: 'Attendance', path: '/attendance/register-face' },
+                { title: 'Skill Proposal', path: '/skill-proposal' },
+                { title: 'Leave Request', path: '/leave-request' },
                 { title: 'Reports', path: '/reports' },
             ];
             break;
@@ -50,6 +61,7 @@ const getNavLinks = (roleName) =>
             links = [
                 { title: 'Dashboard', path: '/dashboard' },
                 { title: 'Overtime Requests', path: '/overtime-request' },
+                { title: 'Proposal Approve', path: '/proposal-approve' },
                 { title: 'Overview', path: '/overview' },
                 { title: 'Reports', path: '/reports' },
             ];
@@ -61,6 +73,7 @@ const getNavLinks = (roleName) =>
                 { title: 'My Attendance', path: '/attendance/history' },
                 { title: 'Check In', path: '/attendance/checkin' },
                 { title: 'Check Out', path: '/attendance/checkout' },
+                { title: 'Leave Request', path: '/leave-request' },
             ];
             break;
 
@@ -92,36 +105,45 @@ const Navbar = () =>
     const { subscribe, connected } = useWebSocket();
 
     // --- 1. INITIAL LOAD ---
-    useEffect(() => {
-        if (navbarRef.current) {
+    useEffect(() =>
+    {
+        if (navbarRef.current)
+        {
             const height = navbarRef.current.offsetHeight;
             localStorage.setItem('navbarHeight', height);
         }
 
-        if (isLoggedIn) {
+        if (isLoggedIn)
+        {
             fetchNotifications();
         }
     }, [user?.roleName, isLoggedIn]);
 
-    const fetchNotifications = async () => {
-        try {
+    const fetchNotifications = async () =>
+    {
+        try
+        {
             const data = await getMyNotifications(0, 20); // Get last 20
-            if (data && data.content) {
+            if (data && data.content)
+            {
                 setNotifications(data.content);
                 // Calculate unread from history
                 const unread = data.content.filter(n => n.status === 'sent').length;
                 setUnreadCount(unread);
             }
-        } catch (e) {
+        } catch (e)
+        {
             console.error("Failed to load notifications");
         }
     };
 
     // --- 2. WEBSOCKET LISTENER ---
-    useEffect(() => {
+    useEffect(() =>
+    {
         if (!connected || !isLoggedIn) return;
 
-        const sub = subscribe('/user/queue/notifications', (payload) => {
+        const sub = subscribe('/user/queue/notifications', (payload) =>
+        {
             console.log("🔔 WebSocket Notification:", payload);
             let notifObj = typeof payload === 'string' ? { message: payload } : payload;
 
@@ -160,36 +182,43 @@ const Navbar = () =>
     const handleProfile = () => { handleMenuClose(); navigate('/profile'); };
     const handleLogout = () => { handleMenuClose(); navigate('/logout'); };
 
-    const handleMarkAllRead = async () => {
+    const handleMarkAllRead = async () =>
+    {
         await markAllAsRead();
-        setNotifications(prev => prev.map(n => ({...n, status: 'read'})));
+        setNotifications(prev => prev.map(n => ({ ...n, status: 'read' })));
         setUnreadCount(0);
     }
 
-    const handleNotifItemClick = async (notif) => {
+    const handleNotifItemClick = async (notif) =>
+    {
         handleNotificationClose();
-        if (notif.status === 'sent') {
+        if (notif.status === 'sent')
+        {
             await markAsRead(notif.id);
             setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, status: 'read' } : n));
             setUnreadCount(prev => Math.max(0, prev - 1));
         }
 
         const msg = notif.message;
-        if (msg.includes("Request #")) {
+        if (msg.includes("Request #"))
+        {
             const match = msg.match(/Request #(\d+)/);
             if (match) navigate(`/overtime-request/${match[1]}`);
         }
-        else if (msg.includes("Ticket #")) {
+        else if (msg.includes("Ticket #"))
+        {
             const match = msg.match(/Ticket #(\d+)/);
             if (match) navigate(`/overtime-ticket/${match[1]}`);
         }
-        else if (msg.includes("Leave")) {
+        else if (msg.includes("Leave"))
+        {
             navigate('/leave-requests');
         }
     };
 
     // Helpers
-    const getAvatarImage = () => {
+    const getAvatarImage = () =>
+    {
         const roleName = user?.roleName;
         const gender = user?.gender;
         if (roleName === 'Admin') return '/images/admin.jpeg';
@@ -203,10 +232,11 @@ const Navbar = () =>
     };
     const avatarImage = getAvatarImage();
 
-    const getNotifIcon = (msg, type) => {
-        if (type === 'approval' || msg.toLowerCase().includes('approved')) return <CheckCircle fontSize="small" color="success"/>;
-        if (type === 'rejection' || msg.toLowerCase().includes('rejected')) return <ErrorIcon fontSize="small" color="error"/>;
-        return <Info fontSize="small" color="info"/>;
+    const getNotifIcon = (msg, type) =>
+    {
+        if (type === 'approval' || msg.toLowerCase().includes('approved')) return <CheckCircle fontSize="small" color="success" />;
+        if (type === 'rejection' || msg.toLowerCase().includes('rejected')) return <ErrorIcon fontSize="small" color="error" />;
+        return <Info fontSize="small" color="info" />;
     };
 
     // --- MOBILE DRAWER CONTENT ---
@@ -268,7 +298,8 @@ const Navbar = () =>
                         {/* Desktop Navigation (Visible on md and up) */}
                         {isLoggedIn && navLinks.length > 0 && (
                             <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}>
-                                {navLinks.map((link) => {
+                                {navLinks.map((link) =>
+                                {
                                     const isActive = location.pathname === link.path;
                                     return (
                                         <Button
@@ -296,7 +327,7 @@ const Navbar = () =>
                             <>
                                 <IconButton color="inherit" onClick={handleNotificationClick} sx={{ mr: 0.5 }}>
                                     <Badge badgeContent={unreadCount} color="error">
-                                        <Notifications fontSize="small"/>
+                                        <Notifications fontSize="small" />
                                     </Badge>
                                 </IconButton>
 

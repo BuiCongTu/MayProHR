@@ -161,7 +161,7 @@ public class AttendanceController {
      * Đăng ký khuôn mặt cho nhân viên
      */
     @PostMapping("/register-face")
-    @PreAuthorize("hasAnyRole('HR', 'Admin')")
+    @PreAuthorize("hasAnyRole('HR', 'ADMIN')")
     public ResponseEntity<Map<String, Object>> registerFace(@RequestBody Map<String, Object> request) {
         try {
             Integer userId = (Integer) request.get("userId");
@@ -190,7 +190,7 @@ public class AttendanceController {
      * Huấn luyện model
      */
     @PostMapping("/train-model")
-    @PreAuthorize("hasAnyRole('HR', 'Admin')")
+    @PreAuthorize("hasAnyRole('HR', 'ADMIN')")
     public ResponseEntity<Map<String, Object>> trainModel() {
         try {
             Map<String, Object> result = faceRecognitionService.trainModel();
@@ -281,7 +281,7 @@ public class AttendanceController {
                 attMap.put("departmentName", att.getDepartmentName() != null ? att.getDepartmentName() : "");
                 attMap.put("date", att.getDate() != null ? att.getDate() : "");
                 attMap.put("timeIn", att.getTimeIn() != null ? att.getTimeIn() : null);
-                attMap.put("timeOut", att.getTimeOut() != null ? att.getTimeOut(): null);
+                attMap.put("timeOut", att.getTimeOut() != null ? att.getTimeOut() : null);
                 attMap.put("status", att.getStatus() != null ? att.getStatus().toUpperCase() : "SUCCESS");
                 return attMap;
             }).toList());
