@@ -1,3 +1,4 @@
+```mermaid
 flowchart TD
     A[Start Payroll Calculation] --> B[Load Attendance Data]
     B --> C[Load Approved Leave Requests]
@@ -37,3 +38,4 @@ flowchart TD
 
     V --> W[Save Payroll Result]
     W --> X[End Payroll Calculation]
+```
