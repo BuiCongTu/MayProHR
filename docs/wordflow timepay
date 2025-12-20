@@ -1,0 +1,39 @@
+flowchart TD
+    A[Start Payroll Calculation] --> B[Load Attendance Data]
+    B --> C[Load Approved Leave Requests]
+    C --> D[Load Approved Overtime Records]
+    D --> E[Load Employee Profile<br/>(Base Salary, Allowance)]
+
+    E --> F[Set Standard Working Days = 26]
+
+    F --> G{Leave Days > Available Leave?}
+    G -- No --> H[Paid Working Days = 26]
+    G -- Yes --> I[Paid Working Days = 26 - Excess Leave Days]
+
+    H --> J[Daily Salary = Base Salary / 26]
+    I --> J
+
+    J --> K[Time-based Salary = Daily Salary × Paid Working Days]
+
+    K --> L[Count Late Arrivals]
+    L --> M[Late Penalty = Late Count × 50,000]
+
+    M --> N[Hourly Salary = Base Salary / 176]
+
+    N --> O[OT Weekday Pay = OT Hours × Hourly Salary × 1.5]
+    O --> P[OT Holiday Pay = OT Hours × Hourly Salary × 2.0]
+
+    P --> Q[Total Overtime Pay = OT1 + OT2]
+
+    Q --> R[Gross Income =<br/>Time-based Salary + OT Pay + Allowance - Penalty]
+
+    R --> S[Insurance Deduction = Base Salary × 10.5%]
+
+    S --> T[Taxable Income = Gross Income - Insurance - Personal Deduction - Dependent Deduction]
+
+    T --> U[Calculate PIT<br/>(Progressive Tax)]
+
+    U --> V[Net Salary = Gross Income - Insurance - PIT]
+
+    V --> W[Save Payroll Result]
+    W --> X[End Payroll Calculation]
