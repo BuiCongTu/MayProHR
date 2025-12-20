@@ -1,11 +1,11 @@
 package fpt.aptech.springbootapp.dtos.ModuleB;
 
+import java.time.Instant;
+
 import fpt.aptech.springbootapp.entities.ModuleB.TbProposal.ProposalStatus;
 import fpt.aptech.springbootapp.entities.ModuleB.TbProposal.ProposalType;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.time.Instant;
 
 @Getter
 @Setter
@@ -31,4 +31,5 @@ public class ProposalDTO {
     private String rejectReason;
 
     private Instant createdAt;
+
 }

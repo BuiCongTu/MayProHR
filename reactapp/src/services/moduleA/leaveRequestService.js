@@ -87,52 +87,52 @@ export const deleteLeaveRequest = async (id) =>
 
 export const getLeaveRequestsByUser = async (userId, fromDate, toDate) =>
 {
-    try
-    {
-        const params = {};
-        if (fromDate) params.fromDate = fromDate;
-        if (toDate) params.toDate = toDate;
+  try
+  {
+    const params = {};
+    if (fromDate) params.fromDate = fromDate;
+    if (toDate) params.toDate = toDate;
 
-        const response = await axiosInstance.get(`${API_BASE}/by-user/${userId}`, { params });
-        return extractData(response);
-    } catch (error)
-    {
-        console.error('Error fetching leave requests by user:', error);
-        throw error;
-    }
+    const response = await axiosInstance.get(`${API_BASE}/by-user/${userId}`, { params });
+    return extractData(response);
+  } catch (error)
+  {
+    console.error('Error fetching leave requests by user:', error);
+    throw error;
+  }
 };
 
 export const getAllLeaveRequestsSimple = async () =>
 {
-    try
-    {
-        const response = await axiosInstance.get(API_BASE);
-        const data = extractData(response);
-        console.log('[leaveRequestService] getAllLeaveRequestsSimple returned:', Array.isArray(data) ? data.length : 0, 'records');
-        return Array.isArray(data) ? data : [];
-    } catch (error)
-    {
-        console.error('[leaveRequestService] Error fetching all leave requests:', error);
-        return [];
-    }
+  try
+  {
+    const response = await axiosInstance.get(API_BASE);
+    const data = extractData(response);
+    console.log('[leaveRequestService] getAllLeaveRequestsSimple returned:', Array.isArray(data) ? data.length : 0, 'records');
+    return Array.isArray(data) ? data : [];
+  } catch (error)
+  {
+    console.error('[leaveRequestService] Error fetching all leave requests:', error);
+    return [];
+  }
 };
 
 export const getLeaveRequestsByMonth = async (month, departmentId, userId = null) =>
 {
-    try
-    {
-        const params = { month, departmentId };
-        if (userId) params.userId = userId;
+  try
+  {
+    const params = { month, departmentId };
+    if (userId) params.userId = userId;
 
-        const response = await axiosInstance.get(`${API_BASE}/by-month`, { params });
-        const data = extractData(response);
-        console.log('[leaveRequestService] getLeaveRequestsByMonth returned:',
-            Array.isArray(data) ? data.length : (Array.isArray(data?.data) ? data.data.length : 0),
-            'records');
-        return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
-    } catch (error)
-    {
-        console.error('[leaveRequestService] getLeaveRequestsByMonth error:', error.response?.data || error.message);
-        throw error;
-    }
+    const response = await axiosInstance.get(`${API_BASE}/by-month`, { params });
+    const data = extractData(response);
+    console.log('[leaveRequestService] getLeaveRequestsByMonth returned:',
+      Array.isArray(data) ? data.length : (Array.isArray(data?.data) ? data.data.length : 0),
+      'records');
+    return Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+  } catch (error)
+  {
+    console.error('[leaveRequestService] getLeaveRequestsByMonth error:', error.response?.data || error.message);
+    throw error;
+  }
 };

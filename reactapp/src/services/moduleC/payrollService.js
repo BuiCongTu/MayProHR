@@ -373,6 +373,20 @@ export const getChildLines = async (parentLineId) =>
     }
 };
 
+export const updateEmployeeWorkData = async (employeePayrollId, workData) => {
+    try {
+        const response = await axiosInstance.put(
+            `${API_BASE}/employee-payroll/${employeePayrollId}`,
+            workData
+        );
+        return extractData(response);
+    } catch (error) {
+        console.error('Error updating employee work data:', error);
+        throw error;
+    }
+};
+
+
 export default {
     calculateEmployeeSalary,
     calculatePersonalIncomeTax,
@@ -393,5 +407,6 @@ export default {
     createRecurringAllowance,
     getRecurringAllowancesByUser,
     addOneTimeAllowance,
-    toggleAllowance
+    toggleAllowance,
+    updateEmployeeWorkData
 };

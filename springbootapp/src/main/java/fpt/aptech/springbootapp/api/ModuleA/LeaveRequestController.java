@@ -7,7 +7,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -36,7 +35,7 @@ public class LeaveRequestController {
 
     @Autowired
     public LeaveRequestController(LeaveRequestRepository leaveRequestRepo,
-                                  UserRepository userRepository) {
+            UserRepository userRepository) {
         this.leaveRequestRepo = leaveRequestRepo;
         this.userRepository = userRepository;
     }

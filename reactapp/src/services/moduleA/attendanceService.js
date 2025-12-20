@@ -3,7 +3,8 @@ import { getToken } from '../authService';
 
 const API_BASE = 'http://localhost:9999/api/attendance';
 
-const getTokenHeader = () => {
+const getTokenHeader = () =>
+{
   const token = getToken();
   return {
     Authorization: token ? `Bearer ${token}` : '',
@@ -12,7 +13,8 @@ const getTokenHeader = () => {
 };
 
 const attendanceService = {
-  checkInByFace: async (imageBase64) => {
+  checkInByFace: async (imageBase64) =>
+  {
     const res = await axios.post(
       `${API_BASE}/checkin`,
       { imageBase64 },
@@ -21,7 +23,8 @@ const attendanceService = {
     return res.data;
   },
 
-  checkOutByFace: async (imageBase64) => {
+  checkOutByFace: async (imageBase64) =>
+  {
     const res = await axios.post(
       `${API_BASE}/checkout`,
       { imageBase64 },
@@ -30,7 +33,8 @@ const attendanceService = {
     return res.data;
   },
 
-  getHistory: async (userId, date) => {
+  getHistory: async (userId, date) =>
+  {
     const res = await axios.get(
       `${API_BASE}/history/${userId}`,
       {
@@ -41,8 +45,10 @@ const attendanceService = {
     return res.data;
   },
 
-  getByMonth: async (month, userId = null) => {
-    try {
+  getByMonth: async (month, userId = null) =>
+  {
+    try
+    {
       const res = await axios.get(
         `${API_BASE}/by-month`,
         {
@@ -50,15 +56,19 @@ const attendanceService = {
           headers: getTokenHeader()
         }
       );
+
       console.log('[attendanceService] getByMonth response:', res.data);
-      return res.data?.data || [];
-    } catch (error) {
+
+      return res.data;
+    } catch (error)
+    {
       console.error('[attendanceService] getByMonth error:', error.response?.data || error.message);
       throw error;
     }
   },
 
-  registerFace: async (userId, imageBase64) => {
+  registerFace: async (userId, imageBase64) =>
+  {
     const res = await axios.post(
       `${API_BASE}/register-face`,
       { userId: Number(userId), imageBase64 },
@@ -67,7 +77,8 @@ const attendanceService = {
     return res.data;
   },
 
-  trainModel: async () => {
+  trainModel: async () =>
+  {
     const res = await axios.post(
       `${API_BASE}/train-model`,
       {},

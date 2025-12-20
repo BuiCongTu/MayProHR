@@ -40,7 +40,6 @@ class _LoginScreenState extends State<LoginScreen> {
               decoration: InputDecoration(labelText: "Password"),
             ),
             const SizedBox(height: 20),
-
             ElevatedButton(
               onPressed: loading
                   ? null
@@ -77,6 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(result["error"] ?? "Login failed"),
+                            duration: Duration(seconds: 120),
                           ),
                         );
                       }
@@ -92,9 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     )
                   : Text("Login"),
             ),
-
             const SizedBox(height: 10),
-
             TextButton(
               onPressed: () {
                 Navigator.push(
@@ -104,7 +102,6 @@ class _LoginScreenState extends State<LoginScreen> {
               },
               child: Text("Create Account"),
             ),
-
             TextButton(
               onPressed: () {
                 Navigator.push(

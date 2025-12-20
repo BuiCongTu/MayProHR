@@ -13,7 +13,7 @@ const CheckInPage = () => {
     setResult(null);
 
     try {
-      const response = await axios.post('/api/face-scan/attendance', {
+      const response = await axios.post('/api/attendance/checkin', {
         imageBase64,
         scanType: 'CHECK_IN'
       });
