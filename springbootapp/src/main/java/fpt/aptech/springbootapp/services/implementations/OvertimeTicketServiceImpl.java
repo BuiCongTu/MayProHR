@@ -507,6 +507,21 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
         assignment.setStatus(newStatus);
         overtimeTicketEmployeeRepository.save(assignment);
 
+        if (newStatus == TbOvertimeTicketEmployee.EmployeeOvertimeStatus.rejected) {
+            TbUser manager = assignment.getOvertimeTicket().getManager();
+            if (manager != null) {
+                String empName = assignment.getEmployee().getFullName();
+                String lineName = assignment.getLine() != null ? assignment.getLine().getName() : "Line";
+
+                String message = String.format(
+                        "Gap Alert: %s has declined the OT invite for %s (Ticket #%d). Please assign a replacement.",
+                        empName, lineName, ticketId
+                );
+
+                notificationService.sendNotification(manager, message, TbNotification.NotificationType.other);
+            }
+        }
+
         TbOvertimeTicket updatedTicket = overtimeTicketRepository.findById(ticketId).orElse(assignment.getOvertimeTicket());
         OvertimeTicketDTO ticketDTO = overtimeTicketMapper.toDTO(updatedTicket);
         webSocketService.sendGlobalUpdate("/topic/tickets", ticketDTO);

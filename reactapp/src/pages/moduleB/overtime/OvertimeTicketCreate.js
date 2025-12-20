@@ -269,6 +269,7 @@ export default function OvertimeTicketCreate() {
         const newAllocations = { ...allocations };
         const usedEmployeeIds = new Set();
         Object.values(newAllocations).forEach(list => list.forEach(u => usedEmployeeIds.add(u.id)));
+        const activeLineIds = new Set(visibleLines.map(l => l.lineId));
 
         visibleLines.forEach(line => {
             const gap = Math.max(0, line.numEmployees - line.activeCount);
@@ -295,6 +296,7 @@ export default function OvertimeTicketCreate() {
                         !usedEmployeeIds.has(u.id)
                         && !freshConflicts.has(u.id)
                         && !getSiblingConflict(u, line.lineId)
+                        && !activeLineIds.has(u.lineId)
                     );
                     const addBorrow = borrowed.slice(0, stillNeeded);
                     addBorrow.forEach(u => usedEmployeeIds.add(u.id));
