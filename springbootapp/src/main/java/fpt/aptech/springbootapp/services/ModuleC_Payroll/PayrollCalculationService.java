@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 
 import fpt.aptech.springbootapp.dtos.ModuleC.PayrollCalculationDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.PayrollDetailDTO;
 import fpt.aptech.springbootapp.dtos.ModuleC.TaxCalculationDTO;
 import fpt.aptech.springbootapp.entities.Core.TbUser;
 
@@ -33,4 +34,16 @@ public interface PayrollCalculationService {
 
     //tinh Multiplier tang ca trung binh trong thang
     BigDecimal getAvgOvertimeMultiplier(TbUser user, YearMonth yearMonth);
+
+    //Tính chi tiết lương cho displaFE
+    PayrollDetailDTO getPayrollDetailForDisplay(Integer employeePayrollId);
+
+    //Xác thực dữ liệu trước tính lương
+    boolean validatePayrollData(TbUser user, LocalDate payrollMonth);
+
+    // Tính lương cho từng loại luong
+    PayrollCalculationDTO calTimeBasedPayroll(TbUser user, LocalDate payrollMonth, BigDecimal allowance);
+
+    PayrollCalculationDTO calProductBasedPayroll(TbUser user, LocalDate payrollMonth, BigDecimal allowance);
+
 }

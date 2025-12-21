@@ -9,6 +9,8 @@ import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
+import fpt.aptech.springbootapp.dtos.ModuleC.PayrollDetailDTO;
+import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.EmployeePayrollRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,7 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
     private final HolidayService holidayService;
     private final PersonalIncomeTaxCalService taxCalculationService;
     private final EmployeeTaxProfileService taxProfileService;
+    private final EmployeePayrollRepo employeePayrollRepo;
 
     private static final BigDecimal HOURS_PER_DAY = new BigDecimal("8");
     private static final BigDecimal STANDARD_WORKING_DAYS = new BigDecimal("26");
@@ -55,7 +58,8 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
             HolidayService holidayService,
             LeaveRequestRepo leaveRequestRepo,
             PersonalIncomeTaxCalService taxCalculationService,
-            EmployeeTaxProfileService taxProfileService) {
+            EmployeeTaxProfileService taxProfileService,
+            EmployeePayrollRepo employeePayrollRepo) {
         this.attendsRepo = attendsRepo;
         this.otTERepo = otTERepo;
         this.prodLineRepo = prodLineRepo;
@@ -64,6 +68,7 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
         this.leaveRequestRepo = leaveRequestRepo;
         this.taxCalculationService = taxCalculationService;
         this.taxProfileService = taxProfileService;
+        this.employeePayrollRepo = employeePayrollRepo;
     }
 
     //tinh luong full cho employee
@@ -203,7 +208,7 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
         List<TbLeaveRequest> approvedLeavesYtd = leaveRequestRepo
                 .findByUserAndStatusAndStartDateBetween(
                         user,
-                        TbLeaveRequest.LeaveStatus.approved.name(),
+                        TbLeaveRequest.LeaveStatus.approved,
                         startOfYear, endOfPrevMonth);
 
         BigDecimal usedLeaveDaysYtd = BigDecimal.ZERO;
@@ -222,7 +227,7 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
         List<TbLeaveRequest> approvedLeavesInMonth = leaveRequestRepo
                 .findByUserAndStatusAndStartDateBetween(
                         user,
-                        TbLeaveRequest.LeaveStatus.approved.name(),
+                        TbLeaveRequest.LeaveStatus.approved,
                         startDate, endDate);
 
         BigDecimal approvedLeaveDaysInMonth = BigDecimal.ZERO;
@@ -278,8 +283,6 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
 
                 dto.setProductCount(ep.getProductCount());
                 dto.setUnitPrice(ep.getUnitPrice() != null ? ep.getUnitPrice() : ep.getProduction().getUnitPrice());
-                dto.setTotalWorkingHours(C.longValue());
-                dto.setProductSalaryPerHour(productSalaryPerHour);
             }
 
             return total.setScale(SCALE, RoundingMode.HALF_UP);
@@ -306,8 +309,6 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
             dto.setProductCount(pl.getProduction().getProductCount());
             dto.setUnitPrice(pl.getProduction().getUnitPrice());
             dto.setCountContribution(pl.getCountContribution());
-            dto.setTotalWorkingHours(pl.getTotalWorkingHours());
-            dto.setProductSalaryPerHour(productSalaryPerHour);
         }
         return totalProductBonus.setScale(SCALE, RoundingMode.HALF_UP);
     }
@@ -323,7 +324,6 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
         }
 
         BigDecimal averageMultiplier = getAvgOvertimeMultiplier(user, yearMonth);
-        dto.setOvertimeMultiplier(averageMultiplier);
 
         BigDecimal hourlyRate = user.getBaseSalary().divide(HOURS_PER_MONTH, SCALE, RoundingMode.HALF_UP);
         BigDecimal overtimePay = totalOvertimeHours
@@ -346,11 +346,12 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
         totalDeduction = totalDeduction.add(insurance);
 
         //phat late
-        BigDecimal latePenalty = LATE_PENALTY.multiply(new BigDecimal(dto.getLateCount()));
+        BigDecimal latePenalty = LATE_PENALTY.multiply(new BigDecimal(dto.getLateCount() != null ? dto.getLateCount() : 0));
         totalDeduction = totalDeduction.add(latePenalty);
 
         return totalDeduction.setScale(SCALE, RoundingMode.HALF_UP);
     }
+
 
     //tinh thue tncn
     @Override
@@ -429,6 +430,124 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
 
         return totalMultiplier.divide(totalHours, SCALE, RoundingMode.HALF_UP);
     }
+
+    @Override
+    public PayrollDetailDTO getPayrollDetailForDisplay(Integer employeePayrollId) {
+        var ep = employeePayrollRepo.findById(employeePayrollId)
+                .orElseThrow(() -> new RuntimeException("Employee payroll not found"));
+
+        TbUser user = ep.getUser();
+        PayrollDetailDTO detail = new PayrollDetailDTO().builder()
+                .employeePayrollId(ep.getId())
+                .payrollId(ep.getPayroll().getId())
+                .payrollMonth(ep.getPayroll().getMonth())
+                .departmentName(ep.getPayroll().getDepartment().getName())
+                .userId(user.getId())
+                .fullName(user.getFullName())
+                .salaryType(user.getSalaryType().toString())
+                .hireDate(user.getHireDate())
+                .baseSalary(ep.getBaseSalary())
+                .wageCoefficient(user.getWageCoefficient())
+
+                // Dữ liệu TimeBased
+                .standardWorkingDays(ep.getStandardWorkingDays())
+                .actualWorkingDays(ep.getActualWorkingDays())
+                .paidLeaveDays(ep.getPaidLeaveDays())
+                .unpaidLeaveDays(ep.getUnpaidLeaveDays())
+                .lateCount(ep.getLateCount())
+                .latePenalty(ep.getLatePenalty())
+                .timeSalary(ep.getBaseSalary() != null && ep.getActualWorkingDays() != null
+                        ? ep.getBaseSalary()
+                        .divide(STANDARD_WORKING_DAYS, SCALE, RoundingMode.HALF_UP)
+                        .multiply(ep.getActualWorkingDays())
+                        : BigDecimal.ZERO)
+
+                // Dữ liệu ProductBased
+                .productBonus(ep.getProductBonus())
+
+                // Dữ liệu chung cả 2 loại
+                .ot1Hours(ep.getOt1Hours())
+                .ot2Hours(ep.getOt2Hours())
+                .overtimePay(ep.getOvertimePay())
+                .insurance(ep.getDeduction())
+                .totalDeduction(ep.getDeduction())
+                .grossIncomeForTax(ep.getGrossIncomeForTax())
+                .personalIncomeTax(ep.getPersonalIncomeTax())
+                .taxDeductionTotal(ep.getTaxDeductionTotal())
+                .allowance(ep.getAllowance())
+                .totalPay(ep.getTotalPay())
+                .note(ep.getNote())
+                .createdAt(ep.getCreatedAt())
+                .build();
+
+
+        return detail;
+    }
+
+    @Override
+    public boolean validatePayrollData(TbUser user, LocalDate payrollMonth) {
+        // Kiểm tra user không null
+        if (user == null || user.getId() == null) {
+            return false;
+        }
+
+        // Kiểm tra salary type hợp lệ
+        if (user.getSalaryType() == null) {
+            return false;
+        }
+
+        // Kiểm tra tháng hợp lệ (không quá tương lai)
+        LocalDate today = LocalDate.now();
+        if (payrollMonth.isAfter(today)) {
+            return false;
+        }
+
+        // Kiểm tra có base salary
+        if (user.getBaseSalary() == null || user.getBaseSalary().compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+
+        return true;
+
+    }
+
+    @Override
+    public PayrollCalculationDTO calTimeBasedPayroll(TbUser user, LocalDate payrollMonth, BigDecimal allowance) {
+        if (user.getSalaryType() != TbUser.SalaryType.TimeBased) {
+            throw new RuntimeException("User is not TimeBased salary type");
+        }
+
+        // Validate dữ liệu
+        if (!validatePayrollData(user, payrollMonth)) {
+            throw new RuntimeException("Invalid payroll data for calculation");
+        }
+
+        // Gọi calEmpSalary, nó sẽ tự động xử lý TimeBased
+        return calEmpSalary(user, payrollMonth, allowance);
+    }
+
+
+    @Override
+    public PayrollCalculationDTO calProductBasedPayroll(TbUser user, LocalDate payrollMonth, BigDecimal allowance) {
+        // Kiểm tra loại lương
+        if (user.getSalaryType() != TbUser.SalaryType.ProductBased) {
+            throw new RuntimeException("User is not ProductBased salary type");
+        }
+
+        // Validate dữ liệu
+        if (!validatePayrollData(user, payrollMonth)) {
+            throw new RuntimeException("Invalid payroll data for calculation");
+        }
+
+        // Kiểm tra nhân viên có line (unit/team)
+        if (user.getLine() == null) {
+            throw new RuntimeException("ProductBased employee must have a line/unit assigned");
+        }
+
+        // Gọi calEmpSalary, nó sẽ tự động xử lý ProductBased
+        return calEmpSalary(user, payrollMonth, allowance);
+    }
+
 
     //tách OT thành giờ ngày thường và giờ ngày lễ/chủ nhật
     private HoursSplit splitOvertimeHours(TbUser user, YearMonth yearMonth) {

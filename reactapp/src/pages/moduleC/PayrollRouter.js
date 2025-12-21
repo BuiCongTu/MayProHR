@@ -15,6 +15,8 @@ import TaxBracketManagement from "../../components/ModuleC/TaxBracketManagement"
 import TaxCalculator from '../../components/ModuleC/TaxCalculator';
 import TaxDeductionManagement from "../../components/ModuleC/TaxDeductionManagement";
 import PayrollDashboard from './PayrollDashboard';
+import PayrollEmployeeDetail from '../../components/ModuleC/PayrollEmployeeDetail';
+import PayrollEmployeeCalculator from '../../components/ModuleC/PayrollEmployeeCalculator';
 
 const PayrollRouter = () =>
 {
@@ -35,10 +37,12 @@ const PayrollRouter = () =>
             <Route path="/leave-request" element={<LeaveRequestManagement />} /> // xin nghỉ phép test oko
 
             {/*bỏ qua không xài <Route path="/production-line" element={<ProductionLineManagement />} /> */}
-
+            <Route path="/:payrollId/calculate" element={<PayrollEmployeeCalculator />} />
             <Route path="/:payrollId/approve" element={<PayrollApproval />} />
+            <Route path="/:payrollId/employee/:employeePayrollId" element={<PayrollEmployeeDetail />} />
             <Route path="/:payrollId" element={<PayrollDetail />} />
             <Route path="*" element={<Navigate to="/payroll" replace />} />
+
         </Routes>
     );
 };

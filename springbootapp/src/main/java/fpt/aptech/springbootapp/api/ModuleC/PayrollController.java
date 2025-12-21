@@ -5,6 +5,7 @@ import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import fpt.aptech.springbootapp.repositories.ModuleA_Time_Attendance.AttendanceRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +34,8 @@ public class PayrollController {
     private final EmployeePayrollRepo employeePayrollRepo;
     private final PayrollRepo payrollRepo;
     private final PayrollAllowanceRepo payrollAllowanceRepo;
+    private final AttendanceRepository attendanceRepository;
+
 
     @Autowired
     public PayrollController(PayrollService payrollService,
@@ -43,7 +46,8 @@ public class PayrollController {
             EmployeePayrollRepo employeePayrollRepo,
             PayrollRepo payrollRepo,
             DepartmentRepository departmentRepository,
-            PayrollAllowanceRepo payrollAllowanceRepo) {
+            PayrollAllowanceRepo payrollAllowanceRepo,
+            AttendanceRepository attendanceRepository) {
         this.payrollService = payrollService;
         this.payrollCalculationService = payrollCalculationService;
         this.taxProfileService = taxProfileService;
@@ -53,6 +57,7 @@ public class PayrollController {
         this.payrollRepo = payrollRepo;
         this.departmentRepository = departmentRepository;
         this.payrollAllowanceRepo = payrollAllowanceRepo;
+        this.attendanceRepository = attendanceRepository;
     }
 
     //
@@ -372,21 +377,34 @@ public class PayrollController {
     @GetMapping("/{id}")
     public ResponseEntity<?> getPayrollDetail(@PathVariable("id") Integer payrollId) {
         try {
+            if (payrollId == null) {
+                HashMap<String, Object> body = new HashMap<>();
+                body.put("success", false);
+                body.put("message", "Payroll ID is required");
+                return ResponseEntity.badRequest().body(body);
+            }
+
             PayrollResponseDTO dto = payrollService.getPayrollDetail(payrollId);
 
             HashMap<String, Object> body = new HashMap<>();
             body.put("success", true);
             body.put("data", dto);
+            body.put("message", "Get payroll detail successfully");
 
             return ResponseEntity.ok(body);
         } catch (Exception e) {
             HashMap<String, Object> body = new HashMap<>();
             body.put("success", false);
-            body.put("message", e.getMessage());
+            body.put("message", "Error: " + e.getMessage());
+            body.put("data", null);
+
+            System.err.println("[PayrollController] Error getting payroll detail: " + e.getMessage());
+            e.printStackTrace();
 
             return ResponseEntity.badRequest().body(body);
         }
     }
+
 
 //    @GetMapping("/{payrollId}") bỏ qua
 //    public ResponseEntity<?> getPayrollDetails(@PathVariable Integer payrollId) {
@@ -952,6 +970,7 @@ public class PayrollController {
                 ep.setDeduction(BigDecimal.ZERO);
                 ep.setPersonalIncomeTax(BigDecimal.ZERO);
                 ep.setTaxDeductionTotal(BigDecimal.ZERO);
+                ep.setCalculationStatus(TbEmployeePayroll.CalculationStatus.draft);
 
                 // tro cap dai hanj cho thang nay
                 List<TbPayrollAllowance> recurringAllowances
@@ -1233,5 +1252,610 @@ public class PayrollController {
             return ResponseEntity.badRequest().body(body);
         }
     }
+
+    //Lấy chi tiết lương nhân viên cho hiển thị FE tách TimeBased vs ProductBased
+    @GetMapping("/employee/{employeePayrollId}/breakdown")
+    public ResponseEntity<?> getPayrollBreakdown(
+            @PathVariable Integer employeePayrollId) {
+        try {
+            TbEmployeePayroll ep = employeePayrollRepo.findById(employeePayrollId)
+                    .orElseThrow(() -> new RuntimeException("Employee payroll not found"));
+
+            PayrollDetailDTO breakdown = new PayrollDetailDTO();
+            breakdown.setEmployeePayrollId(ep.getId());
+            breakdown.setPayrollId(ep.getPayroll().getId());
+            breakdown.setPayrollMonth(ep.getPayroll().getMonth());
+            breakdown.setDepartmentName(ep.getPayroll().getDepartment().getName());
+            breakdown.setUserId(ep.getUser().getId());
+            breakdown.setFullName(ep.getUser().getFullName());
+            breakdown.setSalaryType(ep.getUser().getSalaryType().toString());
+            breakdown.setHireDate(ep.getUser().getHireDate());
+
+            // Dữ liệu chung
+            breakdown.setBaseSalary(ep.getBaseSalary());
+            breakdown.setWageCoefficient(ep.getUser().getWageCoefficient());
+
+            // Dữ liệu TimeBased
+            if (ep.getUser().getSalaryType() == TbUser.SalaryType.TimeBased) {
+                breakdown.setStandardWorkingDays(ep.getStandardWorkingDays());
+                breakdown.setActualWorkingDays(ep.getActualWorkingDays());
+                breakdown.setPaidLeaveDays(ep.getPaidLeaveDays());
+                breakdown.setUnpaidLeaveDays(ep.getUnpaidLeaveDays());
+                breakdown.setLateCount(ep.getLateCount());
+                breakdown.setLatePenalty(ep.getLatePenalty());
+                breakdown.setTimeSalary(ep.getBaseSalary()
+                        .divide(new java.math.BigDecimal("26"), 2, java.math.RoundingMode.HALF_UP)
+                        .multiply(ep.getActualWorkingDays()));
+            } else {
+                // Dữ liệu ProductBased
+                breakdown.setProductBonus(ep.getProductBonus());
+            }
+
+            // Dữ liệu chung cả 2 loại
+            breakdown.setOt1Hours(ep.getOt1Hours());
+            breakdown.setOt2Hours(ep.getOt2Hours());
+            breakdown.setOvertimePay(ep.getOvertimePay());
+
+            breakdown.setInsurance(ep.getDeduction());
+            breakdown.setTotalDeduction(ep.getDeduction());
+            breakdown.setGrossIncomeForTax(ep.getGrossIncomeForTax());
+            breakdown.setPersonalIncomeTax(ep.getPersonalIncomeTax());
+            breakdown.setTaxDeductionTotal(ep.getTaxDeductionTotal());
+
+            breakdown.setAllowance(ep.getAllowance());
+            breakdown.setTotalPay(ep.getTotalPay());
+            breakdown.setNote(ep.getNote());
+            breakdown.setCreatedAt(ep.getCreatedAt());
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", true);
+            body.put("message", "Get payroll breakdown successfully");
+            body.put("data", breakdown);
+
+            return ResponseEntity.ok(body);
+
+        } catch (Exception e) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", false);
+            body.put("message", "error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(body);
+        }
+    }
+
+    //tạo và cập nhật tính luong cho từng type salary - đầy đủ tính toán
+    @PostMapping("/employee/{employeePayrollId}/recalculate")
+    public ResponseEntity<?> recalculateEmployeePayroll(
+            @PathVariable Integer employeePayrollId,
+            @RequestParam(required = false) BigDecimal additionalAllowance) {
+        try {
+            TbEmployeePayroll ep = employeePayrollRepo.findById(employeePayrollId)
+                    .orElseThrow(() -> new RuntimeException("Employee payroll not found"));
+
+            TbUser user = ep.getUser();
+            LocalDate payrollMonth = ep.getPayroll().getMonth();
+
+            // Tính lương dựa trên loại
+            PayrollCalculationDTO calculation = null;
+
+            if (user.getSalaryType() == TbUser.SalaryType.TimeBased) {
+                calculation = payrollCalculationService.calTimeBasedPayroll(
+                        user, payrollMonth, additionalAllowance);
+            } else {
+                calculation = payrollCalculationService.calProductBasedPayroll(
+                        user, payrollMonth, additionalAllowance);
+            }
+
+            // Cập nhật EP với kết quả tính toán
+            ep.setSalaryType(user.getSalaryType());
+            ep.setActualWorkingDays(calculation.getActualWorkingDays());
+            ep.setStandardWorkingDays(calculation.getStandardWorkingDays());
+            ep.setPaidLeaveDays(calculation.getPaidLeaveDays());
+            ep.setUnpaidLeaveDays(calculation.getUnpaidLeaveDays());
+            ep.setLateCount(calculation.getLateCount());
+            ep.setLatePenalty(calculation.getLatePenalty());
+
+            ep.setOt1Hours(calculation.getOtWeekdayHours());
+            ep.setOt2Hours(calculation.getOtHolidayHours());
+            ep.setOvertimePay(calculation.getOvertimePay());
+
+            ep.setRegularHours(calculation.getRegularHours());
+            ep.setWeight(calculation.getWeight());
+
+            if (user.getSalaryType() == TbUser.SalaryType.TimeBased) {
+                ep.setBaseSalary(calculation.getTimeSalary());
+            } else {
+                ep.setProductBonus(calculation.getProductBonus());
+            }
+
+            ep.setAllowance(calculation.getAllowance());
+            ep.setDeduction(calculation.getTotalDeduction());
+
+            ep.setGrossIncomeForTax(calculation.getGrossIncomeForTax());
+            ep.setIncomeAfterDeductions(calculation.getIncomeAfterDeductions());
+            ep.setPersonalIncomeTax(calculation.getTaxCalculation().getTotalTax());
+            ep.setTaxDeductionTotal(calculation.getTaxCalculation().getTotalTax());
+
+            ep.setTotalPay(calculation.getTotalPay());
+            ep.setNote(calculation.getCalculationNote());
+
+            TbEmployeePayroll updated = employeePayrollRepo.save(ep);
+
+            // Cập nhật tổng lương payroll
+            List<TbEmployeePayroll> allEp = employeePayrollRepo.findByPayrollId(ep.getPayroll().getId());
+            BigDecimal newTotal = allEp.stream()
+                    .map(TbEmployeePayroll::getTotalPay)
+                    .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+            ep.getPayroll().setTotalSalary(newTotal);
+            payrollRepo.save(ep.getPayroll());
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", true);
+            body.put("message", "Recalculate payroll successfully");
+            body.put("data", Map.of(
+                    "employeePayrollId", updated.getId(),
+                    "salaryType", updated.getSalaryType(),
+                    "grossIncome", updated.getGrossIncomeForTax(),
+                    "personalIncomeTax", updated.getPersonalIncomeTax(),
+                    "totalPay", updated.getTotalPay()
+            ));
+
+            return ResponseEntity.ok(body);
+
+        } catch (Exception e) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", false);
+            body.put("message", "error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(body);
+        }
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class EmployeePayrollPreviewRequest {
+        private Integer payrollId; // required để save vào payroll nào
+        private Integer userId;    // required
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+        private LocalDate month;   // required (YYYY-MM-01)
+
+        // Editable fields
+        private BigDecimal allowance; // allowance bổ sung (ngoài recurring)
+        private String note;
+
+        // Optional overrides
+        private BigDecimal overrideActualWorkingDays;
+        private BigDecimal overrideOtWeekdayHours;
+        private BigDecimal overrideOtHolidayHours;
+    }
+
+    private static final BigDecimal STANDARD_WORKING_DAYS = new BigDecimal("26");
+    private static final BigDecimal HOURS_PER_MONTH = new BigDecimal("176"); // 26*8
+    private static final int SCALE = 2;
+
+    @PostMapping("/employee-payroll/preview")
+    public ResponseEntity<?> previewEmployeePayroll(@RequestBody EmployeePayrollPreviewRequest request) {
+        try {
+            PayrollDetailDTO dto = computePreview(request);
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", true);
+            body.put("message", "Preview employee payroll successfully");
+            body.put("data", dto);
+            return ResponseEntity.ok(body);
+
+        } catch (Exception e) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", false);
+            body.put("message", "error: " + e.getMessage());
+            body.put("data", null);
+            return ResponseEntity.badRequest().body(body);
+        }
+    }
+
+    @PostMapping("/employee-payroll/confirm")
+    public ResponseEntity<?> confirmEmployeePayroll(@RequestBody EmployeePayrollPreviewRequest request) {
+        try {
+            if (request.getPayrollId() == null) {
+                throw new RuntimeException("payrollId is required");
+            }
+            if (request.getUserId() == null) {
+                throw new RuntimeException("userId is required");
+            }
+            if (request.getMonth() == null) {
+                throw new RuntimeException("month is required");
+            }
+
+            TbPayroll payroll = payrollRepo.findById(request.getPayrollId())
+                    .orElseThrow(() -> new RuntimeException("Payroll not found: " + request.getPayrollId()));
+
+            LocalDate payrollMonth = payroll.getMonth() != null ? payroll.getMonth().withDayOfMonth(1) : null;
+            LocalDate reqMonth = request.getMonth().withDayOfMonth(1);
+            if (payrollMonth == null || !payrollMonth.equals(reqMonth)) {
+                throw new RuntimeException("Month in request must match payroll.month");
+            }
+
+            TbUser user = userRepository.findById(request.getUserId())
+                    .orElseThrow(() -> new RuntimeException("User not found: " + request.getUserId()));
+
+            PayrollDetailDTO preview = computePreview(request);
+
+            TbEmployeePayroll ep = employeePayrollRepo.findByPayrollIdAndUserId(payroll.getId(), user.getId())
+                    .orElseGet(() -> {
+                        TbEmployeePayroll n = new TbEmployeePayroll();
+                        n.setPayroll(payroll);
+                        n.setUser(user);
+                        n.setCreatedAt(Instant.now());
+                        return n;
+                    });
+
+            // Lưu đúng nghĩa: baseSalary = base salary của user (không phải timeSalary)
+            BigDecimal baseSalary = user.getBaseSalary() != null ? user.getBaseSalary() : BigDecimal.ZERO;
+            ep.setBaseSalary(baseSalary);
+
+            ep.setSalaryType(user.getSalaryType());
+
+            // TimeBased details
+            ep.setStandardWorkingDays(preview.getStandardWorkingDays() != null ? preview.getStandardWorkingDays() : STANDARD_WORKING_DAYS);
+            ep.setActualWorkingDays(preview.getActualWorkingDays() != null ? preview.getActualWorkingDays() : BigDecimal.ZERO);
+            ep.setPaidLeaveDays(preview.getPaidLeaveDays() != null ? preview.getPaidLeaveDays() : BigDecimal.ZERO);
+            ep.setUnpaidLeaveDays(preview.getUnpaidLeaveDays() != null ? preview.getUnpaidLeaveDays() : BigDecimal.ZERO);
+            ep.setLateCount(preview.getLateCount() != null ? preview.getLateCount() : 0);
+            ep.setLatePenalty(preview.getLatePenalty() != null ? preview.getLatePenalty() : BigDecimal.ZERO);
+
+            // OT
+            ep.setOt1Hours(preview.getOt1Hours() != null ? preview.getOt1Hours() : BigDecimal.ZERO);
+            ep.setOt2Hours(preview.getOt2Hours() != null ? preview.getOt2Hours() : BigDecimal.ZERO);
+            ep.setOvertimePay(preview.getOvertimePay() != null ? preview.getOvertimePay() : BigDecimal.ZERO);
+
+            // ProductBased
+            ep.setProductBonus(preview.getProductBonus() != null ? preview.getProductBonus() : BigDecimal.ZERO);
+
+            // Deduction & tax & totals
+            ep.setDeduction(preview.getTotalDeduction() != null ? preview.getTotalDeduction() : BigDecimal.ZERO);
+            ep.setGrossIncomeForTax(preview.getGrossIncomeForTax() != null ? preview.getGrossIncomeForTax() : BigDecimal.ZERO);
+            ep.setPersonalIncomeTax(preview.getPersonalIncomeTax() != null ? preview.getPersonalIncomeTax() : BigDecimal.ZERO);
+            ep.setTaxDeductionTotal(preview.getTaxDeductionTotal() != null ? preview.getTaxDeductionTotal() : BigDecimal.ZERO);
+
+            ep.setIncomeAfterDeductions(
+                    preview.getGrossIncomeForTax() != null && preview.getTotalDeduction() != null
+                            ? preview.getGrossIncomeForTax().subtract(preview.getTotalDeduction()).setScale(SCALE, RoundingMode.HALF_UP)
+                            : BigDecimal.ZERO
+            );
+
+            ep.setAllowance(preview.getAllowance() != null ? preview.getAllowance() : BigDecimal.ZERO);
+            ep.setTotalPay(preview.getTotalPay() != null ? preview.getTotalPay() : BigDecimal.ZERO);
+
+            ep.setNote(request.getNote() != null ? request.getNote() : preview.getNote());
+            ep.setCalculationStatus(TbEmployeePayroll.CalculationStatus.confirmed);
+
+            TbEmployeePayroll saved = employeePayrollRepo.save(ep);
+
+            // Update payroll totalSalary
+            List<TbEmployeePayroll> allEp = employeePayrollRepo.findByPayrollId(payroll.getId());
+            BigDecimal newTotal = allEp.stream()
+                    .map(TbEmployeePayroll::getTotalPay)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .setScale(SCALE, RoundingMode.HALF_UP);
+
+            payroll.setTotalSalary(newTotal);
+            payrollRepo.save(payroll);
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", true);
+            body.put("message", "Confirm & save employee payroll successfully");
+            body.put("data", Map.of(
+                    "employeePayrollId", saved.getId(),
+                    "payrollId", payroll.getId(),
+                    "userId", user.getId(),
+                    "totalPay", saved.getTotalPay()
+            ));
+            return ResponseEntity.ok(body);
+
+        } catch (Exception e) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", false);
+            body.put("message", "error: " + e.getMessage());
+            body.put("data", null);
+            return ResponseEntity.badRequest().body(body);
+        }
+    }
+
+    private PayrollDetailDTO computePreview(EmployeePayrollPreviewRequest request) {
+        if (request.getUserId() == null) {
+            throw new RuntimeException("userId is required");
+        }
+        if (request.getMonth() == null) {
+            throw new RuntimeException("month is required");
+        }
+
+        LocalDate payrollMonth = request.getMonth().withDayOfMonth(1);
+
+        TbUser user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new RuntimeException("User not found: " + request.getUserId()));
+
+        // 1) Recurring allowance trong tháng
+        List<TbPayrollAllowance> recurring = payrollAllowanceRepo
+                .findRecurringAllowancesForUserAndMonth(
+                        user.getId(),
+                        payrollMonth,
+                        AllowanceScope.RECURRING
+                );
+
+        BigDecimal recurringSum = recurring.stream()
+                .filter(a -> Boolean.TRUE.equals(a.getIsActive()))
+                .map(TbPayrollAllowance::getAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 2) allowance nhập tay (editable)
+        BigDecimal manualAllowance = request.getAllowance() != null ? request.getAllowance() : BigDecimal.ZERO;
+        BigDecimal totalAllowance = recurringSum.add(manualAllowance).setScale(SCALE, RoundingMode.HALF_UP);
+
+        // 3) Base calc from DB sources (attendance/leave/OT/production/tax profile)
+        PayrollCalculationDTO calc = payrollCalculationService.calEmpSalary(user, payrollMonth, totalAllowance);
+
+        // 4) Apply overrides (nếu có) + recompute dependent values
+        BigDecimal actualWorkingDays = request.getOverrideActualWorkingDays() != null
+                ? request.getOverrideActualWorkingDays()
+                : calc.getActualWorkingDays();
+
+        BigDecimal otWeekday = request.getOverrideOtWeekdayHours() != null
+                ? request.getOverrideOtWeekdayHours()
+                : calc.getOtWeekdayHours();
+
+        BigDecimal otHoliday = request.getOverrideOtHolidayHours() != null
+                ? request.getOverrideOtHolidayHours()
+                : calc.getOtHolidayHours();
+
+        // Recompute overtime pay if override OT
+        BigDecimal overtimePay = calc.getOvertimePay() != null ? calc.getOvertimePay() : BigDecimal.ZERO;
+        boolean otOverridden = request.getOverrideOtWeekdayHours() != null || request.getOverrideOtHolidayHours() != null;
+        if (otOverridden) {
+            BigDecimal baseSalary = user.getBaseSalary() != null ? user.getBaseSalary() : BigDecimal.ZERO;
+            BigDecimal hourlyRate = baseSalary.divide(HOURS_PER_MONTH, SCALE, RoundingMode.HALF_UP);
+            overtimePay = otWeekday.multiply(new BigDecimal("1.5"))
+                    .add(otHoliday.multiply(new BigDecimal("2.0")))
+                    .multiply(hourlyRate)
+                    .setScale(SCALE, RoundingMode.HALF_UP);
+        }
+
+        // Recompute timeSalary if override actualWorkingDays (TimeBased only)
+        BigDecimal timeSalary = calc.getTimeSalary() != null ? calc.getTimeSalary() : BigDecimal.ZERO;
+        if (user.getSalaryType() == TbUser.SalaryType.TimeBased && request.getOverrideActualWorkingDays() != null) {
+            BigDecimal baseSalary = user.getBaseSalary() != null ? user.getBaseSalary() : BigDecimal.ZERO;
+            BigDecimal dailySalary = baseSalary.divide(STANDARD_WORKING_DAYS, SCALE, RoundingMode.HALF_UP);
+
+            BigDecimal latePenalty = calc.getLatePenalty() != null ? calc.getLatePenalty() : BigDecimal.ZERO;
+            int lateCount = calc.getLateCount() != null ? calc.getLateCount() : 0;
+
+            timeSalary = dailySalary.multiply(actualWorkingDays)
+                    .subtract(latePenalty.multiply(new BigDecimal(lateCount)))
+                    .setScale(SCALE, RoundingMode.HALF_UP);
+        }
+
+        // Deductions (insurance + late penalties) giữ theo engine
+        BigDecimal totalDeduction = calc.getTotalDeduction() != null ? calc.getTotalDeduction() : BigDecimal.ZERO;
+
+        // Gross income for tax depends on salary type
+        BigDecimal baseSalary = user.getBaseSalary() != null ? user.getBaseSalary() : BigDecimal.ZERO;
+        BigDecimal productBonus = calc.getProductBonus() != null ? calc.getProductBonus() : BigDecimal.ZERO;
+
+        BigDecimal grossIncomeForTax;
+        if (user.getSalaryType() == TbUser.SalaryType.TimeBased) {
+            grossIncomeForTax = timeSalary.add(overtimePay);
+        } else {
+            grossIncomeForTax = baseSalary.add(productBonus).add(overtimePay);
+        }
+        grossIncomeForTax = grossIncomeForTax.setScale(SCALE, RoundingMode.HALF_UP);
+
+        BigDecimal incomeAfterDeductions = grossIncomeForTax.subtract(totalDeduction).setScale(SCALE, RoundingMode.HALF_UP);
+
+        TaxCalculationDTO taxDTO = payrollCalculationService.calPersonalIncomeTax(user, grossIncomeForTax, payrollMonth);
+        BigDecimal totalTax = taxDTO != null && taxDTO.getTotalTax() != null ? taxDTO.getTotalTax() : BigDecimal.ZERO;
+
+        BigDecimal totalPay = incomeAfterDeductions.subtract(totalTax).add(totalAllowance).setScale(SCALE, RoundingMode.HALF_UP);
+
+        // 5) Build DTO for FE: dùng PayrollDetailDTO (đúng các field bạn muốn hiển thị)
+        return PayrollDetailDTO.builder()
+                .employeePayrollId(null)
+                .payrollId(request.getPayrollId())
+                .payrollMonth(payrollMonth)
+                .departmentName(null)
+
+                .userId(user.getId())
+                .fullName(user.getFullName())
+                .salaryType(user.getSalaryType() != null ? user.getSalaryType().toString() : null)
+                .hireDate(user.getHireDate())
+
+                .baseSalary(baseSalary)
+                .wageCoefficient(user.getWageCoefficient())
+
+                .standardWorkingDays(calc.getStandardWorkingDays())
+                .actualWorkingDays(actualWorkingDays)
+                .paidLeaveDays(calc.getPaidLeaveDays())
+                .unpaidLeaveDays(calc.getUnpaidLeaveDays())
+                .lateCount(calc.getLateCount())
+                .latePenalty(calc.getLatePenalty())
+                .timeSalary(timeSalary)
+
+                .productCount(calc.getProductCount())
+                .unitPrice(calc.getUnitPrice())
+                .productBonus(productBonus)
+
+                .ot1Hours(otWeekday)
+                .ot2Hours(otHoliday)
+                .overtimePay(overtimePay)
+
+                .insurance(calc.getInsurance())
+                .totalDeduction(totalDeduction)
+                .grossIncomeForTax(grossIncomeForTax)
+                .personalIncomeTax(totalTax)
+                .taxDeductionTotal(totalTax)
+
+                .allowance(totalAllowance)
+                .totalPay(totalPay)
+
+                .note(request.getNote() != null ? request.getNote() : calc.getCalculationNote())
+                .createdAt(Instant.now())
+                .build();
+    }
+
+    @PostMapping("/{payrollId}/sync-from-attendance")
+    public ResponseEntity<?> syncPayrollEmployeesFromAttendance(
+            @PathVariable Integer payrollId,
+            @RequestParam(defaultValue = "false") boolean debug
+    ) {
+        try {
+            TbPayroll payroll = payrollRepo.findById(payrollId)
+                    .orElseThrow(() -> new RuntimeException("Payroll not found: " + payrollId));
+
+            if (payroll.getDepartment() == null || payroll.getDepartment().getId() == null) {
+                throw new RuntimeException("Payroll department is missing");
+            }
+            if (payroll.getMonth() == null) {
+                throw new RuntimeException("Payroll month is missing");
+            }
+
+            Integer departmentId = payroll.getDepartment().getId();
+            LocalDate start = payroll.getMonth().withDayOfMonth(1);
+            LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
+
+            List<TbUser> usersInMonthAll = attendanceRepository.findDistinctUsersByDateBetween(start, end);
+            List<TbUser> usersInMonthDept = attendanceRepository.findDistinctUsersByDepartmentAndDateBetween(departmentId, start, end);
+
+            // Build sets for diff
+            Set<Integer> allIds = usersInMonthAll.stream()
+                    .filter(Objects::nonNull)
+                    .map(TbUser::getId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
+            Set<Integer> deptIds = usersInMonthDept.stream()
+                    .filter(Objects::nonNull)
+                    .map(TbUser::getId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
+            Set<Integer> excludedByDept = new HashSet<>(allIds);
+            excludedByDept.removeAll(deptIds);
+
+            // Only Active users
+            List<TbUser> usersWithAttendance = usersInMonthDept.stream()
+                    .filter(u -> u != null && u.getStatus() == TbUser.UserStatus.Active)
+                    .toList();
+
+
+            int createdCount = 0;
+            List<Integer> createdUserIds = new ArrayList<>();
+
+            for (TbUser user : usersWithAttendance) {
+                boolean exists = employeePayrollRepo.findByPayrollIdAndUserId(payroll.getId(), user.getId()).isPresent();
+                if (exists) continue;
+
+                TbEmployeePayroll ep = new TbEmployeePayroll();
+                ep.setPayroll(payroll);
+                ep.setUser(user);
+
+                BigDecimal baseSalary = user.getBaseSalary() != null ? user.getBaseSalary() : BigDecimal.ZERO;
+                ep.setBaseSalary(baseSalary);
+
+                List<TbPayrollAllowance> recurring = payrollAllowanceRepo
+                        .findRecurringAllowancesForUserAndMonth(
+                                user.getId(),
+                                start,
+                                AllowanceScope.RECURRING
+                        );
+
+                BigDecimal recurringSum = recurring.stream()
+                        .filter(a -> Boolean.TRUE.equals(a.getIsActive()))
+                        .map(TbPayrollAllowance::getAmount)
+                        .filter(Objects::nonNull)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                ep.setAllowance(recurringSum);
+                ep.setTotalPay(baseSalary.add(recurringSum).setScale(2, RoundingMode.HALF_UP));
+                ep.setCreatedAt(Instant.now());
+                ep.setSalaryType(user.getSalaryType());
+                ep.setCalculationStatus(TbEmployeePayroll.CalculationStatus.draft);
+
+                employeePayrollRepo.save(ep);
+                createdCount++;
+                createdUserIds.add(user.getId());
+            }
+
+            List<TbEmployeePayroll> allEp = employeePayrollRepo.findByPayrollId(payroll.getId());
+            BigDecimal newTotal = allEp.stream()
+                    .map(TbEmployeePayroll::getTotalPay)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            payroll.setTotalSalary(newTotal);
+            payrollRepo.save(payroll);
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("payrollId", payroll.getId());
+            data.put("month", payroll.getMonth());
+            data.put("departmentId", departmentId);
+            data.put("rangeStart", start);
+            data.put("rangeEnd", end);
+
+            data.put("attendanceUsersInMonthCount", allIds.size());
+            data.put("attendanceUsersInDeptCount", deptIds.size());
+            data.put("createdCount", createdCount);
+            data.put("createdUserIds", createdUserIds);
+            data.put("totalEmployeesInPayroll", allEp.size());
+            data.put("totalSalary", payroll.getTotalSalary());
+
+            if (debug) {
+                data.put("excludedByDeptCount", excludedByDept.size());
+                data.put("excludedByDeptSample", excludedByDept.stream().limit(50).toList());
+
+                List<Integer> deptAllUserIds = userRepository.findByDepartmentId(departmentId).stream()
+                        .map(TbUser::getId)
+                        .toList();
+                data.put("usersInDepartmentCount", deptAllUserIds.size());
+
+                Set<Integer> deptUserSet = new HashSet<>(deptAllUserIds);
+                Set<Integer> deptNoAttendance = new HashSet<>(deptUserSet);
+                deptNoAttendance.removeAll(deptIds);
+                data.put("deptUsersNoAttendanceCount", deptNoAttendance.size());
+                data.put("deptUsersNoAttendanceSample", deptNoAttendance.stream().limit(50).toList());
+
+                // ===== DEBUG NATIVE ATTENDANCE CHECK (raw DB) =====
+                var rawAttendances = attendanceRepository.findAttendanceByDateRangeNative(start, end);
+                data.put("nativeAttendanceRowsInRange", rawAttendances != null ? rawAttendances.size() : 0);
+
+                // count distinct users in native result
+                Set<Integer> nativeUserIds = new HashSet<>();
+                if (rawAttendances != null) {
+                    for (var a : rawAttendances) {
+                        if (a.getUser() != null && a.getUser().getId() != null) {
+                            nativeUserIds.add(a.getUser().getId());
+                        }
+                    }
+                }
+                data.put("nativeDistinctUsersInRange", nativeUserIds.size());
+            }
+
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", true);
+            body.put("message", "Sync from attendance successfully");
+            body.put("data", data);
+            return ResponseEntity.ok(body);
+
+        } catch (Exception e) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", false);
+            body.put("message", "error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(body);
+        }
+    }
+
+
 
 }

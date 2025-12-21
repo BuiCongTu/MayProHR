@@ -40,7 +40,7 @@ public class PayrollCalculationDTO {
     private BigDecimal otWeekdayHours;           // OT1: giờ ngày thường
     private BigDecimal otHolidayHours;           // OT2: giờ CN/ngày lễ
     private BigDecimal overtimeHours;            // tổng giờ OT
-    private BigDecimal overtimeMultiplier;       // hệ số OT trung bình
+//    private BigDecimal overtimeMultiplier;       // hệ số OT trung bình
 
     // Công / giờ
     private BigDecimal workingDays;              // số ngày công
@@ -66,8 +66,8 @@ public class PayrollCalculationDTO {
     private Integer productCount;
     private BigDecimal unitPrice;
     private Integer countContribution;
-    private Long totalWorkingHours;
-    private BigDecimal productSalaryPerHour;
+//    private Long totalWorkingHours;
+//    private BigDecimal productSalaryPerHour;
 
     // Ghi chú
     private String calculationNote;              // công thức tính toán chi tiết

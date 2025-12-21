@@ -12,7 +12,7 @@ import java.util.List;
 public interface LeaveRequestRepo extends JpaRepository<TbLeaveRequest, Integer> {
     List<TbLeaveRequest> findByUserAndStatusAndStartDateBetween(
             TbUser user,
-            String name,
+            TbLeaveRequest.LeaveStatus status,
             LocalDate startDate,
             LocalDate endDate);
 }
