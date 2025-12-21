@@ -11,7 +11,6 @@ import org.springframework.stereotype.Repository;
 
 import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeePayroll;
 
-// xu ly luong emp
 @Repository
 public interface EmployeePayrollRepo extends JpaRepository<TbEmployeePayroll, Integer> {
 
@@ -40,4 +39,21 @@ public interface EmployeePayrollRepo extends JpaRepository<TbEmployeePayroll, In
 
     //lay ds luong theo payroll id
     List<TbEmployeePayroll> findByPayrollId(Integer payrollId);
+
+    //Lấy danh sách theo salaryType trong 1 tháng
+    @Query("SELECT ep FROM TbEmployeePayroll ep WHERE ep.payroll.month = :month AND ep.user.salaryType = :salaryType ORDER BY ep.user.id")
+    List<TbEmployeePayroll> findByPayrollMonthAndSalaryType(
+            @Param("month") LocalDate month,
+            @Param("salaryType") fpt.aptech.springbootapp.entities.Core.TbUser.SalaryType salaryType
+    );
+
+    //Lấy danh sách theo department và tháng
+    @Query("SELECT ep FROM TbEmployeePayroll ep WHERE ep.payroll.department.id = :departmentId AND ep.payroll.month = :month")
+    List<TbEmployeePayroll> findByDepartmentAndMonth(
+            @Param("departmentId") Integer departmentId,
+            @Param("month") LocalDate month
+    );
+
+    Optional<TbEmployeePayroll> findByPayrollIdAndUserId(Integer payrollId, Integer userId);
+
 }

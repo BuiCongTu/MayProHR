@@ -3,6 +3,7 @@ package fpt.aptech.springbootapp.entities.ModuleC;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+import jakarta.persistence.*;
 import org.hibernate.annotations.ColumnDefault;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -10,19 +11,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import fpt.aptech.springbootapp.entities.Core.TbUser;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -110,5 +98,56 @@ public class TbEmployeePayroll {
 
     @Column(name = "timebase_allocated_salary", precision = 15, scale = 2)
     private BigDecimal timeBaseAllocatedSalary;
+
+    // them chi tiet tinh luong
+    @ColumnDefault("26")
+    @Column(name = "standard_working_days", precision = 5, scale = 2)
+    private BigDecimal standardWorkingDays = new BigDecimal("26");
+
+    @Column(name = "actual_working_days", precision = 5, scale = 2)
+    private BigDecimal actualWorkingDays = BigDecimal.ZERO;
+
+    @Column(name = "paid_leave_days", precision = 5, scale = 2)
+    private BigDecimal paidLeaveDays = BigDecimal.ZERO;
+
+    @Column(name = "unpaid_leave_days", precision = 5, scale = 2)
+    private BigDecimal unpaidLeaveDays = BigDecimal.ZERO;
+
+    @Column(name = "late_count")
+    private Integer lateCount = 0;
+
+    @Column(name = "late_penalty", precision = 15, scale = 2)
+    private BigDecimal latePenalty = BigDecimal.ZERO;
+
+    @Column(name = "ot1_hours", precision = 10, scale = 2)
+    private BigDecimal ot1Hours = BigDecimal.ZERO;  // OT ngày thường * 1.5
+
+    @Column(name = "ot2_hours", precision = 10, scale = 2)
+    private BigDecimal ot2Hours = BigDecimal.ZERO;  // OT ngày lễ/chủ nhật * 2.0
+
+    @Column(name = "regular_hours", precision = 10, scale = 2)
+    private BigDecimal regularHours = BigDecimal.ZERO;
+
+    @Column(name = "weight", precision = 10, scale = 2)
+    private BigDecimal weight = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "salary_type", length = 20)
+    private TbUser.SalaryType salaryType;
+
+    @Column(name = "gross_income_for_tax", precision = 15, scale = 2)
+    private BigDecimal grossIncomeForTax = BigDecimal.ZERO;
+
+    @Column(name = "income_after_deductions", precision = 15, scale = 2)
+    private BigDecimal incomeAfterDeductions = BigDecimal.ZERO;
+
+    public enum CalculationStatus {
+        draft, calculated, confirmed
+    }
+
+    @Enumerated(EnumType.STRING)
+    @ColumnDefault("'draft'")
+    @Column(name = "calculation_status", length = 20)
+    private CalculationStatus calculationStatus = CalculationStatus.draft;
 
 }

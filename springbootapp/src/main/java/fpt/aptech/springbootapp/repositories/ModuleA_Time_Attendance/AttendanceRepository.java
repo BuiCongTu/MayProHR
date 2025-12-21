@@ -181,4 +181,28 @@ public interface AttendanceRepository extends JpaRepository<TbAttendance, Long> 
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate
     );
+
+    @Query("""
+           SELECT DISTINCT a.user
+           FROM TbAttendance a
+           WHERE a.date BETWEEN :startDate AND :endDate
+           """)
+    List<TbUser> findDistinctUsersByDateBetween(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
+
+    @Query("""
+           SELECT DISTINCT a.user
+           FROM TbAttendance a
+           WHERE a.date BETWEEN :startDate AND :endDate
+             AND a.user.department.id = :departmentId
+           """)
+    List<TbUser> findDistinctUsersByDepartmentAndDateBetween(
+            @Param("departmentId") Integer departmentId,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
+
+
 }

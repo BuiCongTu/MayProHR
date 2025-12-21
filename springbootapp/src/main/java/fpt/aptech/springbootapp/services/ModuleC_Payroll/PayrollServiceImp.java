@@ -375,13 +375,19 @@ public class PayrollServiceImp implements PayrollService {
             Map<Integer, BigDecimal> productionQtyMap
     ) {
         TbEmployeePayrollDTO dto = new TbEmployeePayrollDTO();
-        dto.setEmployeePayrollId(ep.getId());
+//        dto.setEmployeePayrollId(ep.getId());
+
+        if (ep != null && ep.getId() != null) {
+            dto.setEmployeePayrollId(ep.getId());
+        } else {
+            throw new RuntimeException("Invalid Employee Payroll ID"); // Debug lỗi ngay backend
+        }
 
         if (ep.getUser() != null) {
             dto.setUserId(ep.getUser().getId());
-            dto.setEmployeeCode(ep.getUser().getId());
             dto.setFullName(ep.getUser().getFullName());
         }
+
 
         dto.setBaseSalary(ep.getBaseSalary());
         dto.setAllowance(ep.getAllowance());
@@ -391,6 +397,7 @@ public class PayrollServiceImp implements PayrollService {
         dto.setPersonalIncomeTax(ep.getPersonalIncomeTax());
         dto.setTaxDeductionTotal(ep.getTaxDeductionTotal());
         dto.setTotalPay(ep.getTotalPay());
+        dto.setCalculationStatus(ep.getCalculationStatus() != null ? ep.getCalculationStatus().name() : "draft");
 
         // Lấy WorkTime từ HashMap thay vì ep.getWorkTime()
         TbEmployeeWorkTime wt = workTimeMap.get(ep.getId());

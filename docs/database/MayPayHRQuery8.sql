@@ -1,5 +1,5 @@
-CREATE DATABASE MayPayHR;
-GO
+-- CREATE DATABASE MayPayHR;
+-- GO
 
 USE MayPayHR;
 GO
@@ -1214,12 +1214,12 @@ VALUES
 GO
 
 -- 20. tbEmployeePayroll - 3 samples
-INSERT INTO tbEmployeePayroll (payroll_id, user_id, base_salary, product_bonus, overtime_pay, allowance, deduction, total_pay, note)
-VALUES
-    (1000, 1011, 8000000.00, 1200000.00, 500000.00, 200000.00, 0.00, 9900000.00, N'October salary – Full attendance'),
-    (1000, 1012, 6000000.00, 900000.00, 300000.00, 200000.00, 0.00, 7400000.00, N'October salary – Full attendance'),
-    (1000, 1013, 6000000.00, 0.00, 0.00, 200000.00, 100000.00, 6100000.00, N'October salary – 1 day unauthorized leave');
-GO
+-- INSERT INTO tbEmployeePayroll (payroll_id, user_id, base_salary, product_bonus, overtime_pay, allowance, deduction, total_pay, note)
+-- VALUES
+--     (1000, 1011, 8000000.00, 1200000.00, 500000.00, 200000.00, 0.00, 9900000.00, N'October salary – Full attendance'),
+--     (1000, 1012, 6000000.00, 900000.00, 300000.00, 200000.00, 0.00, 7400000.00, N'October salary – Full attendance'),
+--     (1000, 1013, 6000000.00, 0.00, 0.00, 200000.00, 100000.00, 6100000.00, N'October salary – 1 day unauthorized leave');
+-- GO
 
 -- 21. tbPasswordResetToken - 3 samples
 INSERT INTO tbPasswordResetToken (token, user_id, expiry_date, used)
@@ -1260,7 +1260,7 @@ GO
 -- SELECT * FROM tbOvertimeTicket --13
 -- SELECT * FROM tb_overtime_ticket_employees--14
 -- SELECT * FROM tbProduction --15
--- SELECT * FROM tbPayroll --16
+SELECT * FROM tbPayroll --16
 -- SELECT * FROM tbReservedPayroll--17
 -- SELECT * FROM tbUserHistory--18
 -- SELECT * FROM tbNotification--19
@@ -1503,6 +1503,10 @@ ADD CONSTRAINT FK_tbPayrollAllowance_employeePayroll
     REFERENCES tbEmployeePayroll(id);
 GO
 
+ALTER TABLE tbEmployeePayroll ADD calculation_status VARCHAR(20) DEFAULT 'draft';
+
+CREATE UNIQUE INDEX ux_tbEmployeePayroll_payroll_user
+ON tbEmployeePayroll(payroll_id, user_id);
 
 
 -- SELECT TOP 10 * FROM tbAttendance ORDER BY date DESC;
@@ -1531,3 +1535,43 @@ GO
 --    SELECT u.user_id, u.full_name, u.department_id, lr.request_id, lr.start_date
 --    FROM tbLeaveRequest lr
 --    JOIN tbUser u ON lr.user_id = u.user_id;
+
+
+-- SELECT * FROM tbEmployeePayroll WHERE id = 1000;
+
+-- SELECT ep.*, p.month, u.full_name, u.salary_type 
+-- FROM tbEmployeePayroll ep
+-- JOIN tbPayroll p ON ep.payroll_id = p.payroll_id
+-- JOIN tbUser u ON ep.user_id = u.user_id
+-- WHERE ep.id = 1000;
+
+SELECT payroll_id, user_id, COUNT(*) AS c
+FROM tbEmployeePayroll
+GROUP BY payroll_id, user_id
+HAVING COUNT(*) > 1;
+
+
+SELECT MIN([date]) AS min_date, MAX([date]) AS max_date, COUNT(*) AS total
+FROM tbAttendance;
+
+SELECT TOP 20 attendance_id, user_id, [date], status
+FROM tbAttendance
+ORDER BY [date] DESC;
+
+
+SELECT payroll_id, department_id, [month], total_salary, status
+FROM tbPayroll
+WHERE [month] BETWEEN '2025-11-01' AND '2025-11-30'
+ORDER BY payroll_id;
+
+-- sql
+WITH d AS (
+  SELECT
+    id,
+    payroll_id,
+    user_id,
+    ROW_NUMBER() OVER (PARTITION BY payroll_id, user_id ORDER BY id DESC) AS rn
+  FROM tbEmployeePayroll
+)
+DELETE FROM d WHERE rn > 1;
+

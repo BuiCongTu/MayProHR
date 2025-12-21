@@ -20,6 +20,7 @@ public class TbEmployeePayrollDTO {
     private Integer employeeCode;
     private String fullName;
     private String salaryType;
+    private String calculationStatus;
 
     // Lương
     private BigDecimal baseSalary;

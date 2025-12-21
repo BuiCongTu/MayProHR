@@ -122,8 +122,6 @@ const PayrollDetail = () =>
         }
     };
 
-
-
     const handleCancel = () =>
     {
         setEditMode(false);
@@ -194,11 +192,20 @@ const PayrollDetail = () =>
                     <Badge bg={statusVariant(payroll.status)}>
                         {payroll.status || 'N/A'}
                     </Badge>
+
+                    <Button
+                        variant="primary"
+                        onClick={() => navigate(`/payroll/${payrollId}/calculate`)}
+                    >
+                        Calculate Payroll
+                    </Button>
+
                     <Button variant="outline-secondary" onClick={() => navigate(-1)}>
                         Back to Payroll List
                     </Button>
                 </div>
             </div>
+
 
             <Row className="mb-4">
                 <Col md={4}>
@@ -248,6 +255,7 @@ const PayrollDetail = () =>
                                     <th className="text-end text-danger">Deductions</th>
                                     <th className="text-end text-danger">Personal Income Tax</th>
                                     <th className="text-end text-bg-primary">Net Pay</th>
+                                    <th>Action</th>
                                 </tr>
                                 </thead>
                                 <tbody>
@@ -268,6 +276,23 @@ const PayrollDetail = () =>
                                         <td className="text-end text-bg-primary">
                                             <strong>{formatCurrency(emp.totalPay)}</strong>
                                         </td>
+                                        <td onClick={(e) => e.stopPropagation()}>
+                                            <Button
+                                                size="sm"
+                                                variant="primary"
+                                                onClick={() =>
+                                                    navigate(`/payroll/${payrollId}/calculate`, {
+                                                        state: {
+                                                            userId: emp.userId,
+                                                            month: payroll.month
+                                                        }
+                                                    })
+                                                }
+                                            >
+                                                Calc
+                                            </Button>
+                                        </td>
+
                                     </tr>
                                 ))}
                                 </tbody>

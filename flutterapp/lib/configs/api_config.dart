@@ -1,10 +1,10 @@
 class ApiConfig {
   // Cấu hình URL backend
-  //static const String baseUrl = 'http://192.168.2.14:9999';
-  // static const String baseUrl = 'http://172.16.3.234:9999';
+  static const String baseUrl = 'http://192.168.2.14:9999';
+  // static const String baseUrl = 'http://172.16.1.116:9999';
 
   //Phu fixed url
-  static const String baseUrl = 'http://100.69.135.59:9999';
+  // static const String baseUrl = 'http://100.69.135.59:9999';
 
   // API Timeouts (milliseconds)
   static const int connectionTimeout = 10000;
@@ -25,12 +25,15 @@ class ApiConfig {
 
   // Payroll Endpoints
   static const String payHisEndpoint = '$baseUrl/api/payroll/employee';
-  static const String payrollAvailableYearsEndpoint = '/api/payroll/employee/available-years';
-  static const String payrollAvailableMonthsEndpoint = '/api/payroll/employee/available-months';
+  static const String payrollAvailableYearsEndpoint =
+      '/api/payroll/employee/available-years';
+  static const String payrollAvailableMonthsEndpoint =
+      '/api/payroll/employee/available-months';
 
   //employee overtime response
   static const String myOvertimeEndpoint = '/api/app/overtime/my-invites';
   static const String respondOvertimeEndpoint = '/api/app/overtime/respond';
   static const String updateDeviceTokenEndpoint = '/api/user/device-token';
-  static const String removeDeviceTokenEndpoint = '/api/user/remove-device-token';
+  static const String removeDeviceTokenEndpoint =
+      '/api/user/remove-device-token';
 }

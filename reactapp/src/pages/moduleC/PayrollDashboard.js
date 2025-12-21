@@ -152,7 +152,7 @@ const PayrollDashboard = () =>
                         <Card.Body>
                             <div className="d-grid gap-2 d-md-flex">
                                 <Link to="/payroll/list" className="btn btn-primary">Payroll List</Link>
-                                <Link to="/payroll/create" className="btn btn-success">Create New</Link>
+                                <Link to="/payroll/list" className="btn btn-success">Calculate Payroll</Link>
                                 <Link to="/payroll/report" className="btn btn-info">Report</Link>
                                 <Link to="/payroll/tax-calculator" className="btn btn-warning">Tax Calculator</Link>
                             </div>
@@ -175,44 +175,50 @@ const PayrollDashboard = () =>
                         <div style={{ overflowX: 'auto' }}>
                             <table className="table table-hover mb-0">
                                 <thead className="bg-light">
-                                    <tr>
-                                        <th>Month</th>
-                                        <th>Department</th>
-                                        <th className="text-end">Total Salary</th>
-                                        <th>Status</th>
-                                        <th>Action</th>
-                                    </tr>
+                                <tr>
+                                    <th>Month</th>
+                                    <th>Department</th>
+                                    <th className="text-end">Total Salary</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
                                 </thead>
                                 <tbody>
-                                    {recentPayrolls.map(payroll => (
-                                        <tr key={payroll.payrollId}>
-                                            <td>
-                                                <strong>
-                                                    {new Date(payroll.month).toLocaleDateString('vi-VN', {
-                                                        month: 'long',
-                                                        year: 'numeric'
-                                                    })}
-                                                </strong>
-                                            </td>
-                                            <td>{payroll.departmentName}</td>
-                                            <td className="text-end">{formatCurrency(payroll.totalSalary)}</td>
-                                            <td>
-                                                <Badge
-                                                    bg={payroll.status === 'approved' ? 'success' : 'warning'}
-                                                >
-                                                    {payroll.status}
-                                                </Badge>
-                                            </td>
-                                            <td>
-                                                <Link
-                                                    to={`/payroll/${payroll.payrollId}`}
-                                                    className="btn btn-sm btn-info"
-                                                >
-                                                    View
-                                                </Link>
-                                            </td>
-                                        </tr>
-                                    ))}
+                                {recentPayrolls.map(payroll => (
+                                    <tr key={payroll.payrollId}>
+                                        <td>
+                                            <strong>
+                                                {new Date(payroll.month).toLocaleDateString('vi-VN', {
+                                                    month: 'long',
+                                                    year: 'numeric'
+                                                })}
+                                            </strong>
+                                        </td>
+                                        <td>{payroll.departmentName}</td>
+                                        <td className="text-end">{formatCurrency(payroll.totalSalary)}</td>
+                                        <td>
+                                            <Badge
+                                                bg={payroll.status === 'approved' ? 'success' : 'warning'}
+                                            >
+                                                {payroll.status}
+                                            </Badge>
+                                        </td>
+                                        <td className="d-flex gap-2">
+                                            <Link
+                                                to={`/payroll/${payroll.payrollId}`}
+                                                className="btn btn-sm btn-info"
+                                            >
+                                                View
+                                            </Link>
+                                            <Link
+                                                to={`/payroll/${payroll.payrollId}/calculate`}
+                                                className="btn btn-sm btn-primary"
+                                            >
+                                                Calculate
+                                            </Link>
+                                        </td>
+                                    </tr>
+                                ))}
                                 </tbody>
                             </table>
                         </div>

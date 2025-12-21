@@ -292,9 +292,10 @@ const PayrollList = () => {
         <div className="payroll-list-container p-4">
             <div className="d-flex justify-content-between align-items-center mb-4">
                 <h2>Payroll List</h2>
-                <Link to="/payroll/create" className="btn btn-primary">
-                    + Create new
+                <Link to="/payroll/list" className="btn btn-primary">
+                    Calculate Payroll
                 </Link>
+
             </div>
 
             {error && <Alert variant={error.includes('No payrolls') ? 'info' : 'danger'}>{error}</Alert>}
@@ -481,13 +482,21 @@ const PayrollList = () => {
                                         </Badge>
                                     </td>
                                     <td>{formatDate(payroll.createdAt)}</td>
-                                    <td>
+                                    <td className="d-flex flex-wrap gap-2">
                                         <Link
                                             to={`/payroll/${payroll.id}`}
-                                            className="btn btn-sm btn-info me-2"
+                                            className="btn btn-sm btn-info"
                                         >
                                             View
                                         </Link>
+
+                                        <Link
+                                            to={`/payroll/${payroll.id}/calculate`}
+                                            className="btn btn-sm btn-primary"
+                                        >
+                                            Calculate
+                                        </Link>
+
                                         {payroll.status && payroll.status.toLowerCase() === 'pending' && (
                                             <Link
                                                 to={`/payroll/${payroll.id}/approve`}
@@ -500,6 +509,7 @@ const PayrollList = () => {
                                 </tr>
                             ))}
                             </tbody>
+
                         </Table>
                     )}
                 </Card.Body>
