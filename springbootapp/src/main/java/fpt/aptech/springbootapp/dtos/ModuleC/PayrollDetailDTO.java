@@ -13,23 +13,23 @@ import java.time.LocalDate;
 @Builder
 
 public class PayrollDetailDTO {
-    // === THÔNG TIN BẢNG LƯƠNG ===
+    // Payroll info
     private Integer employeePayrollId;
     private Integer payrollId;
     private LocalDate payrollMonth;
     private String departmentName;
 
-    // === THÔNG TIN NHÂN VIÊN ===
+    // User infomation
     private Integer userId;
     private String fullName;
     private String salaryType;  // TimeBased, ProductBased
     private LocalDate hireDate;
 
-    // === CÓ THÀNH PHẦN CHUNG ===
+    // chung giữa 2 loại luong
     private BigDecimal baseSalary;
     private BigDecimal wageCoefficient;
 
-    // === CHỈ CHO TimeBased ===
+    //TimeBased
     private BigDecimal standardWorkingDays;
     private BigDecimal actualWorkingDays;
     private BigDecimal paidLeaveDays;
@@ -37,29 +37,35 @@ public class PayrollDetailDTO {
     private Integer lateCount;
     private BigDecimal latePenalty;
     private BigDecimal timeSalary;
+    private BigDecimal incomeAfterDeductions;
 
-    // === CHỈ CHO ProductBased ===
+    // ProductBased
     private Integer productCount;
     private BigDecimal unitPrice;
     private BigDecimal productBonus;
 
-    // === LƯƠNG TĂNG CA (CẢ HAI) ===
+    //OT
     private BigDecimal ot1Hours;     // OT ngày thường
     private BigDecimal ot2Hours;     // OT ngày lễ/chủ nhật
     private BigDecimal overtimePay;
 
-    // === KHOẢN KHẤU TRỪ & THUẾ ===
+    // cac khoan khau tru thuế
     private BigDecimal insurance;
     private BigDecimal totalDeduction;
     private BigDecimal grossIncomeForTax;
     private BigDecimal personalIncomeTax;
     private BigDecimal taxDeductionTotal;
 
-    // === PHỤ CẤP & TỔNG ===
+// chi tiet giam tru lấy từ TaxCalculationDTO
+    private BigDecimal personalDeduction;
+    private BigDecimal dependentDeduction;
+    private BigDecimal insuranceDeduction;
+    private BigDecimal taxableIncome;
+
+    //phụ cấp
     private BigDecimal allowance;
     private BigDecimal totalPay;
 
-    // === GHI CHÚ ===
     private String note;
     private Instant createdAt;
 

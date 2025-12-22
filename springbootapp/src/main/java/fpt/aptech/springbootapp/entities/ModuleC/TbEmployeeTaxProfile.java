@@ -27,7 +27,6 @@ public class TbEmployeeTaxProfile {
     @JoinColumn(name = "user_id", nullable = false)
     private TbUser user;
 
-    //hire_date: nếu >= 3 tháng thì được giảm trừ gia cảnh
     @ColumnDefault("0")
     @Column(name = "number_of_dependents")
     private Integer numberOfDependents = 0;
@@ -36,7 +35,6 @@ public class TbEmployeeTaxProfile {
     @Column(name = "insurance_rate", precision = 5, scale = 2)
     private BigDecimal insuranceRate = new BigDecimal("10.5");
 
-    //Cho phép tính giảm trừ gia cảnh, Nếu hire_date >= 3 tháng thì true
     @ColumnDefault("0")
     @Column(name = "is_eligible_for_personal_deduction")
     private Boolean isEligibleForPersonalDeduction = false;

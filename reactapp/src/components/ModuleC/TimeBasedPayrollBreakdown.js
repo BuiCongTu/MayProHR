@@ -14,10 +14,10 @@ const TimeBasedPayrollBreakdown = ({ employeePayrollId, payrollMonth }) => {
                 setLoading(true);
                 setError('');
 
-                const response = await payrollService.getPayrollBreakdown(employeePayrollId);
-
-                if (response?.data?.success) {
-                    setBreakdown(response.data.data);
+                // payrollService.getPayrollBreakdown đã extractData => trả về data trực tiếp
+                const data = await payrollService.getPayrollBreakdown(employeePayrollId);
+                if (data) {
+                    setBreakdown(data);
                 } else {
                     setError('Failed to load payroll breakdown');
                 }
@@ -35,13 +35,18 @@ const TimeBasedPayrollBreakdown = ({ employeePayrollId, payrollMonth }) => {
     }, [employeePayrollId]);
 
     const formatCurrency = (value) => {
-        if (!value) return '0 ₫';
+        if (value === null || value === undefined) return '0 ₫';
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
             currency: 'VND',
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
         }).format(value);
+    };
+
+    const formatPercentFromFraction = (fraction) => {
+        const f = Number(fraction ?? 0);
+        return (f * 100).toFixed(2);
     };
 
     if (loading) {
@@ -137,31 +142,6 @@ const TimeBasedPayrollBreakdown = ({ employeePayrollId, payrollMonth }) => {
                 </Card.Body>
             </Card>
 
-            {/* === TĂNG CA === */}
-            <Card className="mb-4 shadow-sm">
-                <Card.Header className="bg-light">
-                    <h6 className="mb-0">⏰ Tăng Ca</h6>
-                </Card.Header>
-                <Card.Body>
-                    <Table size="sm" bordered>
-                        <tbody>
-                        <tr>
-                            <td><strong>OT1 (Ngày thường)</strong></td>
-                            <td className="text-right">{breakdown.ot1Hours} giờ × 1.5</td>
-                        </tr>
-                        <tr>
-                            <td><strong>OT2 (CN/Lễ)</strong></td>
-                            <td className="text-right">{breakdown.ot2Hours} giờ × 2.0</td>
-                        </tr>
-                        <tr className="table-success">
-                            <td><strong>Tiền tăng ca</strong></td>
-                            <td className="text-right"><strong>{formatCurrency(breakdown.overtimePay)}</strong></td>
-                        </tr>
-                        </tbody>
-                    </Table>
-                </Card.Body>
-            </Card>
-
             {/* === KHOẢN KHẤU TRỪ === */}
             <Card className="mb-4 shadow-sm">
                 <Card.Header className="bg-light">
@@ -171,7 +151,7 @@ const TimeBasedPayrollBreakdown = ({ employeePayrollId, payrollMonth }) => {
                     <Table size="sm" bordered>
                         <tbody>
                         <tr>
-                            <td>Bảo hiểm (10.5%)</td>
+                            <td>Bảo hiểm</td>
                             <td className="text-right text-danger">-{formatCurrency(breakdown.insurance)}</td>
                         </tr>
                         <tr>
@@ -209,6 +189,22 @@ const TimeBasedPayrollBreakdown = ({ employeePayrollId, payrollMonth }) => {
                         </tr>
                         </tbody>
                     </Table>
+
+                    {/* Hiển thị giải thích chi tiết từ PersonalIncomeTaxCalService nếu backend có trả */}
+                    {breakdown.taxCalculation?.note ? (
+                        <Alert variant="secondary" className="mt-3 mb-0" style={{ whiteSpace: 'pre-wrap' }}>
+                            <strong>Chi tiết tính thuế (BE):</strong>
+                            {'\n\n'}
+                            {breakdown.taxCalculation.note}
+                        </Alert>
+                    ) : null}
+
+                    {/* nếu backend có trả insuranceRate dạng fraction */}
+                    {breakdown.taxCalculation?.insuranceRate !== undefined ? (
+                        <div className="text-muted mt-2">
+                            Insurance rate: {formatPercentFromFraction(breakdown.taxCalculation.insuranceRate)}%
+                        </div>
+                    ) : null}
                 </Card.Body>
             </Card>
 

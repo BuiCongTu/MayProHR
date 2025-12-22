@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../../models/payroll_model.dart';
 
 class PayrollDetailScreen extends StatelessWidget {
@@ -40,60 +39,67 @@ class PayrollDetailScreen extends StatelessWidget {
       );
     }
 
+    String moneyOrDash(double? v) => v == null ? '-' : payroll!.formatCurrency(v);
+    String numOrDash(num? v) => v == null ? '-' : v.toString();
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Payroll for ${payroll!.getMonthYear()}'),
+        title: Text('Payroll ${payroll!.getMonthYear()}'),
         centerTitle: true,
         elevation: 2,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionCard(
-              title: 'Income Items',
-              items: [
-                ('Basic Salary', payroll!.baseSalary ?? 0.0),
-                ('Product Bonus', payroll!.productBonus ?? 0.0),
-                ('Overtime Pay', payroll!.overtimePay ?? 0.0),
-                ('Allowance', payroll!.allowance ?? 0.0),
+            _buildSectionTable(
+              title: 'A) Inputs / Dữ liệu đầu vào (Read-only)',
+              rows: [
+                ('Base Salary', moneyOrDash(payroll!.baseSalary)),
+                ('Standard Working Days', numOrDash(payroll!.standardWorkingDays)),
+                ('Actual Working Days', numOrDash(payroll!.actualWorkingDays)),
+                ('Paid Leave Days', numOrDash(payroll!.paidLeaveDays)),
+                ('Unpaid Leave Days', numOrDash(payroll!.unpaidLeaveDays)),
+                ('Late Count', numOrDash(payroll!.lateCount)),
+                ('OT1 Hours', numOrDash(payroll!.ot1Hours)),
+                ('OT2 Hours', numOrDash(payroll!.ot2Hours)),
+                ('Product Count', numOrDash(payroll!.productCount)),
+                ('Unit Price', moneyOrDash(payroll!.unitPrice)),
+                ('Allowance', moneyOrDash(payroll!.allowance)),
               ],
-              showTotal: true,
-              totalLabel: 'Total Income',
-              totalAmount: payroll!.totalIncome,
             ),
             const SizedBox(height: 16),
-            _buildSectionCard(
-              title: 'Deduction Items',
-              items: [
-                ('Deduction', payroll!.deduction ?? 0.0),
+
+            _buildSectionTable(
+              title: 'B) Kết quả tính toán (Read-only)',
+              rows: [
+                ('Time Salary', moneyOrDash(payroll!.timeSalary)),
+                ('Product Bonus', moneyOrDash(payroll!.productBonus)),
+                ('Overtime Pay', moneyOrDash(payroll!.overtimePay)),
+                ('Late Penalty', payroll!.latePenalty == null ? '-' : '-${payroll!.formatCurrency(payroll!.latePenalty!)}'),
+                ('Insurance', payroll!.insurance == null ? '-' : '-${payroll!.formatCurrency(payroll!.insurance!)}'),
+                ('Total Deduction', payroll!.totalDeduction != null
+                    ? '-${payroll!.formatCurrency(payroll!.totalDeduction!)}'
+                    : (payroll!.deduction != null ? '-${payroll!.formatCurrency(payroll!.deduction!)}' : '-')),
+                ('Gross Income For Tax', moneyOrDash(payroll!.grossIncomeForTax)),
+                ('Income After Deductions', moneyOrDash(payroll!.incomeAfterDeductions)),
+                ('Personal Income Tax', payroll!.personalIncomeTax == null ? '-' : '-${payroll!.formatCurrency(payroll!.personalIncomeTax!)}'),
               ],
-              showTotal: false,
             ),
-            const SizedBox(height: 24),
-            _buildTotalPaySection(),
-            const SizedBox(height: 24),
+
+            const SizedBox(height: 16),
+            _buildNetPayBox(payroll!),
+
+            const SizedBox(height: 16),
             if (payroll!.note != null && payroll!.note!.isNotEmpty)
-              _buildNoteSection(),
-            const SizedBox(height: 24),
-            _buildInfoSection(),
+              _buildNoteSection(payroll!.note!),
+
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  backgroundColor: Colors.blue,
-                ),
-                child: const Text(
-                  'Go Back',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: const Text('Go Back'),
               ),
             ),
           ],
@@ -102,12 +108,9 @@ class PayrollDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionCard({
+  Widget _buildSectionTable({
     required String title,
-    required List<(String, double)> items,
-    required bool showTotal,
-    String? totalLabel,
-    double? totalAmount,
+    required List<(String, String)> rows,
   }) {
     return Card(
       elevation: 2,
@@ -116,104 +119,59 @@ class PayrollDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
             const Divider(height: 16, thickness: 1),
-            ...items.map((item) {
-              final (label, amount) = item;
-              return _buildDetailRow(label, amount);
-            }),
-            if (showTotal && totalLabel != null && totalAmount != null) ...[
-              const Divider(height: 16, thickness: 1),
-              _buildDetailRow(
-                totalLabel,
-                totalAmount,
-                isBold: true,
-                color: Colors.blue,
-              ),
-            ],
+            ...rows.map((r) => _buildKeyValueRow(r.$1, r.$2)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDetailRow(
-    String label,
-    double amount, {
-    bool isBold = false,
-    Color? color,
-  }) {
-    final payrollModel = PayrollModel(totalPay: amount);
+  Widget _buildKeyValueRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: isBold ? FontWeight.w600 : FontWeight.normal,
-              color: color,
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
             ),
           ),
+          const SizedBox(width: 12),
           Text(
-            payrollModel.formatCurrency(amount),
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-              color: color,
-            ),
+            value,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTotalPaySection() {
-    final payrollModel = PayrollModel(totalPay: payroll!.totalPay ?? 0.0);
+  Widget _buildNetPayBox(PayrollModel payroll) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.green[400]!, Colors.green[600]!],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.green.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.green),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           const Text(
-            'Salary Received',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
+            'Total Pay (NET)',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           ),
-          const SizedBox(height: 12),
           Text(
-            payrollModel.formatCurrency(payroll!.totalPay ?? 0.0),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 32,
+            payroll.formatCurrency(payroll.totalPay ?? 0.0),
+            style: TextStyle(
               fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: Colors.green[700],
             ),
           ),
         ],
@@ -221,110 +179,25 @@ class PayrollDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildNoteSection() {
+  Widget _buildNoteSection(String note) {
     return Card(
       color: Colors.amber[50],
       elevation: 1,
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Icon(
-                  Icons.info_outline,
-                  color: Colors.orange,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Note:',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              payroll!.note!,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Colors.grey,
-                height: 1.5,
+            const Icon(Icons.info_outline, color: Colors.orange, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                note,
+                style: const TextStyle(fontSize: 13, color: Colors.grey, height: 1.5),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildInfoSection() {
-    return Card(
-      elevation: 1,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Payroll Information',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const Divider(height: 16, thickness: 1),
-            _buildInfoItem(
-              'Payroll ID',
-              payroll!.id?.toString() ?? 'N/A',
-            ),
-            _buildInfoItem(
-              'Created At',
-              payroll!.createdAt != null
-                  ? '${payroll!.createdAt!.day}/${payroll!.createdAt!.month}/${payroll!.createdAt!.year}'
-                  : 'N/A',
-            ),
-            _buildInfoItem(
-              'Total Income',
-              PayrollModel(totalPay: payroll!.totalIncome)
-                  .formatCurrency(payroll!.totalIncome),
-            ),
-            _buildInfoItem(
-              'Deduction',
-              PayrollModel(totalPay: payroll!.deduction ?? 0.0)
-                  .formatCurrency(payroll!.deduction ?? 0.0),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoItem(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 13,
-              color: Colors.grey,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
       ),
     );
   }

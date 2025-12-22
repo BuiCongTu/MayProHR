@@ -7,12 +7,35 @@ class PayrollModel {
   final int? year;
   final DateTime? date;
   final DateTime? createdAt;
+
   final double? baseSalary;
   final double? productBonus;
   final double? overtimePay;
   final double? allowance;
   final double? deduction;
   final double? totalPay;
+
+  final double? insurance;
+  final double? totalDeduction;
+  final double? grossIncomeForTax;
+  final double? personalIncomeTax;
+  final double? incomeAfterDeductions;
+
+  final double? standardWorkingDays;
+  final double? actualWorkingDays;
+  final double? paidLeaveDays;
+  final double? unpaidLeaveDays;
+  final int? lateCount;
+  final double? latePenalty;
+
+  final double? ot1Hours;
+  final double? ot2Hours;
+
+  final int? productCount;
+  final double? unitPrice;
+
+  final double? timeSalary;
+
   final double? _totalIncome;
   final String? note;
 
@@ -28,6 +51,28 @@ class PayrollModel {
     this.allowance,
     this.deduction,
     this.totalPay,
+
+    this.insurance,
+    this.totalDeduction,
+    this.grossIncomeForTax,
+    this.personalIncomeTax,
+    this.incomeAfterDeductions,
+
+    this.standardWorkingDays,
+    this.actualWorkingDays,
+    this.paidLeaveDays,
+    this.unpaidLeaveDays,
+    this.lateCount,
+    this.latePenalty,
+
+    this.ot1Hours,
+    this.ot2Hours,
+
+    this.productCount,
+    this.unitPrice,
+
+    this.timeSalary,
+
     double? totalIncome,
     this.note,
   }) : _totalIncome = totalIncome;
@@ -48,24 +93,56 @@ class PayrollModel {
       return double.tryParse(v.toString());
     }
 
+    int? parseInt(dynamic v) {
+      if (v == null) return null;
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      return int.tryParse(v.toString());
+    }
+
     return PayrollModel(
-      id: json['id'] is int
-          ? json['id'] as int
-          : (json['id'] is String ? int.tryParse(json['id']) : null),
-      month: json['month'] is int
-          ? json['month'] as int
-          : (json['month'] is String ? int.tryParse(json['month']) : null),
-      year: json['year'] is int
-          ? json['year'] as int
-          : (json['year'] is String ? int.tryParse(json['year']) : null),
+      id: parseInt(json['id']),
+      month: parseInt(json['month']),
+      year: parseInt(json['year']),
       date: parseDate(json['date'] ?? json['date_time'] ?? json['dateCreated']),
       createdAt: parseDate(json['createdAt'] ?? json['created_at']),
+
       baseSalary: parseDouble(json['baseSalary'] ?? json['base_salary']),
       productBonus: parseDouble(json['productBonus'] ?? json['product_bonus']),
       overtimePay: parseDouble(json['overtimePay'] ?? json['overtime_pay']),
       allowance: parseDouble(json['allowance']),
       deduction: parseDouble(json['deduction']),
       totalPay: parseDouble(json['totalPay'] ?? json['total_pay']),
+
+      insurance: parseDouble(json['insurance']),
+      totalDeduction: parseDouble(
+          json['totalDeduction'] ?? json['total_deduction']),
+      grossIncomeForTax: parseDouble(
+          json['grossIncomeForTax'] ?? json['gross_income_for_tax']),
+      personalIncomeTax: parseDouble(
+          json['personalIncomeTax'] ?? json['personal_income_tax']),
+      incomeAfterDeductions: parseDouble(
+          json['incomeAfterDeductions'] ?? json['income_after_deductions']),
+
+      standardWorkingDays: parseDouble(
+          json['standardWorkingDays'] ?? json['standard_working_days']),
+      actualWorkingDays: parseDouble(
+          json['actualWorkingDays'] ?? json['actual_working_days']),
+      paidLeaveDays: parseDouble(
+          json['paidLeaveDays'] ?? json['paid_leave_days']),
+      unpaidLeaveDays: parseDouble(
+          json['unpaidLeaveDays'] ?? json['unpaid_leave_days']),
+      lateCount: parseInt(json['lateCount'] ?? json['late_count']),
+      latePenalty: parseDouble(json['latePenalty'] ?? json['late_penalty']),
+
+      ot1Hours: parseDouble(json['ot1Hours'] ?? json['ot1_hours']),
+      ot2Hours: parseDouble(json['ot2Hours'] ?? json['ot2_hours']),
+
+      productCount: parseInt(json['productCount'] ?? json['product_count']),
+      unitPrice: parseDouble(json['unitPrice'] ?? json['unit_price']),
+
+      timeSalary: parseDouble(json['timeSalary'] ?? json['time_salary']),
+
       totalIncome: parseDouble(json['totalIncome'] ?? json['total_income']),
       note: json['note']?.toString(),
     );
@@ -84,12 +161,32 @@ class PayrollModel {
       'allowance': allowance,
       'deduction': deduction,
       'totalPay': totalPay,
+
+      'insurance': insurance,
+      'totalDeduction': totalDeduction,
+      'grossIncomeForTax': grossIncomeForTax,
+      'personalIncomeTax': personalIncomeTax,
+      'incomeAfterDeductions': incomeAfterDeductions,
+
+      'standardWorkingDays': standardWorkingDays,
+      'actualWorkingDays': actualWorkingDays,
+      'paidLeaveDays': paidLeaveDays,
+      'unpaidLeaveDays': unpaidLeaveDays,
+      'lateCount': lateCount,
+      'latePenalty': latePenalty,
+
+      'ot1Hours': ot1Hours,
+      'ot2Hours': ot2Hours,
+
+      'productCount': productCount,
+      'unitPrice': unitPrice,
+      'timeSalary': timeSalary,
+
       'totalIncome': _totalIncome,
       'note': note,
     };
   }
 
-  /// Returns a formatted "MM/YYYY" string.
   String getMonthYear() {
     if (month != null && year != null) {
       final mm = month!.toString().padLeft(2, '0');
@@ -102,18 +199,16 @@ class PayrollModel {
     return '';
   }
 
-  /// Computed total income: prefer provided server value, otherwise sum positive components.
   double get totalIncome =>
       _totalIncome ??
-      (baseSalary ?? 0.0) +
-          (productBonus ?? 0.0) +
-          (overtimePay ?? 0.0) +
-          (allowance ?? 0.0);
+          (baseSalary ?? 0.0) +
+              (productBonus ?? 0.0) +
+              (overtimePay ?? 0.0) +
+              (allowance ?? 0.0);
 
-  /// Formats a numeric amount as currency (Vietnamese locale used here).
   String formatCurrency(double amount) {
-    final f =
-        NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
+    final f = NumberFormat.currency(
+        locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
     return f.format(amount);
   }
 }

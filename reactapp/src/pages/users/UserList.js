@@ -228,8 +228,6 @@ const UserList = () =>
               </Form.Group>
             </Col>
 
-
-
             <Col md={6}>
               <Form.Group>
                 <Form.Label>Search</Form.Label>
