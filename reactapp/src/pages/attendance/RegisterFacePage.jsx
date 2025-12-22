@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import CameraCapture from '../../components/attendance/CameraCapture';
 import attendanceService from '../../services/moduleA/attendanceService';
 
@@ -18,6 +18,7 @@ const RegisterFacePage = () => {
     const [error, setError] = useState(null);
     const [step, setStep] = useState(1);
     const [accessDenied, setAccessDenied] = useState(false);
+    const cameraRef = useRef(null);
 
     useEffect(() => {
         checkRoleAccess();
@@ -154,16 +155,28 @@ const RegisterFacePage = () => {
             const data = await attendanceService.registerFace(selectedUserId, imageBase64);
 
             if (data.success) {
+                // Tắt camera ngay khi thành công
+                if (cameraRef.current?.stopCamera) {
+                    cameraRef.current.stopCamera();
+                }
                 setResult(data);
                 alert('✅ Đăng ký khuôn mặt thành công!');
                 setStep(3);
             } else {
                 setError(data.message || 'Đăng ký thất bại');
+                // Tắt camera khi có lỗi để user restart
+                if (cameraRef.current?.stopCamera) {
+                    setTimeout(() => cameraRef.current.stopCamera(), 1000);
+                }
             }
         } catch (err) {
             const msg = err.response?.data?.message || err.message || 'Có lỗi khi đăng ký khuôn mặt';
             setError(msg);
             alert('❌ ' + msg);
+            // Tắt camera khi exception
+            if (cameraRef.current?.stopCamera) {
+                setTimeout(() => cameraRef.current.stopCamera(), 1000);
+            }
         } finally {
             setLoading(false);
         }
@@ -380,6 +393,7 @@ const RegisterFacePage = () => {
                     </div>
 
                     <CameraCapture
+                        ref={cameraRef}
                         onCapture={handleCapture}
                         autoCapture={false}
                     />

@@ -1,12 +1,33 @@
 import axios from 'axios';
-import { useState } from 'react';
-import CameraCapture from '../../../components/attendance/CameraCapture';
 import alert from "bootstrap/js/src/alert";
+import { useEffect, useRef, useState } from 'react';
+import CameraCapture from '../../../components/attendance/CameraCapture';
+import faceConfigService from '../../../services/face/faceConfigService';
 
 const CheckInPage = () => {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
+    const [faceConfig, setFaceConfig] = useState(null);
+    const cameraRef = useRef(null);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const cfg = await faceConfigService.getConfig();
+                if (cfg?.success) setFaceConfig(cfg);
+            } catch {
+                // config chỉ để hiển thị, fail cũng không chặn nghiệp vụ
+            }
+        })();
+
+        // Cleanup: tắt camera khi rời trang
+        return () => {
+            if (cameraRef.current?.stopCamera) {
+                cameraRef.current.stopCamera();
+            }
+        };
+    }, []);
 
     const handleCapture = async (imageBase64) => {
         setLoading(true);
@@ -15,12 +36,17 @@ const CheckInPage = () => {
 
         try {
             const response = await axios.post('/api/face-scan/attendance', {
-                imageBase64
+                imageBase64,
+                scanType: "CHECK_IN"
             });
 
             if (response.data.success) {
+                // Tắt camera khi check-in thành công
+                if (cameraRef.current?.stopCamera) {
+                    cameraRef.current.stopCamera();
+                }
                 setResult(response.data);
-                alert('sucess', `Hello ${response.data.fullName}. Check-in successfully at ${response.data.timeIn}`);
+                alert('success', `Hello ${response.data.fullName}. Check-in successfully at ${response.data.timeIn}`);
             } else {
                 setError(response.data.message);
             }
@@ -42,9 +68,18 @@ const CheckInPage = () => {
     return (
         <div>
             <h1>Check-In</h1>
+
+            {faceConfig && (
+                <div style={{marginBottom: 12, fontSize: 13, opacity: 0.85}}>
+                    <div><b>Face Model:</b> {faceConfig.modelVersion}</div>
+                    <div><b>Threshold:</b> {faceConfig.recognitionThreshold}</div>
+                    <div><b>Min-gap:</b> {faceConfig.minGap}</div>
+                </div>
+            )}
+
             {!result ? (
                 <>
-                    <CameraCapture onCapture={handleCapture} autoCapture={false}/>
+                    <CameraCapture ref={cameraRef} onCapture={handleCapture} autoCapture={false}/>
                     {loading && (
                         <div className="loading-overlay">
                             <div className="spinner"></div>
@@ -69,23 +104,7 @@ const CheckInPage = () => {
                             <span className="info-label">Employee:</span>
                             <span className="info-value">{result.fullName}</span>
                         </div>
-
-                        <div className="info-item">
-                            <span className="info-label">Time In:</span>
-                            <span className="info-value">{result.timeIn}</span>
-                        </div>
-
-                        <div className="info-item">
-                            <span className="info-label">Date:</span>
-                            <span className="info-value">{result.date}</span>
-                        </div>
-
-                        <div className="info-item">
-                            <span className="info-label">Status:</span>
-                            <span className="info-value" style={{color: result.status === 'SUCCESS' ? 'blue' : 'red'}}>
-                            {result.status === 'SUCCESS' ? 'On time' : 'Late'}
-                        </span>
-                        </div>
+                        {/* ... existing code ... */}
                     </div>
                     <div className="actions">
                         <button onClick={reset}>Done</button>

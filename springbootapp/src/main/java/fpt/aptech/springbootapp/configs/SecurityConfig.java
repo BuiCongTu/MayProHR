@@ -112,6 +112,7 @@ public class SecurityConfig {
                         "/api/proposal/**",
                         "/api/payroll/**",
                         "/api/department/**",
+                        "/api/face/config",
                         "/api/face-scan/attendance",
                         "/actuator/health",
                         "/api/lines/**",
