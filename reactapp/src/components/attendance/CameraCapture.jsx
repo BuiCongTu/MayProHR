@@ -1,8 +1,8 @@
 import { Close, PhotoCamera } from "@mui/icons-material";
 import { Box, Button, CircularProgress, Paper, Typography } from "@mui/material";
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 
-const CameraCapture = ({ onCapture, autoCapture = false, width = 640, height = 480 }) => {
+const CameraCapture = forwardRef(({ onCapture, autoCapture = false, autoStopOnCapture = false, width = 640, height = 480 }, ref) => {
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
     const [isStreaming, setIsStreaming] = useState(false);
@@ -32,25 +32,45 @@ const CameraCapture = ({ onCapture, autoCapture = false, width = 640, height = 4
         }
     };
 
-    const stopCamera = () => {
-        if (videoRef.current && videoRef.current.srcObject) {
-            const stream = videoRef.current.srcObject;
-            const tracks = stream.getTracks();
-            tracks.forEach(track => track.stop());
-            setIsStreaming(false);
+    const stopCamera = useCallback(() => {
+        try {
+            if (videoRef.current && videoRef.current.srcObject) {
+                const stream = videoRef.current.srcObject;
+                const tracks = stream.getTracks();
+                tracks.forEach(track => {
+                    track.stop();
+                    console.log(`Camera track ${track.kind} stopped`);
+                });
+                videoRef.current.srcObject = null;
+                setIsStreaming(false);
+                setError(null);
+            }
+        } catch (err) {
+            console.error('Error stopping camera:', err);
         }
-    };
+    }, []);
 
     useEffect(() => {
         startCamera();
-        return () => stopCamera();
-    }, []);
+        return () => {
+            // Cleanup: tắt camera khi component unmount
+            stopCamera();
+        };
+    }, [stopCamera]);
+
+    // Expose stopCamera and startCamera methods to parent via ref
+    useImperativeHandle(ref, () => ({
+        stopCamera,
+        startCamera,
+        isStreaming
+    }), [stopCamera, isStreaming]);
 
     const captureImage = async () => {
         if (!videoRef.current || !canvasRef.current) return null;
 
         try {
             setIsCapturing(true);
+            setError(null); // Clear previous errors
             const video = videoRef.current;
             const canvas = canvasRef.current;
             const context = canvas.getContext('2d');
@@ -70,13 +90,26 @@ const CameraCapture = ({ onCapture, autoCapture = false, width = 640, height = 4
 
             // Call callback if provided
             if (onCapture) {
-                onCapture(imageBase64);
+                await onCapture(imageBase64);
+            }
+
+            // Auto-stop camera after successful capture if enabled
+            if (autoStopOnCapture) {
+                setTimeout(() => {
+                    stopCamera();
+                }, 500); // Small delay to ensure smooth UX
             }
 
             return imageBase64;
         } catch (err) {
             console.error('Error capturing image:', err);
             setError('Lỗi khi chụp ảnh. Vui lòng thử lại.');
+            // Auto-stop on error to allow user to restart fresh
+            if (autoStopOnCapture) {
+                setTimeout(() => {
+                    stopCamera();
+                }, 1000);
+            }
         } finally {
             setIsCapturing(false);
         }
@@ -192,6 +225,7 @@ const CameraCapture = ({ onCapture, autoCapture = false, width = 640, height = 4
             <canvas ref={canvasRef} style={{ display: 'none' }} />
         </Box>
     );
-};
+});
 
+CameraCapture.displayName = 'CameraCapture';
 export default CameraCapture;

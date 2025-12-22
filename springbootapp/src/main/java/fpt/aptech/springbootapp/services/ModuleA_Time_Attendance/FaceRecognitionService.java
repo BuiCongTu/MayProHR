@@ -12,8 +12,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import fpt.aptech.springbootapp.entities.Core.TbUser;
@@ -33,8 +35,8 @@ public class FaceRecognitionService {
 
     @Autowired
     public FaceRecognitionService(RestTemplate restTemplate,
-            UserRepository userRepository,
-            ObjectMapper objectMapper) {
+                                  UserRepository userRepository,
+                                  ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
@@ -45,17 +47,14 @@ public class FaceRecognitionService {
      */
     public Map<String, Object> registerFace(Integer userId, String imageBase64) {
         try {
-            // Kiểm tra user exists
             TbUser user = userRepository.findById(userId)
                     .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
 
-            // Prepare request
             Map<String, Object> request = new HashMap<>();
             request.put("userId", userId);
             request.put("imageBase64", imageBase64);
             request.put("fullName", user.getFullName());
 
-            // Call Python API
             String url = faceApiUrl + "/api/face/register";
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -67,7 +66,6 @@ public class FaceRecognitionService {
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 Map<String, Object> result = response.getBody();
 
-                // Nếu Python trả về thành công và có embedding, lưu vào TbUser.faceData
                 if (Boolean.TRUE.equals(result.get("success")) && result.get("embedding") != null) {
                     try {
                         String embeddingJson = objectMapper.writeValueAsString(result.get("embedding"));
@@ -81,16 +79,25 @@ public class FaceRecognitionService {
 
                 log.info("Face registered successfully for user: {}", userId);
                 return result;
-            } else {
-                throw new RuntimeException("Face registration failed");
             }
 
+            throw new RuntimeException("Face registration failed");
+
+        } catch (HttpStatusCodeException e) {
+            try {
+                String body = e.getResponseBodyAsString();
+                Map<String, Object> parsed = objectMapper.readValue(
+                        body, new TypeReference<Map<String, Object>>() {}
+                );
+                if (parsed.get("success") == null) parsed.put("success", false);
+                return parsed;
+            } catch (Exception ex) {
+                log.error("Error parsing error response from face service", ex);
+                return Map.of("success", false, "message", "Registration failed: " + e.getStatusCode());
+            }
         } catch (Exception e) {
             log.error("Error registering face for user: {}", userId, e);
-            return Map.of(
-                    "success", false,
-                    "message", "Registration failed: " + e.getMessage()
-            );
+            return Map.of("success", false, "message", "Registration failed: " + e.getMessage());
         }
     }
 
@@ -99,12 +106,10 @@ public class FaceRecognitionService {
      */
     public Map<String, Object> recognizeFace(String imageBase64, String scanType) {
         try {
-            // Prepare request
             Map<String, Object> request = new HashMap<>();
             request.put("imageBase64", imageBase64);
             request.put("scanType", scanType);
 
-            // Call Python API
             String url = faceApiUrl + "/api/face/recognize";
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -113,38 +118,41 @@ public class FaceRecognitionService {
 
             ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
 
-            if (response.getBody() != null) {
-                Map<String, Object> result = response.getBody();
-
-                // Nếu thành công, thêm thông tin user
-                if (Boolean.TRUE.equals(result.get("success"))) {
-                    Integer userId = (Integer) result.get("userId");
-                    TbUser user = userRepository.findById(userId).orElse(null);
-
-                    if (user != null) {
-                        result.put("fullName", user.getFullName());
-                        result.put("department", user.getDepartment() != null
-                                ? user.getDepartment().getName() : null);
-                    }
-                }
-
-                return result;
-            } else {
+            if (response.getBody() == null) {
                 throw new RuntimeException("Face recognition failed");
             }
 
+            Map<String, Object> result = response.getBody();
+
+            if (Boolean.TRUE.equals(result.get("success"))) {
+                Integer userId = (Integer) result.get("userId");
+                TbUser user = userRepository.findById(userId).orElse(null);
+                if (user != null) {
+                    result.put("fullName", user.getFullName());
+                    result.put("department", user.getDepartment() != null ? user.getDepartment().getName() : null);
+                }
+            }
+
+            return result;
+
+        } catch (HttpStatusCodeException e) {
+            try {
+                String body = e.getResponseBodyAsString();
+                Map<String, Object> parsed = objectMapper.readValue(
+                        body, new TypeReference<Map<String, Object>>() {}
+                );
+                if (parsed.get("success") == null) parsed.put("success", false);
+                return parsed;
+            } catch (Exception ex) {
+                log.error("Error parsing error response from face service", ex);
+                return Map.of("success", false, "message", "Recognition failed: " + e.getStatusCode());
+            }
         } catch (Exception e) {
             log.error("Error recognizing face", e);
-            return Map.of(
-                    "success", false,
-                    "message", "Recognition failed: " + e.getMessage()
-            );
+            return Map.of("success", false, "message", "Recognition failed: " + e.getMessage());
         }
     }
 
-    /**
-     * Huấn luyện model
-     */
     public Map<String, Object> trainModel() {
         try {
             String url = faceApiUrl + "/api/face/train";
@@ -158,22 +166,15 @@ public class FaceRecognitionService {
             if (response.getBody() != null) {
                 log.info("Model training completed");
                 return response.getBody();
-            } else {
-                throw new RuntimeException("Model training failed");
             }
+            throw new RuntimeException("Model training failed");
 
         } catch (Exception e) {
             log.error("Error training model", e);
-            return Map.of(
-                    "success", false,
-                    "message", "Training failed: " + e.getMessage()
-            );
+            return Map.of("success", false, "message", "Training failed: " + e.getMessage());
         }
     }
 
-    /**
-     * Xóa face data
-     */
     public Map<String, Object> deleteFace(Integer userId) {
         try {
             String url = faceApiUrl + "/api/face/delete/" + userId;
@@ -188,22 +189,15 @@ public class FaceRecognitionService {
             if (response.getBody() != null) {
                 log.info("Face data deleted for user: {}", userId);
                 return response.getBody();
-            } else {
-                throw new RuntimeException("Delete failed");
             }
+            throw new RuntimeException("Delete failed");
 
         } catch (Exception e) {
             log.error("Error deleting face data for user: {}", userId, e);
-            return Map.of(
-                    "success", false,
-                    "message", "Delete failed: " + e.getMessage()
-            );
+            return Map.of("success", false, "message", "Delete failed: " + e.getMessage());
         }
     }
 
-    /**
-     * Health check Python service
-     */
     public boolean isServiceAvailable() {
         try {
             String url = faceApiUrl + "/health";

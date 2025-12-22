@@ -1,5 +1,15 @@
-1. Xoá cache browser + node_modules:
+python cài thêm:
+MacOs:
+pip install -U pip
+pip install flask flask-cors numpy opencv-python joblib scikit-learn face-recognition
 
+Windows:
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -U pip
+pip install flask flask-cors numpy opencv-python joblib scikit-learn face-recognition
+
+1. Xoá cache browser + node_modules:
 cd reactapp
 rm -rf node_modules package-lock.json
 npm install
