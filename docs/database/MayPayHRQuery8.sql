@@ -1,5 +1,5 @@
--- CREATE DATABASE MayPayHR;
--- GO
+CREATE DATABASE MayPayHR;
+GO
 
 USE MayPayHR;
 GO
@@ -1181,13 +1181,13 @@ VALUES
 GO
 
 -- 16. tbPayroll - 3 samples
-DECLARE @DeptFinishing3 INT = (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center');
-INSERT INTO tbPayroll ([month], department_id, total_salary, details, [status], created_by, approved_by)
-VALUES
-    ('2025-10-01', @DeptFinishing3, 850000000.00, N'Payroll for October', 'approved', 1001, 1000),
-    ('2025-11-01', @DeptFinishing3, 870000000.00, N'Payroll for November', 'balanced', 1001, NULL),
-    ('2025-09-01', @DeptFinishing3, 840000000.00, N'Payroll for September', 'approved', 1001, 1000);
-GO
+-- DECLARE @DeptFinishing3 INT = (SELECT department_id FROM tbDepartment WHERE name = 'Finishing Center');
+-- INSERT INTO tbPayroll ([month], department_id, total_salary, details, [status], created_by, approved_by)
+-- VALUES
+--     ('2025-10-01', @DeptFinishing3, 850000000.00, N'Payroll for October', 'approved', 1001, 1000),
+--     ('2025-11-01', @DeptFinishing3, 870000000.00, N'Payroll for November', 'balanced', 1001, NULL),
+--     ('2025-09-01', @DeptFinishing3, 840000000.00, N'Payroll for September', 'approved', 1001, 1000);
+-- GO
 
 -- 17. tbReservedPayroll - 3 samples
 INSERT INTO tbReservedPayroll (payroll_id, reserved_amount, details, created_by)
@@ -1268,7 +1268,10 @@ SELECT * FROM tbPayroll --16
 -- SELECT * FROM tbPasswordResetToken--21
 -- SELECT * FROM tb_face_training--22
 -- SELECT * FROM tb_face_scan_log--23
+SELECT * FROM tbDeductionRule
 
+SELECT * FROM tbTaxBracket
+SELECT * FROM tbTaxDeduction
 -- INSERT INTO tbUser 
 -- (full_name, email, password_hash, phone, gender, role_id, department_id, line_id, salary_type, base_salary, skill_level_id, hire_date)
 -- VALUES
@@ -1545,33 +1548,36 @@ ON tbEmployeePayroll(payroll_id, user_id);
 -- JOIN tbUser u ON ep.user_id = u.user_id
 -- WHERE ep.id = 1000;
 
-SELECT payroll_id, user_id, COUNT(*) AS c
-FROM tbEmployeePayroll
-GROUP BY payroll_id, user_id
-HAVING COUNT(*) > 1;
+-- SELECT payroll_id, user_id, COUNT(*) AS c
+-- FROM tbEmployeePayroll
+-- GROUP BY payroll_id, user_id
+-- HAVING COUNT(*) > 1;
 
 
-SELECT MIN([date]) AS min_date, MAX([date]) AS max_date, COUNT(*) AS total
-FROM tbAttendance;
+-- SELECT MIN([date]) AS min_date, MAX([date]) AS max_date, COUNT(*) AS total
+-- FROM tbAttendance;
 
-SELECT TOP 20 attendance_id, user_id, [date], status
-FROM tbAttendance
-ORDER BY [date] DESC;
+-- SELECT TOP 20 attendance_id, user_id, [date], status
+-- FROM tbAttendance
+-- ORDER BY [date] DESC;
 
 
-SELECT payroll_id, department_id, [month], total_salary, status
-FROM tbPayroll
-WHERE [month] BETWEEN '2025-11-01' AND '2025-11-30'
-ORDER BY payroll_id;
+-- SELECT payroll_id, department_id, [month], total_salary, status
+-- FROM tbPayroll
+-- WHERE [month] BETWEEN '2025-11-01' AND '2025-11-30'
+-- ORDER BY payroll_id;
 
--- sql
-WITH d AS (
-  SELECT
-    id,
-    payroll_id,
-    user_id,
-    ROW_NUMBER() OVER (PARTITION BY payroll_id, user_id ORDER BY id DESC) AS rn
-  FROM tbEmployeePayroll
-)
-DELETE FROM d WHERE rn > 1;
+-- -- sql
+-- WITH d AS (
+--   SELECT
+--     id,
+--     payroll_id,
+--     user_id,
+--     ROW_NUMBER() OVER (PARTITION BY payroll_id, user_id ORDER BY id DESC) AS rn
+--   FROM tbEmployeePayroll
+-- )
+-- DELETE FROM d WHERE rn > 1;
 
+
+Select * from tbEmployeePayroll
+select * from tbTaxBracket

@@ -46,6 +46,8 @@ const PayrollEmployeeCalculator = () => {
     const [overrideActualWorkingDays, setOverrideActualWorkingDays] = useState('');
     const [overrideOtWeekdayHours, setOverrideOtWeekdayHours] = useState('');
     const [overrideOtHolidayHours, setOverrideOtHolidayHours] = useState('');
+    const [overrideProductCount, setOverrideProductCount] = useState('');
+    const [overrideUnitPrice, setOverrideUnitPrice] = useState('');
 
     const [preview, setPreview] = useState(null);
     const [loadingPreview, setLoadingPreview] = useState(false);
@@ -55,7 +57,7 @@ const PayrollEmployeeCalculator = () => {
     const allowConfirmedEdit = Boolean(location?.state?.allowConfirmedEdit);
 
     const selectableEmployees = useMemo(() => {
-        if (allowConfirmedEdit) return employees; // cho phép chọn cả confirmed khi vào từ nút Edit
+        if (allowConfirmedEdit) return employees;
         return employees.filter(e => (e.calculationStatus || 'draft') !== 'confirmed');
     }, [employees, allowConfirmedEdit]);
 
@@ -75,7 +77,9 @@ const PayrollEmployeeCalculator = () => {
 
             overrideActualWorkingDays: overrideActualWorkingDays === '' ? null : Number(overrideActualWorkingDays),
             overrideOtWeekdayHours: overrideOtWeekdayHours === '' ? null : Number(overrideOtWeekdayHours),
-            overrideOtHolidayHours: overrideOtHolidayHours === '' ? null : Number(overrideOtHolidayHours)
+            overrideOtHolidayHours: overrideOtHolidayHours === '' ? null : Number(overrideOtHolidayHours),
+            overrideProductCount: overrideProductCount === '' ? null : Number(overrideProductCount),
+            overrideUnitPrice: overrideUnitPrice === '' ? null : Number(overrideUnitPrice)
         };
     }, [
         payrollId,
@@ -85,18 +89,16 @@ const PayrollEmployeeCalculator = () => {
         note,
         overrideActualWorkingDays,
         overrideOtWeekdayHours,
-        overrideOtHolidayHours
+        overrideOtHolidayHours,
+        overrideProductCount,
+        overrideUnitPrice
     ]);
 
     const reloadPayroll = async () => {
-        if (!payrollId) {
-            throw new Error('Thiếu payrollId');
-        }
+        if (!payrollId) throw new Error('Missing payrollId');
 
-        // 1) Sync from attendance: tạo các draft employeePayroll bị thiếu
         await payrollService.syncPayrollEmployeesFromAttendance(Number(payrollId));
 
-        // 2) Reload payroll detail (để dropdown thấy đầy đủ)
         const data = await payrollService.getPayrollDetail(Number(payrollId));
         setPayroll(data);
 
@@ -119,7 +121,7 @@ const PayrollEmployeeCalculator = () => {
             } catch (e) {
                 if (!isMounted) return;
                 const backendMsg = e?.response?.data?.message || e?.response?.data?.error;
-                setError(backendMsg || e?.message || 'Không load được payroll');
+                setError(backendMsg || e?.message || 'cannot load payroll');
                 setPayroll(null);
                 setEmployees([]);
             } finally {
@@ -133,34 +135,37 @@ const PayrollEmployeeCalculator = () => {
 
     useEffect(() => {
         const state = location?.state;
-        if (state?.userId && !selectedUserId) {
+
+        if (state?.userId != null) {
             setSelectedUserId(String(state.userId));
         }
-        if (state?.month && !month) {
+        if (state?.month) {
             setMonth(toYYYYMM(state.month));
         }
-    }, [location, selectedUserId, month]);
+
+        setPreview(null);
+        setError('');
+
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+    }, [location?.state?.userId, location?.state?.month, location?.key]);
+
 
     const handlePreview = async () => {
         try {
             setError('');
             setLoadingPreview(true);
 
-            console.log('[PayrollEmployeeCalculator] preview payload:', requestPayload);
-
-            if (!requestPayload.payrollId) throw new Error('Thiếu payrollId');
-            if (!requestPayload.userId) throw new Error('Vui lòng chọn nhân viên');
-            if (!requestPayload.month) throw new Error('Vui lòng chọn tháng (YYYY-MM)');
+            if (!requestPayload.payrollId) throw new Error('Missing payrollId');
+            if (!requestPayload.userId) throw new Error('Please select an employee');
+            if (!requestPayload.month) throw new Error('Please select month');
 
             const data = await payrollService.previewEmployeePayroll(requestPayload);
             setPreview(data);
 
             if (data?.note && !note) setNote(data.note);
         } catch (e) {
-            console.error('[PayrollEmployeeCalculator] preview error:', e?.response?.data || e);
-
             const backendMsg = e?.response?.data?.message || e?.response?.data?.error;
-            setError(backendMsg || e?.message || 'Preview lỗi');
+            setError(backendMsg || e?.message || 'Error Preview');
             setPreview(null);
         } finally {
             setLoadingPreview(false);
@@ -172,22 +177,17 @@ const PayrollEmployeeCalculator = () => {
             setError('');
             setSaving(true);
 
-            console.log('[PayrollEmployeeCalculator] confirm payload:', requestPayload);
-
-            if (!preview) throw new Error('Bạn cần Preview trước khi Confirm');
+            if (!preview) throw new Error('No preview data to confirm');
 
             await payrollService.confirmEmployeePayroll(requestPayload);
 
-            // reload để status/danh sách cập nhật ngay (draft -> confirmed)
             setPreview(null);
             await reloadPayroll();
 
-            alert('Confirm & save thành công!');
+            alert('Employee payroll confirmed and saved successfully.');
         } catch (e) {
-            console.error('[PayrollEmployeeCalculator] confirm error:', e?.response?.data || e);
-
             const backendMsg = e?.response?.data?.message || e?.response?.data?.error;
-            setError(backendMsg || e?.message || 'Confirm lỗi');
+            setError(backendMsg || e?.message || 'Error Confirm');
         } finally {
             setSaving(false);
         }
@@ -195,17 +195,13 @@ const PayrollEmployeeCalculator = () => {
 
     const handleEditConfirmed = (emp) => {
         navigate(`/payroll/${payrollId}/calculate`, {
-            state: {
-                userId: emp.userId,
-                month: payroll?.month,
-                allowConfirmedEdit: true
-            }
+            state: { userId: emp.userId, month: payroll?.month, allowConfirmedEdit: true }
         });
     };
 
     return (
         <div className="p-3">
-            <h4>Tính lương nhân viên (Preview → Edit → Confirm)</h4>
+            <h4><strong>Calculate Employee Salaries (Preview → Edit → Confirm)</strong></h4>
 
             {error ? <Alert variant="danger" className="mt-3">{error}</Alert> : null}
 
@@ -215,21 +211,26 @@ const PayrollEmployeeCalculator = () => {
                 </div>
             ) : null}
 
+
             <Card className="mt-3">
-                <Card.Header>1) Chọn nhân viên + tháng</Card.Header>
+                <Card.Header>
+                    <strong>1. Select Employee + month </strong>
+                    <span className="text-danger">*</span>
+                </Card.Header>
                 <Card.Body>
                     <Row className="g-3">
                         <Col md={6}>
                             <Form.Group>
                                 <Form.Label>
-                                    Nhân viên {allowConfirmedEdit ? '(bao gồm confirmed)' : '(chỉ draft/calculated)'}
+                                    Employee List {allowConfirmedEdit ? '(include confirmed)' : '(only draft/calculated)'}
+                                    <span className="text-danger">*</span>
                                 </Form.Label>
                                 <Form.Select
                                     value={selectedUserId}
                                     onChange={(e) => setSelectedUserId(e.target.value)}
                                     disabled={loadingPayroll || selectableEmployees.length === 0}
                                 >
-                                    <option value="">-- Chọn nhân viên --</option>
+                                    <option value="">-- select employee --</option>
                                     {selectableEmployees.map((emp) => (
                                         <option key={emp.userId} value={emp.userId}>
                                             {emp.fullName} (ID: {emp.userId}) - {emp.salaryType} [{emp.calculationStatus || 'draft'}]
@@ -241,7 +242,7 @@ const PayrollEmployeeCalculator = () => {
 
                         <Col md={3}>
                             <Form.Group>
-                                <Form.Label>Tháng lương</Form.Label>
+                                <Form.Label>Month <span className="text-danger">*</span></Form.Label>
                                 <Form.Control
                                     type="month"
                                     value={month}
@@ -252,7 +253,7 @@ const PayrollEmployeeCalculator = () => {
 
                         <Col md={3} className="d-flex align-items-end gap-2">
                             <Button variant="primary" onClick={handlePreview} disabled={loadingPreview}>
-                                {loadingPreview ? 'Đang tính...' : 'Preview (Tự động tính)'}
+                                {loadingPreview ? 'Calculating...' : 'Preview (Auto Calculation)'}
                             </Button>
                             <Button
                                 variant="outline-secondary"
@@ -263,7 +264,7 @@ const PayrollEmployeeCalculator = () => {
                                         await reloadPayroll();
                                     } catch (e) {
                                         const backendMsg = e?.response?.data?.message || e?.response?.data?.error;
-                                        setError(backendMsg || e?.message || 'Sync lỗi');
+                                        setError(backendMsg || e?.message || 'Error Sync');
                                     } finally {
                                         setLoadingPayroll(false);
                                     }
@@ -278,12 +279,14 @@ const PayrollEmployeeCalculator = () => {
             </Card>
 
             <Card className="mt-3">
-                <Card.Header>2) Input có thể chỉnh trước khi Confirm</Card.Header>
+                <Card.Header>
+                    <strong>2. Review Payroll </strong>
+                </Card.Header>
                 <Card.Body>
                     <Row className="g-3">
                         <Col md={3}>
                             <Form.Group>
-                                <Form.Label>Allowance (bổ sung)</Form.Label>
+                                <Form.Label>Allowance</Form.Label>
                                 <Form.Control
                                     type="number"
                                     value={manualAllowance}
@@ -339,54 +342,207 @@ const PayrollEmployeeCalculator = () => {
                                 />
                             </Form.Group>
                         </Col>
+
+                        {preview?.salaryType === 'ProductBased' && (
+                            <>
+                                <Col md={3}>
+                                    <Form.Group>
+                                        <Form.Label>Override Product Count</Form.Label>
+                                        <Form.Control
+                                            type="number"
+                                            value={overrideProductCount}
+                                            onChange={(e) => setOverrideProductCount(e.target.value)}
+                                        />
+                                    </Form.Group>
+                                </Col>
+
+                                <Col md={3}>
+                                    <Form.Group>
+                                        <Form.Label>Override Unit Price</Form.Label>
+                                        <Form.Control
+                                            type="number"
+                                            step="0.1"
+                                            value={overrideUnitPrice}
+                                            onChange={(e) => setOverrideUnitPrice(e.target.value)}
+                                        />
+                                    </Form.Group>
+                                </Col>
+                            </>
+                        )}
+
                     </Row>
                 </Card.Body>
             </Card>
 
             <Card className="mt-3">
-                <Card.Header>3) Kết quả tính lương (Preview)</Card.Header>
-                <Card.Body>
-                    {loadingPreview ? (
-                        <div className="text-center p-4"><Spinner animation="border" /></div>
-                    ) : !preview ? (
-                        <Alert variant="info">Hãy chọn nhân viên + nhấn Preview.</Alert>
-                    ) : (
-                        <>
-                            <Row className="mb-3">
-                                <Col md={4}><strong>Nhân viên:</strong> {preview.fullName}</Col>
-                                <Col md={4}><strong>SalaryType:</strong> {preview.salaryType}</Col>
-                                <Col md={4}><strong>BaseSalary:</strong> {formatCurrency(preview.baseSalary)}</Col>
-                            </Row>
+                <Card className="mt-3">
+                    <Card.Header><strong>3. Preview for Calculator</strong></Card.Header>
+                    <Card.Body>
+                        {loadingPreview ? (
+                            <div className="text-center p-4"><Spinner animation="border" /></div>
+                        ) : !preview ? (
+                            <Alert variant="info">Select Employee</Alert>
+                        ) : (
+                            <>
+                                <Row className="mb-3">
+                                  <Col md={4}><strong>Employee Name:</strong> {preview.fullName}</Col>
+                                  <Col md={4}><strong>Salary Type:</strong> {preview.salaryType}</Col>
+                                  <Col md={4}><strong>Month:</strong> {month}</Col>
+                                </Row>
 
-                            <Table bordered size="sm">
-                                <tbody>
-                                <tr>
-                                    <td style={{width: '40%'}}><strong>Total Pay (NET)</strong></td>
-                                    <td><strong>{formatCurrency(preview.totalPay)}</strong></td>
-                                </tr>
-                                </tbody>
-                            </Table>
+                                {/* === INPUTS (read-only display for transparency) === */}
+                                <h6 className="mb-2"><strong>1.Display for Transparency</strong></h6>
+                                <Table bordered size="sm" className="mb-4">
+                                  <tbody>
+                                    <tr>
+                                      <td style={{ width: '40%' }}>Base Salary</td>
+                                      <td>{formatCurrency(preview.baseSalary)}</td>
+                                    </tr>
+                                    <tr>
+                                      <td>Wage Coefficient</td>
+                                      <td>{preview.wageCoefficient ?? '-'}</td>
+                                    </tr>
 
-                            <div className="d-flex justify-content-end gap-2">
-                                <Button variant="secondary" onClick={handlePreview} disabled={loadingPreview || saving}>
-                                    Tính lại (Preview)
-                                </Button>
-                                <Button variant="success" onClick={handleConfirm} disabled={saving}>
-                                    {saving ? 'Đang lưu...' : 'Confirm & Save'}
-                                </Button>
-                            </div>
-                        </>
-                    )}
-                </Card.Body>
+                                    <tr>
+                                      <td>Standard Working Days</td>
+                                      <td>{preview.standardWorkingDays ?? 26}</td>
+                                    </tr>
+                                    <tr>
+                                      <td>Actual Working Days</td>
+                                      <td>{preview.actualWorkingDays ?? 0}</td>
+                                    </tr>
+                                    <tr>
+                                      <td>Paid Leave Days</td>
+                                      <td>{preview.paidLeaveDays ?? 0}</td>
+                                    </tr>
+                                    <tr>
+                                      <td>Unpaid Leave Days</td>
+                                      <td>{preview.unpaidLeaveDays ?? 0}</td>
+                                    </tr>
+                                    <tr>
+                                      <td>Late Count</td>
+                                      <td>{preview.lateCount ?? 0}</td>
+                                    </tr>
+
+                                    <tr>
+                                      <td>OT1 Hours (Weekday)</td>
+                                      <td>{preview.ot1Hours ?? 0}</td>
+                                    </tr>
+                                    <tr>
+                                      <td>OT2 Hours (Holiday/Sun)</td>
+                                      <td>{preview.ot2Hours ?? 0}</td>
+                                    </tr>
+
+                                    <tr>
+                                      <td>Product Count</td>
+                                      <td>{preview.productCount ?? 0}</td>
+                                    </tr>
+                                    <tr>
+                                      <td>Unit Price</td>
+                                      <td>{formatCurrency(preview.unitPrice)}</td>
+                                    </tr>
+
+                                    <tr>
+                                      <td>Allowance (total)</td>
+                                      <td>{formatCurrency(preview.allowance)}</td>
+                                    </tr>
+                                  </tbody>
+                                </Table>
+
+                                {/* === RESULTS (read-only) === */}
+                                <h6 className="mb-2"><strong>2. Results</strong></h6>
+                                <Table bordered size="sm" className="mb-3">
+                                  <tbody>
+                                    <tr>
+                                      <td style={{ width: '40%' }}>Time Salary (A)</td>
+                                      <td>{formatCurrency(preview.timeSalary)}</td>
+                                    </tr>
+                                    <tr>
+                                      <td>Product Bonus (B)</td>
+                                      <td>{formatCurrency(preview.productBonus)}</td>
+                                    </tr>
+                                    <tr>
+                                      <td>Overtime Pay (C)</td>
+                                      <td>{formatCurrency(preview.overtimePay)}</td>
+                                    </tr>
+
+                                    <tr>
+                                        <td>Taxable income (D = A + B + C)</td>
+                                        <td>{formatCurrency(preview.grossIncomeForTax)}</td>
+                                    </tr>
+
+                                    <tr>
+                                        <td>Deduction:</td>
+                                    </tr>
+                                    <tr>
+                                      <td>Late Penalty (E)</td>
+                                      <td className="text-danger">-{formatCurrency(preview.latePenalty)}</td>
+                                    </tr>
+                                    <tr>
+                                      <td>Insurance(BHXH 8%, BHYT 1.5%, BHTN 1%) (F)</td>
+                                      <td className="text-danger">-{formatCurrency(preview.insurance)}</td>
+                                    </tr>
+
+                                    {/*//giảm trừ gia cảnh*/}
+                                    <tr>
+                                      <td>Personal Deduction(G)</td>
+                                      <td className="text-danger">-{formatCurrency(preview.personalDeduction)}</td>
+                                    </tr>
+                                    <tr>
+                                      <td>Dependent Deduction (H)</td>
+                                      <td className="text-danger">-{formatCurrency(preview.dependentDeduction)}</td>
+                                    </tr>
+
+                                    <tr>
+                                        <td><strong>Total Deduction (I = E + F + G + H)</strong></td>
+                                        <td className="text-danger"><strong>-{formatCurrency(preview.taxDeductionTotal)}</strong></td>
+                                    </tr>
+                                    {/* thu nhập tính thuế = thu nhập chịu thuế + OT + product base - total deduction*/}
+
+                                    <tr>
+                                        <td><strong>Income for tax calculation (J = A - I)</strong></td>
+                                        <td><strong>{formatCurrency(preview.taxableIncome)}</strong></td>
+                                    </tr>
+
+                                    <tr>
+                                      <td>Personal Income Tax/ TNCN (K = J * tax_rate)</td>
+                                      <td className="text-danger">-{formatCurrency(preview.personalIncomeTax)}</td>
+                                    </tr>
+
+                                    <tr className="table-success">
+                                      <td><strong>Total Pay (NET = J - K)</strong></td>
+                                      <td><strong>{formatCurrency(preview.totalPay)}</strong></td>
+                                    </tr>
+                                  </tbody>
+                                </Table>
+
+                                {preview?.taxCalculation?.note ? (
+                                    <Alert variant="secondary" className="mt-3" style={{ whiteSpace: 'pre-wrap' }}>
+                                        <strong>Personal income tax calculation details (from BE):</strong>
+                                        {'\n\n'}
+                                        {preview.taxCalculation.note}
+                                    </Alert>
+                                ) : null}
+                                <div className="d-flex justify-content-end gap-2">
+                                  <Button variant="secondary" onClick={handlePreview} disabled={loadingPreview || saving}>
+                                    Recalculate (Preview)
+                                  </Button>
+                                  <Button variant="success" onClick={handleConfirm} disabled={saving}>
+                                    {saving ? 'Saving...' : 'Confirm & Save'}
+                                  </Button>
+                                </div>
+                              </>
+                            )}
+                          </Card.Body>
+                        </Card>
             </Card>
-
+{/*//list*/}
             <Card className="mt-4">
-                <Card.Header>Danh sách nhân viên đã Confirmed</Card.Header>
+                <Card.Header><strong>4. List of Confirmed Employees</strong></Card.Header>
                 <Card.Body>
                     {confirmedEmployees.length === 0 ? (
                         <Alert variant="info" className="mb-0">
-                            Chưa có nhân viên nào ở trạng thái confirmed.
-                        </Alert>
+                            No employees are currently in the confirmed status.                        </Alert>
                     ) : (
                         <Table bordered hover size="sm" className="mb-0">
                             <thead>
@@ -436,4 +592,3 @@ const PayrollEmployeeCalculator = () => {
 };
 
 export default PayrollEmployeeCalculator;
-

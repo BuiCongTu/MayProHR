@@ -1373,7 +1373,7 @@ public class PayrollController {
             ep.setGrossIncomeForTax(calculation.getGrossIncomeForTax());
             ep.setIncomeAfterDeductions(calculation.getIncomeAfterDeductions());
             ep.setPersonalIncomeTax(calculation.getTaxCalculation().getTotalTax());
-            ep.setTaxDeductionTotal(calculation.getTaxCalculation().getTotalTax());
+            ep.setTaxDeductionTotal(calculation.getTaxCalculation().getTotalDeduction());
 
             ep.setTotalPay(calculation.getTotalPay());
             ep.setNote(calculation.getCalculationNote());
@@ -1415,19 +1415,22 @@ public class PayrollController {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class EmployeePayrollPreviewRequest {
-        private Integer payrollId; // required để save vào payroll nào
-        private Integer userId;    // required
+        private Integer payrollId;
+        private Integer userId;
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-        private LocalDate month;   // required (YYYY-MM-01)
+        private LocalDate month;
 
         // Editable fields
-        private BigDecimal allowance; // allowance bổ sung (ngoài recurring)
+        private BigDecimal allowance; // allowance bổ sung
         private String note;
 
         // Optional overrides
         private BigDecimal overrideActualWorkingDays;
         private BigDecimal overrideOtWeekdayHours;
         private BigDecimal overrideOtHolidayHours;
+        private Integer overrideProductCount;
+        private BigDecimal overrideUnitPrice;
+
     }
 
     private static final BigDecimal STANDARD_WORKING_DAYS = new BigDecimal("26");
@@ -1636,12 +1639,45 @@ public class PayrollController {
                     .setScale(SCALE, RoundingMode.HALF_UP);
         }
 
-        // Deductions (insurance + late penalties) giữ theo engine
+        // Deductions cộng các khoản trừ
         BigDecimal totalDeduction = calc.getTotalDeduction() != null ? calc.getTotalDeduction() : BigDecimal.ZERO;
 
         // Gross income for tax depends on salary type
         BigDecimal baseSalary = user.getBaseSalary() != null ? user.getBaseSalary() : BigDecimal.ZERO;
         BigDecimal productBonus = calc.getProductBonus() != null ? calc.getProductBonus() : BigDecimal.ZERO;
+
+        // producbáed
+        Integer productCount = calc.getProductCount();
+        BigDecimal unitPrice = calc.getUnitPrice();
+
+        boolean productOverridden = request.getOverrideProductCount() != null || request.getOverrideUnitPrice() != null;
+        if (user.getSalaryType() == TbUser.SalaryType.ProductBased && productOverridden) {
+            if (request.getOverrideProductCount() != null) {
+                productCount = request.getOverrideProductCount();
+            }
+            if (request.getOverrideUnitPrice() != null) {
+                unitPrice = request.getOverrideUnitPrice();
+            }
+
+            BigDecimal qty = productCount != null ? new BigDecimal(productCount) : BigDecimal.ZERO;
+            BigDecimal price = unitPrice != null ? unitPrice : BigDecimal.ZERO;
+
+            // A = productCount * unitPrice
+            BigDecimal A = qty.multiply(price);
+
+            // C = 176 + totalOT (giờ)
+            BigDecimal totalOtHours = BigDecimal.ZERO;
+            if (otWeekday != null) totalOtHours = totalOtHours.add(otWeekday);
+            if (otHoliday != null) totalOtHours = totalOtHours.add(otHoliday);
+
+            BigDecimal C = HOURS_PER_MONTH.add(totalOtHours);
+            if (C.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal productSalaryPerHour = A.divide(C, SCALE, RoundingMode.HALF_UP);
+                productBonus = productSalaryPerHour.multiply(HOURS_PER_MONTH).setScale(SCALE, RoundingMode.HALF_UP);
+            } else {
+                productBonus = BigDecimal.ZERO;
+            }
+        }
 
         BigDecimal grossIncomeForTax;
         if (user.getSalaryType() == TbUser.SalaryType.TimeBased) {
@@ -1658,7 +1694,7 @@ public class PayrollController {
 
         BigDecimal totalPay = incomeAfterDeductions.subtract(totalTax).add(totalAllowance).setScale(SCALE, RoundingMode.HALF_UP);
 
-        // 5) Build DTO for FE: dùng PayrollDetailDTO (đúng các field bạn muốn hiển thị)
+        // 5) Build DTO for FE: dùng PayrollDetailDTO
         return PayrollDetailDTO.builder()
                 .employeePayrollId(null)
                 .payrollId(request.getPayrollId())
@@ -1693,7 +1729,17 @@ public class PayrollController {
                 .totalDeduction(totalDeduction)
                 .grossIncomeForTax(grossIncomeForTax)
                 .personalIncomeTax(totalTax)
-                .taxDeductionTotal(totalTax)
+
+                //tong giam tru
+                .taxDeductionTotal(taxDTO != null ? taxDTO.getTotalDeduction() : BigDecimal.ZERO)
+
+                //chi tiet giam tru
+                .personalDeduction(taxDTO != null ? taxDTO.getPersonalDeduction() : BigDecimal.ZERO)
+                .dependentDeduction(taxDTO != null ? taxDTO.getDependentDeduction() : BigDecimal.ZERO)
+                .insuranceDeduction(taxDTO != null ? taxDTO.getInsuranceDeduction() : BigDecimal.ZERO)
+                .taxableIncome(taxDTO != null ? taxDTO.getTaxableIncome() : BigDecimal.ZERO)
+
+                .incomeAfterDeductions(incomeAfterDeductions)
 
                 .allowance(totalAllowance)
                 .totalPay(totalPay)

@@ -188,13 +188,13 @@ const PayrollDashboard = () =>
                                     <tr key={payroll.payrollId}>
                                         <td>
                                             <strong>
-                                                {new Date(payroll.month).toLocaleDateString('vi-VN', {
+                                                {new Date(payroll.month).toLocaleDateString('en-EN', {
                                                     month: 'long',
                                                     year: 'numeric'
                                                 })}
                                             </strong>
                                         </td>
-                                        <td>{payroll.departmentName}</td>
+                                        <td>{payroll.department?.name || 'N/A'}</td>
                                         <td className="text-end">{formatCurrency(payroll.totalSalary)}</td>
                                         <td>
                                             <Badge
@@ -205,13 +205,13 @@ const PayrollDashboard = () =>
                                         </td>
                                         <td className="d-flex gap-2">
                                             <Link
-                                                to={`/payroll/${payroll.payrollId}`}
+                                                to={`/payroll/${payroll.id}`}
                                                 className="btn btn-sm btn-info"
                                             >
                                                 View
                                             </Link>
                                             <Link
-                                                to={`/payroll/${payroll.payrollId}/calculate`}
+                                                to={`/payroll/${payroll.id}/calculate`}
                                                 className="btn btn-sm btn-primary"
                                             >
                                                 Calculate

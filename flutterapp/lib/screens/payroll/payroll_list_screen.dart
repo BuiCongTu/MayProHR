@@ -71,7 +71,6 @@ class _PayrollListScreenState extends State<PayrollListScreen> {
   }
 
   Widget _buildBody() {
-    // Đang tải
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(),
@@ -166,6 +165,9 @@ class _PayrollListScreenState extends State<PayrollListScreen> {
   }
 
   Widget _buildPayrollCard(PayrollModel payroll) {
+    String moneyOrDash(double? v) =>
+        v == null ? '-' : payroll.formatCurrency(v);
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       elevation: 2,
@@ -203,10 +205,10 @@ class _PayrollListScreenState extends State<PayrollListScreen> {
               ),
               const Divider(height: 16, thickness: 1),
 
-              _buildInfoRow('Lương Cơ Bản', payroll.baseSalary ?? 0.0),
-              _buildInfoRow('Thưởng Sản Phẩm', payroll.productBonus ?? 0.0),
-              _buildInfoRow('Tăng Ca', payroll.overtimePay ?? 0.0),
-              _buildInfoRow('Phụ Cấp', payroll.allowance ?? 0.0),
+              // Nhóm read-only như list React: gross/deduction/tax/net
+              _buildInfoRowText('Gross (Tax)', moneyOrDash(payroll.grossIncomeForTax)),
+              _buildInfoRowText('Total Deduction', moneyOrDash(payroll.totalDeduction ?? payroll.deduction)),
+              _buildInfoRowText('Personal Income Tax', moneyOrDash(payroll.personalIncomeTax)),
               const Divider(height: 16, thickness: 1),
 
               Container(
@@ -220,7 +222,7 @@ class _PayrollListScreenState extends State<PayrollListScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Lương Thực Nhận:',
+                      'Lương Thực Nhận (NET):',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -237,9 +239,42 @@ class _PayrollListScreenState extends State<PayrollListScreen> {
                   ],
                 ),
               ),
+
+              const SizedBox(height: 12),
+
+              // Tùy chọn: hiển thị nhanh các income components (để đối soát)
+              _buildInfoRow('Lương Cơ Bản', payroll.baseSalary ?? 0.0),
+              _buildInfoRow('Thưởng Sản Phẩm', payroll.productBonus ?? 0.0),
+              _buildInfoRow('Tăng Ca', payroll.overtimePay ?? 0.0),
+              _buildInfoRow('Phụ Cấp', payroll.allowance ?? 0.0),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRowText(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.grey,
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+        ],
       ),
     );
   }

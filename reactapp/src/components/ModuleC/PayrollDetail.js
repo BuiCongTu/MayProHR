@@ -53,6 +53,24 @@ const PayrollDetail = () =>
         }
     };
 
+    const handleRecalculateEmployee = async (emp) => {
+        try {
+            if (!emp?.employeePayrollId) {
+                toast.error('Thiếu employeePayrollId để recalculate');
+                return;
+            }
+            setLoading(true);
+            await payrollService.recalculatePayroll(emp.employeePayrollId);
+            await fetchPayrollDetail(payrollId);
+            toast.success('Recalculate thành công (đã cập nhật PIT & NET)');
+        } catch (err) {
+            console.error('Recalculate error:', err);
+            toast.error(err?.response?.data?.message || err?.message || 'Recalculate thất bại');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const formatCurrency = (value) =>
     {
         if (!value) return '0 đ';
@@ -108,7 +126,7 @@ const PayrollDetail = () =>
 
     const handleSave = async () => {
         try {
-            const response = await payrollService.updateEmployeeWorkData(
+            await payrollService.updateEmployeeWorkData(
                 selectedEmployee.employeePayrollId,
                 formData
             );
@@ -148,6 +166,25 @@ const PayrollDetail = () =>
         }
     };
 
+    const getStatusLabel = (status) =>
+    {
+        return status || 'confirmed';
+    };
+    const getStatusBadge = (status) =>
+    {
+        const value = (status || '').toLowerCase();
+        switch (value)
+        {
+            case 'confirmed':
+                return 'success';
+            case 'draf':
+            case 'approved':
+                return 'secondary';
+            default:
+                return 'primary';
+        }
+    };
+
     if (loading)
     {
         return (
@@ -179,6 +216,7 @@ const PayrollDetail = () =>
         0
     );
 
+
     return (
         <div className="p-4 payroll-detail-container">
             <div className="d-flex justify-content-between align-items-center mb-3">
@@ -205,7 +243,6 @@ const PayrollDetail = () =>
                     </Button>
                 </div>
             </div>
-
 
             <Row className="mb-4">
                 <Col md={4}>
@@ -246,37 +283,59 @@ const PayrollDetail = () =>
                             <Table hover responsive className="mb-0">
                                 <thead className="bg-light">
                                 <tr>
-                                    <th>Emp ID</th>
+                                    <th>ID</th>
                                     <th>Full Name</th>
-                                    <th className="text-end">Base Salary</th>
+                                    <th>Status</th>
+
+                                    <th className="text-end">Actual Days</th>
+                                    <th className="text-end">OT1</th>
+                                    <th className="text-end">OT2</th>
                                     <th className="text-end">Allowance</th>
-                                    <th className="text-end">Product Bonus</th>
-                                    <th className="text-end">Overtime</th>
-                                    <th className="text-end text-danger">Deductions</th>
+
+                                    <th className="text-end">Gross (Tax)</th>
+                                    <th className="text-end text-danger">Total Deduction</th>
                                     <th className="text-end text-danger">Personal Income Tax</th>
                                     <th className="text-end text-bg-primary">Net Pay</th>
+
                                     <th>Action</th>
                                 </tr>
                                 </thead>
+
                                 <tbody>
                                 {employees.map(emp => (
                                     <tr
-                                        key={emp.employeePayrollId}
+                                        key={emp.employeeCode}
                                         style={{ cursor: 'pointer' }}
                                         onClick={() => handleRowClick(emp)}
                                     >
                                         <td><strong>{emp.employeeCode}</strong></td>
                                         <td>{emp.fullName}</td>
-                                        <td className="text-end">{formatCurrency(emp.baseSalary)}</td>
+                                        <td>
+                                            <Badge bg={getStatusBadge(emp.calculationStatus  || emp.calculationStatus )}>
+                                                {getStatusLabel(emp.calculationStatus  || emp.calculationStatus )}
+                                            </Badge>
+                                        </td>
+                                        <td className="text-end">{emp.actualWorkingDays ?? 0}</td>
+                                        <td className="text-end">{emp.otWeekdayHours ?? 0}</td>
+                                        <td className="text-end">{emp.otHolidayHours ?? 0}</td>
                                         <td className="text-end">{formatCurrency(emp.allowance)}</td>
-                                        <td className="text-end">{formatCurrency(emp.productBonus)}</td>
-                                        <td className="text-end">{formatCurrency(emp.overtimePay)}</td>
+
+                                        <td className="text-end">{formatCurrency(emp.grossIncomeForTax)}</td>
                                         <td className="text-end text-danger">{formatCurrency(emp.deduction)}</td>
                                         <td className="text-end text-danger">{formatCurrency(emp.personalIncomeTax)}</td>
                                         <td className="text-end text-bg-primary">
                                             <strong>{formatCurrency(emp.totalPay)}</strong>
                                         </td>
-                                        <td onClick={(e) => e.stopPropagation()}>
+
+                                        <td onClick={(e) => e.stopPropagation()} className="d-flex flex-wrap gap-2">
+                                            <Button
+                                                size="sm"
+                                                variant="outline-warning"
+                                                onClick={() => handleRecalculateEmployee(emp)}
+                                            >
+                                                Recalc
+                                            </Button>
+
                                             <Button
                                                 size="sm"
                                                 variant="primary"
@@ -292,7 +351,6 @@ const PayrollDetail = () =>
                                                 Calc
                                             </Button>
                                         </td>
-
                                     </tr>
                                 ))}
                                 </tbody>
@@ -321,6 +379,15 @@ const PayrollDetail = () =>
                                     <p><strong>Salary Type:</strong> {selectedEmployee.salaryType || 'N/A'}</p>
                                     <p><strong>Note:</strong> {selectedEmployee.note || 'N/A'}</p>
                                 </Col>
+
+                                <Col md={6}>
+                                    <h6>Read-only results</h6>
+                                    <p><strong>Gross (Tax):</strong> {formatCurrency(selectedEmployee.grossIncomeForTax)}</p>
+                                    <p><strong>Total Deduction:</strong> {formatCurrency(selectedEmployee.deduction)}</p>
+                                    <p><strong>Personal Income Tax:</strong> {formatCurrency(selectedEmployee.personalIncomeTax)}</p>
+                                    <p><strong>Net Pay:</strong> <strong>{formatCurrency(selectedEmployee.totalPay)}</strong></p>
+                                </Col>
+
                                 <Col md={6}>
                                     {!editMode ? (
                                         <>

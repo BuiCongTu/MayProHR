@@ -359,7 +359,6 @@ public class PayrollServiceImp implements PayrollService {
             }
         }
 
-        // 4. Map sang DTO, sử dụng HashMap để lấy WorkTime và Production
         List<TbEmployeePayrollDTO> employeeDTOs = eps.stream()
                 .map(ep -> mapToEmployeePayrollDTO(ep, workTimeMap, productionQtyMap))
                 .collect(Collectors.toList());
@@ -375,12 +374,11 @@ public class PayrollServiceImp implements PayrollService {
             Map<Integer, BigDecimal> productionQtyMap
     ) {
         TbEmployeePayrollDTO dto = new TbEmployeePayrollDTO();
-//        dto.setEmployeePayrollId(ep.getId());
 
         if (ep != null && ep.getId() != null) {
             dto.setEmployeePayrollId(ep.getId());
         } else {
-            throw new RuntimeException("Invalid Employee Payroll ID"); // Debug lỗi ngay backend
+            throw new RuntimeException("Invalid Employee Payroll ID");
         }
 
         if (ep.getUser() != null) {
@@ -388,6 +386,13 @@ public class PayrollServiceImp implements PayrollService {
             dto.setFullName(ep.getUser().getFullName());
         }
 
+        if (ep.getSalaryType() != null) {
+            dto.setSalaryType(ep.getSalaryType().name());
+        } else if (ep.getUser() != null && ep.getUser().getSalaryType() != null) {
+            dto.setSalaryType(ep.getUser().getSalaryType().toString());
+        } else {
+            dto.setSalaryType(null);
+        }
 
         dto.setBaseSalary(ep.getBaseSalary());
         dto.setAllowance(ep.getAllowance());
@@ -398,8 +403,20 @@ public class PayrollServiceImp implements PayrollService {
         dto.setTaxDeductionTotal(ep.getTaxDeductionTotal());
         dto.setTotalPay(ep.getTotalPay());
         dto.setCalculationStatus(ep.getCalculationStatus() != null ? ep.getCalculationStatus().name() : "draft");
+// map đay đủ
+        dto.setActualWorkingDays(ep.getActualWorkingDays());
+        dto.setPaidLeaveDays(ep.getPaidLeaveDays());
+        dto.setUnpaidLeaveDays(ep.getUnpaidLeaveDays());
 
-        // Lấy WorkTime từ HashMap thay vì ep.getWorkTime()
+        dto.setLateCount(ep.getLateCount());
+        dto.setLatePenalty(ep.getLatePenalty());
+
+        dto.setOtWeekdayHours(ep.getOt1Hours());
+        dto.setOtHolidayHours(ep.getOt2Hours());
+
+        dto.setGrossIncomeForTax(ep.getGrossIncomeForTax());
+        dto.setIncomeAfterDeductions(ep.getIncomeAfterDeductions());
+
         TbEmployeeWorkTime wt = workTimeMap.get(ep.getId());
         if (wt != null) {
             dto.setTotalWorkDays(wt.getWorkingDays());
@@ -424,5 +441,6 @@ public class PayrollServiceImp implements PayrollService {
         dto.setCreatedAt(ep.getCreatedAt());
         return dto;
     }
+
 
 }
