@@ -4,6 +4,7 @@ import attendanceService from '../../services/moduleA/attendanceService';
 import useDepartmentLineFilters from '../../hooks/useDepartmentLineFilters';
 import LineSelector from '../../components/ModuleC/LineSelector';
 import { getUsersByStructure } from '../../services/userService';
+import { getHolidays } from '../../services/moduleC/holidayService';
 
 const AttendanceReportPage = () =>
 {
@@ -56,6 +57,160 @@ const AttendanceReportPage = () =>
     const currentSubLineName = linePath.length >= 3 ? linePath[linePath.length - 2]?.name : '-';
     const currentWorkUnitName = linePath.length > 0 ? linePath[linePath.length - 1]?.name : '-';
     const selectedNode = linePath.length > 0 ? linePath[linePath.length - 1] : null;
+
+    // Calendar tháng + Holiday
+    const [selectedCalendarDate, setSelectedCalendarDate] = useState(''); // YYYY-MM-DD
+    const [holidaysLoading, setHolidaysLoading] = useState(false);
+    const [holidays, setHolidays] = useState([]); // [{holidayDate, holidayName, isPaid, ...}]
+    const [monthAttendances, setMonthAttendances] = useState([]);
+
+    const monthYear = useMemo(() =>
+    {
+        const m = (filterMonth && filterMonth.length >= 7) ? filterMonth.slice(0, 7) : '';
+        if (!m) return { year: null, month: null };
+        const [y, mo] = m.split('-');
+        return { year: parseInt(y, 10), month: parseInt(mo, 10) };
+    }, [filterMonth]);
+
+    const holidayMap = useMemo(() =>
+    {
+        const map = new Map();
+        (holidays || []).forEach((h) =>
+        {
+            const key = h?.holidayDate ? String(h.holidayDate) : '';
+            if (key) map.set(key, h);
+        });
+        return map;
+    }, [holidays]);
+
+    const daysInMonth = (year, month) => new Date(year, month, 0).getDate(); // month: 1..12
+
+    const dayOfWeekMon0 = (year, month, day) =>
+    {
+        const js = new Date(year, month - 1, day).getDay(); // 0=Sun..6=Sat
+        return (js + 6) % 7; // 0=Mon..6=Sun
+    };
+
+    const isSunday = (dateStr) =>
+    {
+        if (!dateStr) return false;
+        const d = new Date(`${dateStr}T00:00:00`);
+        return d.getDay() === 0;
+    };
+
+    const calendarCells = useMemo(() =>
+    {
+        if (mode !== 'MONTH') return [];
+        if (!monthYear.year || !monthYear.month) return [];
+
+        const firstDow = dayOfWeekMon0(monthYear.year, monthYear.month, 1);
+        const totalDays = daysInMonth(monthYear.year, monthYear.month);
+
+        const cells = [];
+        for (let i = 0; i < firstDow; i++) cells.push(null);
+
+        for (let d = 1; d <= totalDays; d++)
+        {
+            const dd = String(d).padStart(2, '0');
+            const mm = String(monthYear.month).padStart(2, '0');
+            cells.push(`${monthYear.year}-${mm}-${dd}`);
+        }
+
+        while (cells.length % 7 !== 0) cells.push(null);
+        return cells;
+    }, [mode, monthYear.year, monthYear.month]);
+
+    const dayRecordCountMap = useMemo(() =>
+    {
+        const map = new Map(); // YYYY-MM-DD -> count
+        (monthAttendances || []).forEach((a) =>
+        {
+            const d = a?.date ? String(a.date) : '';
+            if (!d) return;
+            map.set(d, (map.get(d) || 0) + 1);
+        });
+        return map;
+    }, [monthAttendances]);
+
+    const weekdayRecordCounts = useMemo(() =>
+    {
+        const counts = [0, 0, 0, 0, 0, 0, 0]; // index 0=Mon..6=Sun
+        (monthAttendances || []).forEach((a) =>
+        {
+            const dateStr = a?.date ? String(a.date) : '';
+            if (!dateStr) return;
+            const d = new Date(`${dateStr}T00:00:00`);
+            const js = d.getDay(); // 0=Sun..6=Sat
+            const mon0 = (js + 6) % 7;
+            counts[mon0] += 1;
+        });
+        return counts;
+    }, [monthAttendances]);
+
+    // Khi đổi tháng load holidays theo tháng
+    useEffect(() =>
+    {
+        const loadHolidays = async () =>
+        {
+            if (mode !== 'MONTH') return;
+            if (!monthYear.year || !monthYear.month) return;
+
+            try
+            {
+                setHolidaysLoading(true);
+                const data = await getHolidays(monthYear.year, monthYear.month);
+                setHolidays(Array.isArray(data) ? data : []);
+            } catch (e)
+            {
+                setHolidays([]);
+            } finally
+            {
+                setHolidaysLoading(false);
+            }
+        };
+
+        loadHolidays();
+    }, [mode, monthYear.year, monthYear.month]);
+
+
+    // API by-date để lấy attendance ngày đó theo filter
+    const loadAttendanceBySelectedDate = async (dateStr) =>
+    {
+        if (!dateStr) return;
+
+        if (!deptLineFilters.departmentId)
+        {
+            setError('Vui lòng chọn Department');
+            return;
+        }
+
+        try
+        {
+            setLoading(true);
+            setError('');
+            setInfo('');
+
+            const userId = filterUserId ? parseInt(filterUserId, 10) : null;
+            const data = await attendanceService.getByDate(dateStr, userId, structureParams);
+
+            setAttendances(Array.isArray(data) ? data : []);
+            setPage(1);
+
+            if (!data || data.length === 0)
+            {
+                const holiday = holidayMap.get(dateStr);
+                setInfo(holiday ? `Ngày ${dateStr} là ngày lễ: ${holiday.holidayName}` : `Không có attendance cho ngày ${dateStr}`);
+            }
+        } catch (err)
+        {
+            const msg = err?.response?.data?.message || err?.message || 'Failed to load attendance';
+            setError(msg);
+            setAttendances([]);
+        } finally
+        {
+            setLoading(false);
+        }
+    };
 
     const structureParams = useMemo(() =>
     {
@@ -135,7 +290,7 @@ const AttendanceReportPage = () =>
     {
         if (mode === 'DAY') return `Attendance theo ngày: ${filterDate}`;
         if (mode === 'YEAR') return `Attendance theo năm: ${filterYear}`;
-        return `Attendance theo tháng: ${filterMonth}`;
+        return `Attendance by month: ${filterMonth}`;
     }, [mode, filterDate, filterMonth, filterYear]);
 
     const loadAttendance = async () =>
@@ -171,6 +326,8 @@ const AttendanceReportPage = () =>
             {
                 const monthFormatted = filterMonth.length === 7 ? filterMonth : filterMonth.slice(0, 7);
                 data = await attendanceService.getByMonth(monthFormatted, userId, structureParams);
+                setMonthAttendances(Array.isArray(data) ? data : []);
+                setSelectedCalendarDate('');
             }
 
             setAttendances(Array.isArray(data) ? data : []);
@@ -180,6 +337,7 @@ const AttendanceReportPage = () =>
             const msg = err?.response?.data?.message || err?.message || 'Failed to load attendance';
             setError(msg);
             setAttendances([]);
+            if (mode === 'MONTH') setMonthAttendances([]);
         } finally
         {
             setLoading(false);
@@ -268,18 +426,18 @@ const AttendanceReportPage = () =>
                         <Row className="gy-3 align-items-end">
                             <Col md={2}>
                                 <Form.Group>
-                                    <Form.Label>Chế độ</Form.Label>
+                                    <Form.Label>Mode</Form.Label>
                                     <Form.Select value={mode} onChange={(e) => { setMode(e.target.value); setPage(1); }}>
-                                        <option value="DAY">Theo ngày</option>
-                                        <option value="MONTH">Theo tháng</option>
-                                        <option value="YEAR">Theo năm</option>
+                                        <option value="DAY">Day</option>
+                                        <option value="MONTH">Month</option>
+                                        <option value="YEAR">Year</option>
                                     </Form.Select>
                                 </Form.Group>
                             </Col>
 
                             <Col md={2}>
                                 <Form.Group>
-                                    <Form.Label>Thời gian</Form.Label>
+                                    <Form.Label>Time</Form.Label>
                                     {mode === 'DAY' && (
                                         <Form.Control type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
                                     )}
@@ -334,18 +492,9 @@ const AttendanceReportPage = () =>
                                 </Form.Group>
                             </Col>
 
-                            {/*<Col md={2}>*/}
-                            {/*    <Form.Group>*/}
-                            {/*        <Form.Label>Sort Status</Form.Label>*/}
-                            {/*        <Form.Select value={statusSort} onChange={(e) => { setStatusSort(e.target.value); setPage(1); }}>*/}
-                            {/*            <option value="ERROR_FIRST">ERROR → MANUAL → LATE → SUCCESS</option>*/}
-                            {/*            <option value="SUCCESS_FIRST">SUCCESS → LATE → MANUAL → ERROR</option>*/}
-                            {/*        </Form.Select>*/}
-                            {/*    </Form.Group>*/}
-                            {/*</Col>*/}
                             <Col md={2}>
                                 <Form.Group>
-                                    <Form.Label>Ưu tiên Status</Form.Label>
+                                    <Form.Label>Sort</Form.Label>
                                     <Form.Select
                                         value={priorityStatus}
                                         onChange={(e) =>
@@ -362,28 +511,150 @@ const AttendanceReportPage = () =>
                             </Col>
 
                             <Col md={2}>
-                                <Form.Group>
-                                    <Form.Label>Thứ tự</Form.Label>
-                                    <Form.Select
-                                        value={priorityDirection}
-                                        onChange={(e) =>
-                                        {
-                                            setPriorityDirection(e.target.value);
-                                            setPage(1);
-                                        }}
-                                    >
-                                        <option value="FIRST">Ưu tiên lên trước</option>
-                                        <option value="LAST">Ưu tiên xuống sau</option>
-                                    </Form.Select>
-                                </Form.Group>
+                              <Form.Group>
+                                <Form.Label>Order</Form.Label>
+                                <Form.Select
+                                  value={priorityDirection}
+                                  onChange={(e) =>
+                                  {
+                                    setPriorityDirection(e.target.value);
+                                    setPage(1);
+                                  }}
+                                >
+                                  <option value="FIRST">Prioritize first</option>
+                                  <option value="LAST">Prioritize last</option>
+                                </Form.Select>
+                              </Form.Group>
                             </Col>
 
                             <Col md={1}>
-                                <Button type="submit" variant="primary" className="w-100">
+                                <Button type="submit" variant="primary" className="w-150">
                                     Search
                                 </Button>
                             </Col>
                         </Row>
+
+                        {mode === 'MONTH' && (
+                            <Card className="mb-4 shadow-sm">
+                                <Card.Header className="bg-light d-flex justify-content-between align-items-center">
+                                    <div className="fw-semibold">
+                                        Monthly {filterMonth}
+                                        {holidaysLoading && <span className="ms-2 text-muted small">(Loading holidays...)</span>}
+                                    </div>
+                                    <div className="small text-muted">
+                                        {selectedCalendarDate ? `Select....: ${selectedCalendarDate}` : 'Click for filters attendance'}
+                                    </div>
+                                </Card.Header>
+
+                                <Card.Body>
+                                    <div className="d-grid" style={{ gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
+                                        {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((label, idx) => (
+                                            <div key={label} className="text-center">
+                                                <div className="fw-semibold text-muted">{label}</div>
+                                                <div className="small text-muted">
+                                                    {weekdayRecordCounts[idx]} records
+                                                </div>
+                                            </div>
+                                        ))}
+
+                                        {calendarCells.map((dateStr, idx) =>
+                                        {
+                                            if (!dateStr)
+                                            {
+                                                return <div key={`empty-${idx}`} style={{ height: 62 }} />;
+                                            }
+
+                                            const holiday = holidayMap.get(dateStr);
+                                            const sunday = isSunday(dateStr);
+                                            const isSelected = selectedCalendarDate === dateStr;
+                                            const recordCount = dayRecordCountMap.get(dateStr) || 0;
+
+                                            // Ưu tiên màu: selected > holiday > sunday > normal
+                                            const bg = isSelected
+                                                ? '#0d6efd'
+                                                : holiday
+                                                    ? '#fff3cd'
+                                                    : sunday
+                                                        ? '#e7f1ff'
+                                                        : '#ffffff';
+
+                                            const color = isSelected ? '#fff' : '#212529';
+                                            const borderColor = isSelected ? '#0d6efd' : '#dee2e6';
+
+                                            return (
+                                                <button
+                                                    key={dateStr}
+                                                    type="button"
+                                                    className="btn btn-sm"
+                                                    onClick={() =>
+                                                    {
+                                                        setSelectedCalendarDate(dateStr);
+                                                        loadAttendanceBySelectedDate(dateStr);
+                                                    }}
+                                                    style={{
+                                                        height: 62,
+                                                        border: `1px solid ${borderColor}`,
+                                                        background: bg,
+                                                        color,
+                                                        textAlign: 'left',
+                                                        padding: '6px 8px',
+                                                        borderRadius: 8
+                                                    }}
+                                                    title={holiday ? `${holiday.holidayName}${holiday.isPaid ? ' (Paid)' : ''}` : dateStr}
+                                                >
+                                                    <div className="d-flex justify-content-between align-items-start">
+                                                        <div className="fw-semibold">{dateStr.slice(-2)}</div>
+
+                                                        <div className="d-flex gap-1">
+                                                            {holiday && (
+                                                                <span className={`badge ${isSelected ? 'bg-light text-dark' : 'bg-warning text-dark'}`}>
+                            Holiday
+                          </span>
+                                                            )}
+                                                            {sunday && !holiday && (
+                                                                <span className={`badge ${isSelected ? 'bg-light text-dark' : 'bg-info text-dark'}`}>
+                            Sun
+                          </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="small" style={{ opacity: isSelected ? 0.95 : 0.8 }}>
+                                                        {recordCount} records
+                                                    </div>
+
+                                                    {holiday && (
+                                                        <div className="small text-truncate" style={{ maxWidth: '100%' }}>
+                                                            {holiday.holidayName}
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <div className="mt-3 d-flex flex-wrap gap-2 align-items-center">
+                                        <div className="small text-muted">
+                                            Hint: You need to click <b>Search</b> in MONTH mode so the calendar shows record counts by day/weekday.
+                                        </div>
+
+                                        {selectedCalendarDate && (
+                                            <Button
+                                                variant="outline-secondary"
+                                                size="sm"
+                                                onClick={() =>
+                                                {
+                                                    setSelectedCalendarDate('');
+                                                    loadAttendance(); // quay lại theo tháng + refresh calendar counts
+                                                }}
+                                            >
+                                                Refresh Calendar
+                                            </Button>
+                                        )}
+                                    </div>
+                                </Card.Body>
+                            </Card>
+                        )}
 
                         <Row className="gy-3 align-items-end mt-2">
                             <Col md={8}>
