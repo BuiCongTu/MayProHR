@@ -56,7 +56,7 @@ public class TbAttendance {
     private Instant createdAt;
 
     public enum AttendanceStatus {
-        SUCCESS, LATE, MANUAL, ERROR
+        SUCCESS, LATE, MANUAL, ERROR, EARLY_LEAVE, OVERTIME, UNSCHEDULED
     }
 
 }
