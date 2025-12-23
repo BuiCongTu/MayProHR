@@ -31,11 +31,9 @@ import SkillProposalPage from "./pages/moduleB/proposal/SkillProposalPage";
 import PayrollRouter from "./pages/moduleC/PayrollRouter";
 import Profile from "./pages/profile/Profile";
 import UserList from "./pages/users/UserList";
-
+import AttendanceReportPage from "./pages/attendance/AttendanceReportPage";
 
 import { setupAxiosInterceptors } from "./services/authService";
-
-
 
 function App()
 {
@@ -66,13 +64,19 @@ function App()
                         <Route path="/" element={<Layout role={userRole} />}>
                             <Route index element={<DashboardRouter />} />
                             <Route path="dashboard" element={<DashboardRouter />} />
-                            <Route path="/overtime-request" element={<OvertimeRequestList />} />
-                            <Route path="/overtime-request/create" element={<OvertimeRequestForm />} />
-                            <Route path="/overtime-ticket" element={<OvertimeTicketList />} />
+
+                            //
                             <Route path="/attendance/checkin" element={<CheckInPage />} />
                             <Route path="/attendance/checkout" element={<CheckOutPage />} />
                             <Route path="/attendance/register-face" element={<RegisterFacePage />} />
                             <Route path="/attendance/history" element={<HistoryPage />} />
+                            <Route path="/attendance/report" element={<AttendanceReportPage />} />
+
+                            <Route path="/overtime-request" element={<OvertimeRequestList />} />
+                            <Route path="/overtime-request/create" element={<OvertimeRequestForm />} />
+                            <Route path="/overtime-ticket" element={<OvertimeTicketList />} />
+
+
                             <Route path="/overtime-request/:id" element={<OvertimeRequestDetail />} />
                             <Route path="/profile" element={<Profile />} />
 
@@ -90,8 +94,6 @@ function App()
 
                             <Route path="/factory-director/proposals" element={<FactoryDirectorPage />} />
                             <Route path="/leave-request" element={<LeaveRequestManagement />} />
-
-
 
                             {/* Ticket Routes */}
                             <Route path="/overtime-ticket" element={<OvertimeTicketList />} />

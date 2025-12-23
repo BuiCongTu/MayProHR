@@ -59,7 +59,7 @@ const attendanceService = {
 
       console.log('[attendanceService] getByMonth response:', res.data);
 
-      return res.data;
+      return Array.isArray(res.data?.data) ? res.data.data : [];
     } catch (error)
     {
       console.error('[attendanceService] getByMonth error:', error.response?.data || error.message);
@@ -67,7 +67,31 @@ const attendanceService = {
     }
   },
 
-  registerFace: async (userId, imageBase64) =>
+    getByDate: async (date, userId = null) =>
+    {
+        const res = await axios.get(
+            `${API_BASE}/by-date`,
+            {
+                params: { date, ...(userId && { userId }) },
+                headers: getTokenHeader()
+            }
+        );
+        return Array.isArray(res.data?.data) ? res.data.data : [];
+    },
+
+    getByRange: async (startDate, endDate, userId = null) =>
+    {
+        const res = await axios.get(
+            `${API_BASE}/by-range`,
+            {
+                params: { startDate, endDate, ...(userId && { userId }) },
+                headers: getTokenHeader()
+            }
+        );
+        return Array.isArray(res.data?.data) ? res.data.data : [];
+    },
+
+    registerFace: async (userId, imageBase64) =>
   {
     const res = await axios.post(
       `${API_BASE}/register-face`,
