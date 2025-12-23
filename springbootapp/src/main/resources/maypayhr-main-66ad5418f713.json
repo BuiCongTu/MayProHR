@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "maypayhr-main",
+  "private_key_id": "66ad5418f713c6ffc8ba041d6a2aa95528a5a4e6",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQD07mbrHftECuzp\nyK9x8ceTfkMokIU8soKTfjLx9RAI6+dzF05tcSJDbc8UaxkElpj4VwmfhwVPTB/P\nBcDtTsfqcqywg/lClU74eC4+dbNZPaqL+NhHVEwaREaZc3BPbzgCNswXfvy6tM1c\nkLBdfbjAXWONSlujkyONttRJzRWwag2DI2V5JcffeQKmsraRU0EkFHnrD4T1c9vk\n/FFrC3bHMe7FaEw0y+OLnV1Nps4cHXY/3RRvv21BgMs2ukd1vivO+7ubr2d0vOlH\ngCAkB8SZ+qmYi4JdtG17O6sZXV4H1uMgkKBZmi6R9O7YTYsrVs14Z36R8UrYfzjJ\n3rNVCe1FAgMBAAECggEAO6JZ+4/isAfq8+bRVLBV88LPri41ynf6E9grpj6RB2MM\niLiZd0sO2RUA0MtcnYHfP8PNS4KP1+VEb17KwNyoDxyZkCapxzzcK+Hy/HEi2C0L\n+6V8Xy2Wk+Sgvdbd9vEw1VUrLuNTvE+uGoX98t1b4LY8OVfr5PE7vFLR8CAXUkqe\nCx6+C1POJwEsJSx2g+kNi1C+wvT9X/JsehnjYGO8GdlFzP5Ikb5eiR4O1efiC1HP\nsGLPGXu7CbvqafV/g2PwzALfUVgRe9ujGSgBUyDrOlPPuUNqCKTqHbIX8GpCokp/\nV52Fsr+w9tDCs5gDfO6R9J9UN6hYuTUdoh8PjKnvMQKBgQD9RT+Wx2zxl4zHcP6t\nOC/nIv7hiyjwKzpPeICH9E0IUztqnbzrwPshypaHg7dseCKWR1WUtNSKzq4YbC0i\nyIE5QBLcURqx1EdgJwkKaaRZbBpvfmx+rKB8dBaqL6aLhD5FikMsrofxTAKfbXne\n6mgUAk7u7aeH1WNzzFq2nYUOqQKBgQD3kiV4prPU7aXs/dh+G4/EXhWmbwByO6X9\nEtmaNf+BKJN15VwcvWiUxqP1hAFmMZVRkpBpUg8kjowSb/A6pnXb9inmVsq7KbwC\nCOtktWtAEOiTrB+3L9C27qSAAqaX6fXZ1k1+s7A90524UBQkkMv1salNGd7r04SF\nVVv6y8pXPQKBgQCh9Yd9bxfuwmAHJe3mbVjMsOdW6buLIcmPClr/Fa2xFjCXtDkc\ndXLin/90tzkzhvtvKDzE9II6JYLVIVAXvypLpvqoosC0WTAvf6bbXsT3Xhbll23f\n75pNG5tmx0P0UePUal8ckptiJZ5DvylA8JsPuI4rYhRQ25dWdKbJwp9UyQKBgQCJ\nzVh8KtZIfCtyme1qbG7+z5vfc0PdUeRX1Kk41DuvKeXCpvM5sBhJT7Qt0ddxicHi\nkOE/LoTtRUckcBhYnRVXZVL3OnJH8bgLrelQukbDd2Xt5M4Wik/zsyvvcQpH3tuQ\n8F9cWiqMj4Dn+fLsU4ij7ssc9nyF6cuG5/d1xv+OxQKBgQDQyYKxcwcz1ckfMghX\nMPOVslYGMMjOytsSwDe/K6sSyhL04IXUKtgsXhXchCEKue0LSDxlN2Z2N71FmadY\nunqprJDkOS6Qlu20id4TY2okV45ZD2XXy65llalL7wW46znERKALDE5yoLcXFIZ/\nUsJUQdLzSKfVuTLuwtfcfvCaDw==\n-----END PRIVATE KEY-----\n",
+  "client_email": "ai-agent@maypayhr-main.iam.gserviceaccount.com",
+  "client_id": "110071622560323919795",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/ai-agent%40maypayhr-main.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
