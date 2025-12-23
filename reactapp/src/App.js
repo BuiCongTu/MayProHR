@@ -32,6 +32,7 @@ import PayrollRouter from "./pages/moduleC/PayrollRouter";
 import Profile from "./pages/profile/Profile";
 import UserList from "./pages/users/UserList";
 import AttendanceReportPage from "./pages/attendance/AttendanceReportPage";
+import UserDetail from "./pages/users/UserDetail";
 
 import { setupAxiosInterceptors } from "./services/authService";
 
@@ -83,6 +84,7 @@ function App()
                             <Route path="/payroll/*" element={<PayrollRouter />} />
 
                             <Route path="/users" element={<UserList />} />
+                            <Route path="/users/:id" element={<UserDetail />} />
                             <Route path="/position-change" element={<PositionChangeManagement />} />
                             <Route path="/position-change/create" element={<PositionProposalForm />} />
                             <Route path="/position-change/my" element={<ProposalConfirm />} />

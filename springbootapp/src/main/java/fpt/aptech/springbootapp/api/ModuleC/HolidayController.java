@@ -2,10 +2,8 @@ package fpt.aptech.springbootapp.api.ModuleC;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.time.YearMonth;
+import java.util.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -213,6 +211,104 @@ public class HolidayController {
             body.put("success", true);
             body.put("data", result);
             return ResponseEntity.ok(body);
+        } catch (Exception e) {
+            body.put("success", false);
+            body.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(body);
+        }
+    }
+
+    @PostMapping("/replicate")
+    public ResponseEntity<?> replicateHolidays(
+            @RequestParam Integer fromYear,
+            @RequestParam Integer toYear,
+            @RequestParam(defaultValue = "false") boolean overwrite
+    ) {
+        Map<String, Object> body = new HashMap<>();
+        try {
+            if (fromYear == null || toYear == null) {
+                body.put("success", false);
+                body.put("message", "fromYear và toYear là bắt buộc");
+                return ResponseEntity.badRequest().body(body);
+            }
+            if (fromYear < 1900 || toYear < 1900) {
+                body.put("success", false);
+                body.put("message", "Năm không hợp lệ");
+                return ResponseEntity.badRequest().body(body);
+            }
+            if (Objects.equals(fromYear, toYear)) {
+                body.put("success", false);
+                body.put("message", "fromYear và toYear không được trùng nhau");
+                return ResponseEntity.badRequest().body(body);
+            }
+
+            final LocalDate start = LocalDate.of(fromYear, 1, 1);
+            final LocalDate end = LocalDate.of(fromYear, 12, 31);
+            final List<TbHoliday> source = holidayRepo.findByHolidayDateBetween(start, end);
+            source.sort(Comparator.comparing(TbHoliday::getHolidayDate));
+
+            int created = 0;
+            int updated = 0;
+            int skippedExisting = 0;
+            final List<String> skippedInvalidDates = new ArrayList<>();
+
+            for (TbHoliday h : source) {
+                final LocalDate srcDate = h.getHolidayDate();
+                if (srcDate == null) continue;
+
+                final int m = srcDate.getMonthValue();
+                final int d = srcDate.getDayOfMonth();
+
+                final YearMonth ym = YearMonth.of(toYear, m);
+                if (d > ym.lengthOfMonth()) {
+                    skippedInvalidDates.add(String.format("%02d-%02d", m, d));
+                    continue;
+                }
+
+                final LocalDate targetDate = LocalDate.of(toYear, m, d);
+                final Optional<TbHoliday> existingOpt = holidayRepo.findFirstByHolidayDate(targetDate);
+
+                if (existingOpt.isPresent() && !overwrite) {
+                    skippedExisting++;
+                    continue;
+                }
+
+                if (existingOpt.isPresent()) {
+                    TbHoliday existing = existingOpt.get();
+                    existing.setHolidayName(h.getHolidayName());
+                    existing.setIsPaid(h.getIsPaid() != null ? h.getIsPaid() : Boolean.TRUE);
+                    existing.setNote(h.getNote());
+                    holidayRepo.save(existing);
+                    updated++;
+                    continue;
+                }
+
+                TbHoliday copy = new TbHoliday();
+                copy.setHolidayDate(targetDate);
+                copy.setHolidayName(h.getHolidayName());
+                copy.setIsPaid(h.getIsPaid() != null ? h.getIsPaid() : Boolean.TRUE);
+                copy.setNote(h.getNote());
+                copy.setCreatedAt(Instant.now());
+
+                holidayRepo.save(copy);
+                created++;
+            }
+
+            Map<String, Object> data = new LinkedHashMap<>();
+            data.put("fromYear", fromYear);
+            data.put("toYear", toYear);
+            data.put("overwrite", overwrite);
+            data.put("sourceCount", source.size());
+            data.put("created", created);
+            data.put("updated", updated);
+            data.put("skippedExisting", skippedExisting);
+            data.put("skippedInvalidDates", skippedInvalidDates);
+
+            body.put("success", true);
+            body.put("message", "Replicate holidays successfully");
+            body.put("data", data);
+            return ResponseEntity.ok(body);
+
         } catch (Exception e) {
             body.put("success", false);
             body.put("message", "Error: " + e.getMessage());

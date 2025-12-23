@@ -1,8 +1,9 @@
 import
-    {  Alert, Autocomplete, Box, Button, CircularProgress, Container,
-        Divider, Grid, InputAdornment, Paper, TextField, Typography,
-        createFilterOptions } from '@mui/material';
+{  Alert, Autocomplete, Box, Button, CircularProgress, Container,
+    Divider, Grid, InputAdornment, Paper, TextField, Typography,
+    createFilterOptions } from '@mui/material';
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import WorkflowStepper from '../../../components/moduleB/WorkflowStepper';
 import LineSelector from '../../../components/ModuleC/LineSelector';
 import { getCurrentUser } from '../../../services/authService';
@@ -15,6 +16,11 @@ import ErrorPage from '../../ErrorPage';
 function PositionProposalForm()
 {
     const user = getCurrentUser();
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    const passedUser = location.state?.targetUser || null;
+
 
     const isFactoryManager =
         user?.roleName === 'Factory Manager' ||
@@ -22,7 +28,7 @@ function PositionProposalForm()
 
     const [formData, setFormData] = useState({
         proposerId: user?.id || '',
-        targetUser: null,
+        targetUser: passedUser,   // ⭐ auto set
         newRole: null,
         newDepartment: null,
         newSalary: '',
@@ -136,13 +142,14 @@ function PositionProposalForm()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData.targetUser?.id]);
 
+
     const handleDepartmentChange = async (_e, value) =>
     {
         setSelectedDepartment(value);
         // Reset selected employee when department changes
-        setFormData((prev) => ({
+        setFormData(prev => ({
             ...prev,
-            targetUser: null
+            targetUser: passedUser ? prev.targetUser : null
         }));
 
         // If a department is selected, load employees of that department
@@ -331,7 +338,11 @@ function PositionProposalForm()
         setLoading(true);
         try {
             await createPositionChangeProposal(payload);
+
             setSuccess('Position change proposal created successfully.');
+            navigate('/position-change', {
+                state: { openTab: 'MY_PROPOSAL' }
+            });
             setFormData((prev) => ({
                 ...prev,
                 targetUser: null,
@@ -367,7 +378,7 @@ function PositionProposalForm()
                     Create Position Change Proposal
                 </Typography>
 
-                <WorkflowStepper status="pending" />
+                {/*<WorkflowStepper status="pending" />*/}
 
                 {error && (
                     <Alert severity="error" sx={{ mb: 2 }}>
@@ -463,31 +474,31 @@ function PositionProposalForm()
                                         </Grid>
 
                                         <Grid item xs={12} md={6}>
-                                            <Autocomplete
-                                                options={users}
-                                                filterOptions={filter}
-                                                getOptionLabel={(option) =>
-                                                    option?.fullName
-                                                        ? `${option.fullName} (ID: ${option.id})`
-                                                        : option?.name || ''
-                                                }
-                                                value={formData.targetUser}
-                                                fullWidth
-                                                onChange={(_e, value) =>
-                                                    setFormData((prev) => ({
-                                                        ...prev,
-                                                        targetUser: value
-                                                    }))
-                                                }
-                                                renderInput={(params) => (
-                                                    <TextField
-                                                        {...params}
-                                                        label="Employee to Change Position"
-                                                        required
-                                                        size="small"
-                                                    />
-                                                )}
-                                            />
+                                            {formData.targetUser && (
+                                                <Paper
+                                                    variant="outlined"
+                                                    sx={{
+                                                        p: 2,
+                                                        borderRadius: 2,
+                                                        bgcolor: 'grey.50'
+                                                    }}
+                                                >
+                                                    <Typography variant="subtitle2" fontWeight="bold">
+                                                        Selected Employee
+                                                    </Typography>
+                                                    <Typography variant="body2">
+                                                        <strong>ID:</strong> {formData.targetUser.id}
+                                                    </Typography>
+                                                    <Typography variant="body2">
+                                                        <strong>Full name:</strong> {formData.targetUser.fullName}
+                                                    </Typography>
+                                                    <Typography variant="body2">
+                                                        <strong>Department:</strong>{' '}
+                                                        {getCurrentDepartmentName(formData.targetUser)}
+                                                    </Typography>
+                                                </Paper>
+                                            )}
+
                                         </Grid>
 
                                         {selectedUserDetails && (
@@ -675,18 +686,18 @@ function PositionProposalForm()
                                                 {(newLineName ||
                                                     newSubLineName ||
                                                     newWorkUnitName) && (
-                                                        <Typography
-                                                            variant="caption"
-                                                            color="text.secondary"
-                                                        >
-                                                            Selected:{' '}
-                                                            <strong>
-                                                                {newLineName || '-'} /{' '}
-                                                                {newSubLineName || '-'} /{' '}
-                                                                {newWorkUnitName || '-'}
-                                                            </strong>
-                                                        </Typography>
-                                                    )}
+                                                    <Typography
+                                                        variant="caption"
+                                                        color="text.secondary"
+                                                    >
+                                                        Selected:{' '}
+                                                        <strong>
+                                                            {newLineName || '-'} /{' '}
+                                                            {newSubLineName || '-'} /{' '}
+                                                            {newWorkUnitName || '-'}
+                                                        </strong>
+                                                    </Typography>
+                                                )}
                                             </Box>
                                         </Grid>
 
@@ -737,19 +748,21 @@ function PositionProposalForm()
                                     <Grid container spacing={2}>
                                         <Grid item xs={12} md={6}>
                                             <TextField
-                                                label="New Base Salary (optional)"
+                                                label="New Base Salary"
                                                 name="newSalary"
                                                 value={formData.newSalary}
                                                 onChange={handleChange}
                                                 onKeyDown={handleNumberKeyDown}
                                                 fullWidth
                                                 size="small"
-                                                helperText="Leave blank to keep the current base salary"
+                                                helperText={
+                                                    (selectedUserDetails?.baseSalary ?? formData.targetUser?.baseSalary)
+                                                        ? `Current base salary: ${selectedUserDetails?.baseSalary ?? formData.targetUser?.baseSalary} VND`
+                                                        : 'Enter new base salary'
+                                                }
                                                 InputProps={{
                                                     startAdornment: (
-                                                        <InputAdornment position="start">
-                                                            VND
-                                                        </InputAdornment>
+                                                        <InputAdornment position="start">VND</InputAdornment>
                                                     )
                                                 }}
                                             />
@@ -781,64 +794,7 @@ function PositionProposalForm()
                                             />
                                         </Grid>
 
-                                        {formData.targetUser && (
-                                            <Grid item xs={12}>
-                                                <Paper
-                                                    variant="outlined"
-                                                    sx={{
-                                                        mt: 0.5,
-                                                        p: 2,
-                                                        borderRadius: 2,
-                                                        borderStyle: 'dashed',
-                                                        borderColor: 'grey.300',
-                                                        bgcolor: 'grey.50',
-                                                    }}
-                                                >
-                                                    <Typography
-                                                        variant="subtitle2"
-                                                        fontWeight="bold"
-                                                        gutterBottom
-                                                    >
-                                                        Sumary
-                                                    </Typography>
-                                                    <Grid container spacing={1}>
-                                                        <Grid item xs={12} sm={6}>
-                                                            <Typography variant="body2">
-                                                                <strong>Employee Name:</strong>{' '}
-                                                                {currentFullName}
-                                                            </Typography>
-                                                            <Typography variant="body2">
-                                                                <strong>Department:</strong>{' '}
-                                                                {currentDepartmentName} →{' '}
-                                                                {newDepartmentName}
-                                                            </Typography>
-                                                            <Typography variant="body2">
-                                                                {currentRoleName} → {newRoleName}
-                                                            </Typography>
-                                                        </Grid>
-                                                        <Grid item xs={12} sm={6}>
-                                                            <Typography variant="body2">
-                                                                <strong>Word Unit:</strong>{' '}
-                                                                {selectedUserDetails
-                                                                    ? currentWorkUnitName
-                                                                    : '…'}{' '}
-                                                                → {newWorkUnitName || '-'}
-                                                            </Typography>
-                                                            <Typography variant="body2">
-                                                                <strong>Salary type:</strong>{' '}
-                                                                {formData.salaryType ||
-                                                                    currentSalaryType}
-                                                            </Typography>
-                                                            <Typography variant="body2">
-                                                                <strong>Base Salary:</strong>{' '}
-                                                                {formData.newSalary ||
-                                                                    currentBaseSalary}
-                                                            </Typography>
-                                                        </Grid>
-                                                    </Grid>
-                                                </Paper>
-                                            </Grid>
-                                        )}
+
                                     </Grid>
                                 </Paper>
                             </Grid>
@@ -874,17 +830,44 @@ function PositionProposalForm()
                         <Grid container spacing={2} sx={{ mt: 1 }}>
                             <Grid item xs={12} md={6}>
                                 <Paper variant="outlined" sx={{ p: 2 }}>
-                                    <Typography variant="subtitle1" fontWeight="bold">Current</Typography>
-                                    <Typography variant="body2">Employee: {selectedUserDetails ? selectedUserDetails.fullName : '…'}</Typography>
-                                    <Typography variant="body2">Role: {selectedUserDetails ? (selectedUserDetails.role?.name || '-') : '…'}</Typography>
-                                    <Typography variant="body2">Department: {selectedUserDetails ? getCurrentDepartmentName(selectedUserDetails) : '…'}</Typography>
-                                    <Typography variant="body2">Line: {selectedUserDetails ? currentLineName : '…'}</Typography>
-                                    <Typography variant="body2">Sub Line: {selectedUserDetails ? currentSubLineName : '…'}</Typography>
-                                    <Typography variant="body2">Work Unit: {selectedUserDetails ? currentWorkUnitName : '…'}</Typography>
-                                    <Typography variant="body2">Salary Type: {selectedUserDetails ? (selectedUserDetails.salaryType || '-') : '…'}</Typography>
-                                    <Typography variant="body2">Base Salary: {selectedUserDetails ? (selectedUserDetails.baseSalary ?? '-') : '…'}</Typography>
+                                    <Typography variant="subtitle1" fontWeight="bold">
+                                        Current
+                                    </Typography>
+
+                                    <Typography variant="body2">
+                                        Employee: {currentUserData.fullName || currentUserData.name || '-'}
+                                    </Typography>
+
+                                    <Typography variant="body2">
+                                        Role: {currentUserData.role?.name || currentUserData.roleName || '-'}
+                                    </Typography>
+
+                                    <Typography variant="body2">
+                                        Department: {getCurrentDepartmentName(currentUserData)}
+                                    </Typography>
+
+                                    <Typography variant="body2">
+                                        Line: {selectedUserDetails ? currentLineName : '-'}
+                                    </Typography>
+
+                                    <Typography variant="body2">
+                                        Sub Line: {selectedUserDetails ? currentSubLineName : '-'}
+                                    </Typography>
+
+                                    <Typography variant="body2">
+                                        Work Unit: {selectedUserDetails ? currentWorkUnitName : '-'}
+                                    </Typography>
+
+                                    <Typography variant="body2">
+                                        Salary Type: {currentUserData.salaryType || '-'}
+                                    </Typography>
+
+                                    <Typography variant="body2">
+                                        Base Salary: {currentUserData.baseSalary ?? '-'}
+                                    </Typography>
                                 </Paper>
                             </Grid>
+
                             <Grid item xs={12} md={6}>
                                 <Paper variant="outlined" sx={{ p: 2 }}>
                                     <Typography variant="subtitle1" fontWeight="bold">Proposed</Typography>
@@ -894,7 +877,9 @@ function PositionProposalForm()
                                     <Typography variant="body2">Line: {newLineName || '-'}</Typography>
                                     <Typography variant="body2">Sub Line: {newSubLineName || '-'}</Typography>
                                     <Typography variant="body2">Work Unit: {newWorkUnitName || '-'}</Typography>
-                                    <Typography variant="body2">Salary Type: {(selectedUserDetails && selectedUserDetails.salaryType) ? selectedUserDetails.salaryType : '-'}</Typography>
+                                    <Typography variant="body2">
+                                        Salary Type: {formData.salaryType || '-'}
+                                    </Typography>
                                     <Typography variant="body2">Base Salary: {formData.newSalary || (selectedUserDetails ? (selectedUserDetails.baseSalary ?? '-') : '-')}</Typography>
                                 </Paper>
                             </Grid>

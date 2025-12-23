@@ -1511,6 +1511,20 @@ ALTER TABLE tbEmployeePayroll ADD calculation_status VARCHAR(20) DEFAULT 'draft'
 CREATE UNIQUE INDEX ux_tbEmployeePayroll_payroll_user
 ON tbEmployeePayroll(payroll_id, user_id);
 
+ALTER TABLE dbo.tbAttendance
+DROP CONSTRAINT [CK__tbAttenda__statu__571DF1D5];
+
+ALTER TABLE dbo.tbAttendance
+ADD CONSTRAINT CK_tbAttendance_status
+CHECK ([status] IN (
+  'SUCCESS',
+  'LATE',
+  'MANUAL',
+  'ERROR',
+  'EARLY_LEAVE',
+  'OVERTIME',
+  'UNSCHEDULED'
+));
 
 -- SELECT TOP 10 * FROM tbAttendance ORDER BY date DESC;
 
@@ -1581,3 +1595,16 @@ ON tbEmployeePayroll(payroll_id, user_id);
 
 Select * from tbEmployeePayroll
 select * from tbTaxBracket
+
+SELECT DISTINCT [status]
+FROM dbo.tbAttendance
+ORDER BY [status];
+
+
+SELECT
+  cc.name AS constraint_name,
+  cc.definition
+FROM sys.check_constraints cc
+JOIN sys.tables t ON cc.parent_object_id = t.object_id
+WHERE t.name = 'tbAttendance';
+

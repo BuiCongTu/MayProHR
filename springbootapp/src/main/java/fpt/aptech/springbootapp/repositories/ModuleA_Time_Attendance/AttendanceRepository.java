@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import fpt.aptech.springbootapp.entities.ModuleA.AttendanceStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -44,14 +45,14 @@ public interface AttendanceRepository extends JpaRepository<TbAttendance, Long> 
     List<TbAttendance> findByDate(@Param("date") LocalDate date);
 
     //7 lay tat ca theo status
-    List<TbAttendance> findByStatus(TbAttendance.AttendanceStatus status);
+    List<TbAttendance> findByStatus(AttendanceStatus status);
 
     //8. lay attend cua user voi status trong ngay
     @Query("SELECT a FROM TbAttendance a WHERE a.user.id = :userId AND a.date = :date AND a.status = :status")
     Optional<TbAttendance> findByUserIdAndDateAndStatus(
             @Param("userId") Integer userId,
             @Param("date") LocalDate date,
-            @Param("status") TbAttendance.AttendanceStatus status
+            @Param("status") AttendanceStatus status
     );
 
     //9. kiem tra user da check in hnay chua
@@ -122,7 +123,7 @@ public interface AttendanceRepository extends JpaRepository<TbAttendance, Long> 
     );
 
     @Query("SELECT a FROM TbAttendance a WHERE a.user = :user AND a.date BETWEEN :startDate AND :endDate AND a.status = :attendanceStatus ORDER BY a.date DESC")
-    List<TbAttendance> findByUserAndDateBetweenAndStatus(TbUser user, LocalDate startDate, LocalDate endDate, TbAttendance.AttendanceStatus attendanceStatus);
+    List<TbAttendance> findByUserAndDateBetweenAndStatus(TbUser user, LocalDate startDate, LocalDate endDate, AttendanceStatus attendanceStatus);
 
     @Query(value = "SELECT * FROM tbAttendance WHERE DATE BETWEEN :startDate AND :endDate ORDER BY DATE DESC", nativeQuery = true)
     java.util.List<TbAttendance> findAttendanceByDateRangeNative(
@@ -232,5 +233,32 @@ public interface AttendanceRepository extends JpaRepository<TbAttendance, Long> 
             @Param("lineIds") List<Integer> lineIds
     );
 
+    @Query(value = "SELECT "
+            + "a.attendance_id as id, "
+            + "a.user_id as userId, "
+            + "u.full_name as userName, "
+            + "u.department_id as departmentId, "
+            + "d.name as departmentName, "
+            + "CAST(a.date AS DATE) as date, "
+            + "a.time_in as timeIn, "
+            + "a.time_out as timeOut, "
+            + "UPPER(a.status) as status, "
+            + "a.reason "
+            + "FROM tbAttendance a "
+            + "JOIN tbUser u ON a.user_id = u.user_id "
+            + "LEFT JOIN tbDepartment d ON u.department_id = d.department_id "
+            + "WHERE CAST(a.date AS DATE) BETWEEN :startDate AND :endDate "
+            + "AND (:userId IS NULL OR a.user_id = :userId) "
+            + "AND (:departmentId IS NULL OR u.department_id = :departmentId) "
+            + "AND (:lineId IS NULL OR u.line_id = :lineId) "
+            + "ORDER BY a.date DESC",
+            nativeQuery = true)
+    List<Object[]> findAttendanceDataByFilters(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("userId") Integer userId,
+            @Param("departmentId") Integer departmentId,
+            @Param("lineId") Integer lineId
+    );
 
 }

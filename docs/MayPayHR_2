@@ -40,8 +40,19 @@ bash startPythonApi.sh
 cd reactapp
 npm start
 
-chay mobile:
-emulator -avd Medium_Phone_API_36.1 -read-only
+#4. Mobile:
+emulator -avd Medium_Phone_API_36.1
+
+#5 flutter:
+cd flutterapp
+
+flutter emulators --launch Medium_Phone_2
+# or
+flutter emulators --launch Pixel_3a
+
+flutter devices
+flutter run -d emulator-5554
+
 
 
 9/12

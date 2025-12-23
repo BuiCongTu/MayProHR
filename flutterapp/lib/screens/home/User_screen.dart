@@ -5,9 +5,26 @@ import '../../providers/auth_provider.dart';
 import '../auth/login_screen.dart';
 import '../overtime/my_overtime_screen.dart';
 import '../payroll/my_payroll_select_screen.dart';
+import '../attendance/AttendanceCalendarScreen.dart';
+import '../../configs/AttendanceApi.dart';
+import '../../services/storage_service.dart';
 
 class UserHome extends StatelessWidget {
   const UserHome({super.key});
+
+  int? _extractUserId(Map<String, dynamic>? u) {
+    if (u == null) return null;
+
+    final v1 = u['userId'];
+    if (v1 is int) return v1;
+    if (v1 is String) return int.tryParse(v1);
+
+    final v2 = u['id'];
+    if (v2 is int) return v2;
+    if (v2 is String) return int.tryParse(v2);
+
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +39,7 @@ class UserHome extends StatelessWidget {
               auth.logout();
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (context) => const LoginScreen()),
-                (Route<dynamic> route) => false,
+                    (Route<dynamic> route) => false,
               );
             },
             icon: const Icon(Icons.logout),
@@ -34,7 +51,6 @@ class UserHome extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Welcome Section
             Card(
               color: Colors.blue[50],
               elevation: 0,
@@ -82,14 +98,12 @@ class UserHome extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Grid Menu
             Expanded(
               child: GridView.count(
                 crossAxisCount: 2,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 children: [
-                  // 1. Payroll Button
                   _buildMenuCard(
                     context,
                     title: "Payroll",
@@ -105,7 +119,6 @@ class UserHome extends StatelessWidget {
                     },
                   ),
 
-                  // 2. Overtime Button
                   _buildMenuCard(
                     context,
                     title: "My Overtime",
@@ -121,13 +134,39 @@ class UserHome extends StatelessWidget {
                     },
                   ),
 
-                  // 3. Attendance
                   _buildMenuCard(
                     context,
                     title: "Attendance",
-                    icon: Icons.qr_code_scanner,
+                    icon: Icons.calendar_month,
                     color: Colors.purple,
-                    onTap: () {},
+                    onTap: () async {
+                      final userId = _extractUserId(
+                        auth.currentUser?.cast<String, dynamic>(),
+                      );
+
+                      if (userId == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Không lấy được userId. Vui lòng đăng nhập lại.'),
+                          ),
+                        );
+                        return;
+                      }
+
+                      final api = AttendanceApi(
+                        getToken: () => StorageService().getToken(),
+                      );
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AttendanceCalendarScreen(
+                            api: api,
+                            userId: userId,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -139,12 +178,13 @@ class UserHome extends StatelessWidget {
   }
 
   Widget _buildMenuCard(
-    BuildContext context, {
-    required String title,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
+      BuildContext context, {
+        required String title,
+        required IconData icon,
+        required Color color,
+        required VoidCallback onTap,
+      }) {
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),

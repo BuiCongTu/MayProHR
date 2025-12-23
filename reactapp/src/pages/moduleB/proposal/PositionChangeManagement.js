@@ -47,11 +47,9 @@ function PositionChangeManagement() {
                     variant="scrollable"
                     scrollButtons="auto"
                 >
+
                     {isFactoryManager && (
-                        <Tab label="Create Proposal (Factory Manager)" />
-                    )}
-                    {isFactoryManager && (
-                        <Tab label="My Proposal (Factory Manager)" />
+                        <Tab label="My Proposal" />
                     )}
                     {isFactoryDirector && (
                         <Tab label="Approve Proposal (Factory Director)" />
@@ -59,21 +57,15 @@ function PositionChangeManagement() {
                 </Tabs>
 
                 <Box sx={{ mt: 3 }}>
-                    {/* Tab 0: Tạo đề xuất*/}
-                    {isFactoryManager && tab === 0 && (
-                        <PositionProposalForm />
+                    {/* Chỉ hiển thị My Proposal */}
+                    {isFactoryManager && <ProposalConfirm />}
+
+                    {/* Factory Director vẫn thấy approve */}
+                    {isFactoryDirector && !isFactoryManager && (
+                        <ProposalApprove />
                     )}
-
-                    {/* Tab 1: Danh sách của tôi (FM) */}
-                    {isFactoryManager && tab === 1 && <ProposalConfirm />}
-
-                    {/* Tab 2: Duyệt (FD) */}
-                    {isFactoryDirector &&
-                        tab ===
-                        (isFactoryManager
-                            ? 2
-                            : 0) && <ProposalApprove />}
                 </Box>
+
             </Paper>
         </Container>
     );

@@ -78,3 +78,18 @@ export const deleteHoliday = async (id) =>
         throw error;
     }
 };
+export const replicateHolidays = async (fromYear, toYear, overwrite = false) =>
+{
+    try
+    {
+        const response = await axiosInstance.post(`${API_BASE}/replicate`, null, {
+            params: { fromYear, toYear, overwrite }
+        });
+        return extractData(response);
+    } catch (error)
+    {
+        console.error('Error replicating holidays:', error);
+        throw error;
+    }
+};
+

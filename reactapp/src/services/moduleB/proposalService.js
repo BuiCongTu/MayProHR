@@ -73,3 +73,17 @@ export const approveProposalAPI = async (proposalId, approverId) =>
     const res = await axios.put(`${API_URL}/${proposalId}/approve?approverId=${approverId}`);
     return res.data;
 };
+
+// Lấy proposal chi tiết theo userId
+export const getProposalByUserId = async (userId) => {
+    try {
+        const res = await fetch(`/api/moduleB/proposals/user/${userId}`); // hoặc URL API tương ứng
+        if (!res.ok) throw new Error('Failed to fetch proposal');
+        const data = await res.json();
+        return data;
+    } catch (err) {
+        console.error(err);
+        return null;
+    }
+};
+
