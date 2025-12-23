@@ -246,7 +246,12 @@ public class AttendanceController {
     @GetMapping("/by-month")
     public ResponseEntity<Map<String, Object>> getAttendanceByMonth(
             @RequestParam String month,
-            @RequestParam(required = false) Integer userId) {
+            @RequestParam(required = false) Integer userId,
+            @RequestParam(required = false) Integer departmentId,
+            @RequestParam(required = false) Integer lineId,
+            @RequestParam(required = false) Integer subLineId,
+            @RequestParam(required = false) Integer workUnitId
+    ) {
         try {
             String[] parts = month.split("-");
             if (parts.length != 2) {
@@ -262,38 +267,21 @@ public class AttendanceController {
             LocalDate startDate = LocalDate.of(year, monthNum, 1);
             LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
 
-            log.info("Querying attendances têt - startDate: {}, endDate: {}, userId: {}", startDate, endDate, userId);
+            Integer targetLineId = (workUnitId != null) ? workUnitId
+                    : (subLineId != null) ? subLineId
+                    : lineId;
 
-            java.util.List<AttendanceDTO> attendances = attendanceService.getAttendanceByDateRangeAsDTO(startDate, endDate, userId);
-
-            log.info("Found {} attendance records", attendances.size());
+            var attendances = attendanceService.getAttendanceByDateRangeAsDTO(
+                    startDate, endDate, userId, departmentId, targetLineId
+            );
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("month", month);
             response.put("totalRecords", attendances.size());
-            response.put("data", attendances.stream().map(att -> {
-                Map<String, Object> attMap = new HashMap<>();
-                attMap.put("id", att.getId());
-                attMap.put("userId", att.getUserId());
-                attMap.put("userName", att.getUserName() != null ? att.getUserName() : "");
-                attMap.put("departmentId", att.getDepartmentId() != null ? att.getDepartmentId() : "");
-                attMap.put("departmentName", att.getDepartmentName() != null ? att.getDepartmentName() : "");
-                attMap.put("date", att.getDate() != null ? att.getDate() : "");
-                attMap.put("timeIn", att.getTimeIn() != null ? att.getTimeIn() : null);
-                attMap.put("timeOut", att.getTimeOut() != null ? att.getTimeOut() : null);
-                attMap.put("status", att.getStatus() != null ? att.getStatus().toUpperCase() : "SUCCESS");
-                return attMap;
-            }).toList());
-
+            response.put("data", attendances);
             return ResponseEntity.ok(response);
 
-        } catch (NumberFormatException e) {
-            log.error("Invalid month format: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "Invalid month format. Use YYYY-MM"
-            ));
         } catch (Exception e) {
             log.error("Error getting attendance by month", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
@@ -306,9 +294,20 @@ public class AttendanceController {
     @GetMapping("/by-date")
     public ResponseEntity<Map<String, Object>> getAttendanceByDate(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @RequestParam(required = false) Integer userId) {
+            @RequestParam(required = false) Integer userId,
+            @RequestParam(required = false) Integer departmentId,
+            @RequestParam(required = false) Integer lineId,
+            @RequestParam(required = false) Integer subLineId,
+            @RequestParam(required = false) Integer workUnitId
+    ) {
         try {
-            var attendances = attendanceService.getAttendanceByDateRangeAsDTO(date, date, userId);
+            Integer targetLineId = (workUnitId != null) ? workUnitId
+                    : (subLineId != null) ? subLineId
+                    : lineId;
+
+            var attendances = attendanceService.getAttendanceByDateRangeAsDTO(
+                    date, date, userId, departmentId, targetLineId
+            );
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -330,7 +329,12 @@ public class AttendanceController {
     public ResponseEntity<Map<String, Object>> getAttendanceByRange(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            @RequestParam(required = false) Integer userId) {
+            @RequestParam(required = false) Integer userId,
+            @RequestParam(required = false) Integer departmentId,
+            @RequestParam(required = false) Integer lineId,
+            @RequestParam(required = false) Integer subLineId,
+            @RequestParam(required = false) Integer workUnitId
+    ) {
         try {
             if (endDate.isBefore(startDate)) {
                 return ResponseEntity.badRequest().body(Map.of(
@@ -339,7 +343,13 @@ public class AttendanceController {
                 ));
             }
 
-            var attendances = attendanceService.getAttendanceByDateRangeAsDTO(startDate, endDate, userId);
+            Integer targetLineId = (workUnitId != null) ? workUnitId
+                    : (subLineId != null) ? subLineId
+                    : lineId;
+
+            var attendances = attendanceService.getAttendanceByDateRangeAsDTO(
+                    startDate, endDate, userId, departmentId, targetLineId
+            );
 
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -357,5 +367,6 @@ public class AttendanceController {
             ));
         }
     }
+
 
 }

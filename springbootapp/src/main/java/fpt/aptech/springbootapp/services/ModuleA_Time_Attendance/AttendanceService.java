@@ -5,6 +5,7 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
+import fpt.aptech.springbootapp.services.interfaces.LineService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,12 +23,16 @@ public class AttendanceService {
 
     private final AttendanceRepository attendanceRepository;
     private final UserRepository userRepository;
+    private final LineService lineService;
+
 
     @Autowired
     public AttendanceService(AttendanceRepository attendanceRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+                             LineService lineService) {
         this.attendanceRepository = attendanceRepository;
         this.userRepository = userRepository;
+        this.lineService = lineService;
     }
 
     /**
@@ -142,18 +147,37 @@ public class AttendanceService {
     }
 
     //Lấy all attendance trong khoảng thời gian, có thể filter by userId
-    public List<AttendanceDTO> getAttendanceByDateRangeAsDTO(LocalDate startDate, LocalDate endDate, Integer userId) {
+    public List<AttendanceDTO> getAttendanceByDateRangeAsDTO(
+            LocalDate startDate,
+            LocalDate endDate,
+            Integer userId,
+            Integer departmentId,
+            Integer targetLineId
+    ) {
         try {
             List<Object[]> results;
-            if (userId != null) {
-                results = attendanceRepository.findAttendanceDataByUserAndDateRange(userId, startDate, endDate);
+
+            if (targetLineId != null) {
+                List<Integer> descendantIds = lineService.getAllDescendantIds(targetLineId);
+                java.util.ArrayList<Integer> allowed = new java.util.ArrayList<>();
+                allowed.add(targetLineId);
+                if (descendantIds != null && !descendantIds.isEmpty()) {
+                    allowed.addAll(descendantIds);
+                }
+
+                results = attendanceRepository.findAttendanceDataByFiltersWithLineIds(
+                        startDate, endDate, userId, departmentId, allowed
+                );
             } else {
-                results = attendanceRepository.findAttendanceDataByDateRange(startDate, endDate);
+                // fallback: giữ logic cũ (không lọc theo line)
+                if (userId != null) {
+                    results = attendanceRepository.findAttendanceDataByUserAndDateRange(userId, startDate, endDate);
+                } else {
+                    results = attendanceRepository.findAttendanceDataByDateRange(startDate, endDate);
+                }
             }
 
             return results.stream().map(row -> {
-                log.info("DEBUG Row Data - Index 0(id): {}, Index 6(timeIn): {}, Index 7(timeOut): {}",
-                        row[0], row[6], row[7]);
                 LocalDate dateValue = null;
                 if (row[5] != null) {
                     if (row[5] instanceof java.sql.Date) {
@@ -162,28 +186,24 @@ public class AttendanceService {
                         dateValue = (LocalDate) row[5];
                     }
                 }
-                
+
                 LocalTime timeInValue = null;
                 if (row[6] != null) {
-                    log.info("DEBUG timeIn - Class: {}, Value: {}", row[6].getClass().getName(), row[6]);
                     if (row[6] instanceof java.sql.Time) {
                         timeInValue = ((java.sql.Time) row[6]).toLocalTime();
                     } else if (row[6] instanceof LocalTime) {
                         timeInValue = (LocalTime) row[6];
                     }
                 }
-                
+
                 LocalTime timeOutValue = null;
                 if (row[7] != null) {
-                    log.info("DEBUG timeOut - Class: {}, Value: {}", row[7].getClass().getName(), row[7]);
-
                     if (row[7] instanceof java.sql.Time) {
                         timeOutValue = ((java.sql.Time) row[7]).toLocalTime();
                     } else if (row[7] instanceof LocalTime) {
                         timeOutValue = (LocalTime) row[7];
                     }
                 }
-                log.info("DEBUG Final DTO - timeIn: {}, timeOut: {}", timeInValue, timeOutValue);
 
                 return AttendanceDTO.builder()
                         .id(row[0] != null ? ((Number) row[0]).intValue() : null)
@@ -198,9 +218,11 @@ public class AttendanceService {
                         .reason((String) row[9])
                         .build();
             }).toList();
+
         } catch (Exception e) {
             log.error("Error fetching attendance as DTO", e);
             return List.of();
         }
     }
+
 }

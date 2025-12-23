@@ -12,6 +12,17 @@ const getTokenHeader = () =>
   };
 };
 
+const buildParams = (baseParams = {}, filters = {}) =>
+{
+    const cleaned = {};
+    Object.entries({ ...baseParams, ...filters }).forEach(([k, v]) =>
+    {
+        if (v !== null && v !== undefined && v !== '') cleaned[k] = v;
+    });
+    return cleaned;
+};
+
+
 const attendanceService = {
   checkInByFace: async (imageBase64) =>
   {
@@ -45,15 +56,15 @@ const attendanceService = {
     return res.data;
   },
 
-  getByMonth: async (month, userId = null) =>
+  getByMonth: async (month, userId = null, filters ={}) =>
   {
     try
     {
       const res = await axios.get(
         `${API_BASE}/by-month`,
         {
-          params: { month, ...(userId && { userId }) },
-          headers: getTokenHeader()
+            params: buildParams({ month, userId }, filters),
+            headers: getTokenHeader()
         }
       );
 
@@ -67,24 +78,24 @@ const attendanceService = {
     }
   },
 
-    getByDate: async (date, userId = null) =>
+    getByDate: async (date, userId = null, filters = {}) =>
     {
         const res = await axios.get(
             `${API_BASE}/by-date`,
             {
-                params: { date, ...(userId && { userId }) },
+                params: buildParams({ date, userId }, filters),
                 headers: getTokenHeader()
             }
         );
         return Array.isArray(res.data?.data) ? res.data.data : [];
     },
 
-    getByRange: async (startDate, endDate, userId = null) =>
+    getByRange: async (startDate, endDate, userId = null, filters = {}) =>
     {
         const res = await axios.get(
             `${API_BASE}/by-range`,
             {
-                params: { startDate, endDate, ...(userId && { userId }) },
+                params: buildParams({ startDate, endDate, userId }, filters),
                 headers: getTokenHeader()
             }
         );
