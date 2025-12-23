@@ -28,6 +28,13 @@ public interface EmployeePayrollRepo extends JpaRepository<TbEmployeePayroll, In
             @Param("month") Integer month
     );
 
+    // Lấy tất cả payroll theo năm và tháng (cho AI analysis)
+    @Query("SELECT ep FROM TbEmployeePayroll ep WHERE YEAR(ep.payroll.month) = :year AND MONTH(ep.payroll.month) = :month")
+    List<TbEmployeePayroll> findByYearAndMonth(
+            @Param("year") Integer year,
+            @Param("month") Integer month
+    );
+
     //lay lich su toan bo luong cua ca nhan
 //    @Query("SELECT ep FROM TbEmployeePayroll ep WHERE ep.user.id = :userId ORDER BY ep.payroll.month DESC")
 //    List<TbEmployeePayroll> findByUserId(@Param("userId") Integer userId);

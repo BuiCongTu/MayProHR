@@ -210,7 +210,6 @@ export default function Register() {
 
         if (error) setError('');
 
-        // clear duplicate user when role changes
         if (name === 'roleId') {
             setDuplicateUser(null);
             setShowDuplicateModal(false);
@@ -416,8 +415,8 @@ export default function Register() {
         try {
             const data = new FormData();
             data.append("file", file);
-
-            const res = await formDataService.scanCCCD(data); // API trả về { fullName, email, phone, gender }
+// API trả về { fullName, email, phone, gender }
+            const res = await formDataService.scanCCCD(data);
 
             if (res.data) {
                 const dto = res.data;

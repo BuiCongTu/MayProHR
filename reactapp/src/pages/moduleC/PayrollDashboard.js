@@ -2,10 +2,15 @@ import { useEffect, useState } from 'react';
 import { Alert, Badge, Card, Col, Container, Row, Spinner } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { axiosInstance } from '../../services/api';
+import { getCurrentUser } from '../../services/authService';
+import { hasAnalysisPermission } from '../../services/moduleC/payrollAnalysisService';
 import '../../styles/payroll.css';
 
 const PayrollDashboard = () =>
 {
+    const currentUser = getCurrentUser();
+    const canViewAnalysis = hasAnalysisPermission(currentUser);
+
     const [stats, setStats] = useState({
         totalPayroll: 0,
         approvedPayroll: 0,
@@ -23,7 +28,8 @@ const PayrollDashboard = () =>
 
     const fetchDashboardData = async () =>
     {
-        try {
+        try
+        {
             setLoading(true);
             setError('');
 
@@ -33,11 +39,14 @@ const PayrollDashboard = () =>
             });
 
             let reportData = [];
-            if (reportResponse.data.success === false) {
+            if (reportResponse.data.success === false)
+            {
                 setError(reportResponse.data.message || 'Failed to load statistics');
-            } else if (reportResponse.data.data) {
+            } else if (reportResponse.data.data)
+            {
                 reportData = reportResponse.data.data || [];
-            } else if (Array.isArray(reportResponse.data)) {
+            } else if (Array.isArray(reportResponse.data))
+            {
                 reportData = reportResponse.data;
             }
 
@@ -58,18 +67,23 @@ const PayrollDashboard = () =>
             // Fetch recent payrolls (giữ nguyên như cũ)
             const recentResponse = await axiosInstance.get('/payroll/recent?limit=5');
             let recentData = [];
-            if (recentResponse.data.success !== false){
-                if (recentResponse.data.data) {
+            if (recentResponse.data.success !== false)
+            {
+                if (recentResponse.data.data)
+                {
                     recentData = recentResponse.data.data || [];
-                } else if (Array.isArray(recentResponse.data)) {
+                } else if (Array.isArray(recentResponse.data))
+                {
                     recentData = recentResponse.data;
                 }
             }
             setRecentPayrolls(recentData);
-        } catch (err) {
+        } catch (err)
+        {
             console.error('Failed to load dashboard:', err);
             setError(err.response?.data?.message || 'Unable to load dashboard data');
-        } finally {
+        } finally
+        {
             setLoading(false);
         }
     };
@@ -80,10 +94,12 @@ const PayrollDashboard = () =>
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
             currency: 'VND',
-            maximumFractionDigits: 0}).format(value);
+            maximumFractionDigits: 0
+        }).format(value);
     };
 
-    if (loading) {
+    if (loading)
+    {
         return (
             <div className="text-center p-5">
                 <Spinner animation="border" role="status">
@@ -152,6 +168,11 @@ const PayrollDashboard = () =>
                         <Card.Body>
                             <div className="d-grid gap-2 d-md-flex">
                                 <Link to="/payroll/list" className="btn btn-primary">Payroll List</Link>
+                                {canViewAnalysis && (
+                                    <Link to="/payroll/analysis" className="btn btn-dark">
+                                        🤖 AI Analysis
+                                    </Link>
+                                )}
                                 <Link to="/payroll/list" className="btn btn-success">Calculate Payroll</Link>
                                 <Link to="/payroll/report" className="btn btn-info">Report</Link>
                                 <Link to="/payroll/tax-calculator" className="btn btn-warning">Tax Calculator</Link>
@@ -175,50 +196,50 @@ const PayrollDashboard = () =>
                         <div style={{ overflowX: 'auto' }}>
                             <table className="table table-hover mb-0">
                                 <thead className="bg-light">
-                                <tr>
-                                    <th>Month</th>
-                                    <th>Department</th>
-                                    <th className="text-end">Total Salary</th>
-                                    <th>Status</th>
-                                    <th>Action</th>
-                                </tr>
+                                    <tr>
+                                        <th>Month</th>
+                                        <th>Department</th>
+                                        <th className="text-end">Total Salary</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
                                 </thead>
                                 <tbody>
-                                {recentPayrolls.map(payroll => (
-                                    <tr key={payroll.payrollId}>
-                                        <td>
-                                            <strong>
-                                                {new Date(payroll.month).toLocaleDateString('en-EN', {
-                                                    month: 'long',
-                                                    year: 'numeric'
-                                                })}
-                                            </strong>
-                                        </td>
-                                        <td>{payroll.department?.name || 'N/A'}</td>
-                                        <td className="text-end">{formatCurrency(payroll.totalSalary)}</td>
-                                        <td>
-                                            <Badge
-                                                bg={payroll.status === 'approved' ? 'success' : 'warning'}
-                                            >
-                                                {payroll.status}
-                                            </Badge>
-                                        </td>
-                                        <td className="d-flex gap-2">
-                                            <Link
-                                                to={`/payroll/${payroll.id}`}
-                                                className="btn btn-sm btn-info"
-                                            >
-                                                View
-                                            </Link>
-                                            <Link
-                                                to={`/payroll/${payroll.id}/calculate`}
-                                                className="btn btn-sm btn-primary"
-                                            >
-                                                Calculate
-                                            </Link>
-                                        </td>
-                                    </tr>
-                                ))}
+                                    {recentPayrolls.map(payroll => (
+                                        <tr key={payroll.payrollId}>
+                                            <td>
+                                                <strong>
+                                                    {new Date(payroll.month).toLocaleDateString('en-EN', {
+                                                        month: 'long',
+                                                        year: 'numeric'
+                                                    })}
+                                                </strong>
+                                            </td>
+                                            <td>{payroll.department?.name || 'N/A'}</td>
+                                            <td className="text-end">{formatCurrency(payroll.totalSalary)}</td>
+                                            <td>
+                                                <Badge
+                                                    bg={payroll.status === 'approved' ? 'success' : 'warning'}
+                                                >
+                                                    {payroll.status}
+                                                </Badge>
+                                            </td>
+                                            <td className="d-flex gap-2">
+                                                <Link
+                                                    to={`/payroll/${payroll.id}`}
+                                                    className="btn btn-sm btn-info"
+                                                >
+                                                    View
+                                                </Link>
+                                                <Link
+                                                    to={`/payroll/${payroll.id}/calculate`}
+                                                    className="btn btn-sm btn-primary"
+                                                >
+                                                    Calculate
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>

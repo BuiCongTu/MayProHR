@@ -1,11 +1,11 @@
 package fpt.aptech.springbootapp.api.ModuleC;
 
+import lombok.*;
 import java.math.*;
 import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import fpt.aptech.springbootapp.repositories.ModuleA_Time_Attendance.AttendanceRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -14,11 +14,14 @@ import org.springframework.web.bind.annotation.*;
 import fpt.aptech.springbootapp.dtos.ModuleC.*;
 import fpt.aptech.springbootapp.entities.Core.*;
 import fpt.aptech.springbootapp.entities.ModuleC.*;
-import fpt.aptech.springbootapp.entities.ModuleC.TbPayrollAllowance.AllowanceScope;
-import fpt.aptech.springbootapp.repositories.*;
-import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.*;
 import fpt.aptech.springbootapp.services.ModuleC_Payroll.*;
-import lombok.*;
+import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.*;
+
+import fpt.aptech.springbootapp.entities.ModuleC.TbPayrollAllowance;
+import fpt.aptech.springbootapp.entities.ModuleC.TbPayrollAllowance.AllowanceScope;
+import fpt.aptech.springbootapp.repositories.DepartmentRepository;
+import fpt.aptech.springbootapp.repositories.ModuleA_Time_Attendance.AttendanceRepository;
+import fpt.aptech.springbootapp.repositories.UserRepository;
 
 @RestController
 @RequestMapping("/api/payroll")
@@ -35,7 +38,7 @@ public class PayrollController {
     private final PayrollRepo payrollRepo;
     private final PayrollAllowanceRepo payrollAllowanceRepo;
     private final AttendanceRepository attendanceRepository;
-
+    private final PayrollAnalysisService payrollAnalysisService;
 
     @Autowired
     public PayrollController(PayrollService payrollService,
@@ -47,7 +50,8 @@ public class PayrollController {
             PayrollRepo payrollRepo,
             DepartmentRepository departmentRepository,
             PayrollAllowanceRepo payrollAllowanceRepo,
-            AttendanceRepository attendanceRepository) {
+            AttendanceRepository attendanceRepository,
+            PayrollAnalysisService payrollAnalysisService) {
         this.payrollService = payrollService;
         this.payrollCalculationService = payrollCalculationService;
         this.taxProfileService = taxProfileService;
@@ -58,6 +62,7 @@ public class PayrollController {
         this.departmentRepository = departmentRepository;
         this.payrollAllowanceRepo = payrollAllowanceRepo;
         this.attendanceRepository = attendanceRepository;
+        this.payrollAnalysisService = payrollAnalysisService;
     }
 
     //
@@ -67,7 +72,6 @@ public class PayrollController {
             if (request.getYear() == null || request.getMonth() == null || request.getFundAmount() == null) {
                 return ResponseEntity.badRequest().body(buildErrorResponse("Missing required parameters(year, month, fundAmount)"));
             }
-            // If employeeIds not provided, try to fetch by Work Unit (lineId)
             List<Integer> employeeIds = request.getEmployeeIds();
             if ((employeeIds == null || employeeIds.isEmpty()) && request.getLineId() != null) {
                 employeeIds = userRepository.findByLineId(request.getLineId()).stream()
@@ -405,56 +409,6 @@ public class PayrollController {
         }
     }
 
-
-//    @GetMapping("/{payrollId}") bỏ qua
-//    public ResponseEntity<?> getPayrollDetails(@PathVariable Integer payrollId) {
-//        try {
-//            TbPayroll payroll = payrollRepo.findById(payrollId)
-//                    .orElseThrow(() -> new RuntimeException("Payroll not found"));
-//
-//            PayrollResponseDTO dto = new PayrollResponseDTO();
-//            dto.setPayrollId(payroll.getId());
-//            dto.setMonth(payroll.getMonth());
-//            dto.setDepartmentName(payroll.getDepartment().getName());
-//            dto.setTotalSalary(payroll.getTotalSalary());
-//            dto.setStatus(payroll.getStatus().toString());
-//            dto.setCreatedDate(payroll.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDate());
-//
-//            List<PayrollResponseDTO.EmployeePayrollDetailDTO> employees = payroll.getEmployeePayrolls()
-//                    .stream()
-//                    .map(ep -> {
-//                        PayrollResponseDTO.EmployeePayrollDetailDTO empDto
-//                                = new PayrollResponseDTO.EmployeePayrollDetailDTO();
-//                        empDto.setEmployeeId(ep.getUser().getId());
-//                        empDto.setEmployeeName(ep.getUser().getFullName());
-//                        empDto.setSalaryType(ep.getUser().getSalaryType().toString());
-//                        empDto.setBaseSalary(ep.getBaseSalary());
-//                        empDto.setProductBonus(ep.getProductBonus());
-//                        empDto.setOvertimePay(ep.getOvertimePay());
-//                        empDto.setAllowance(ep.getAllowance());
-//                        empDto.setDeduction(ep.getDeduction());
-//                        empDto.setTotalPay(ep.getTotalPay());
-//                        empDto.setNote(ep.getNote());
-//                        return empDto;
-//                    })
-//                    .collect(Collectors.toList());
-//
-//            dto.setEmployees(employees);
-//            Map<String, Object> body = new HashMap<>();
-//            body.put("success", true);
-//            body.put("message", "Get payroll details successfully");
-//            body.put("data", dto);
-//            return ResponseEntity.ok(body);
-//        } catch (Exception e) {
-//            Map<String, Object> body = new HashMap<>();
-//            body.put("success", false);
-//            body.put("message", "error: " + e.getMessage());
-//            body.put("data", null);
-//            return ResponseEntity.badRequest().body(body);
-//        }
-//
-//    }
-
     //lay history luong cua nhan vien
     @GetMapping("/employee-history")
     public ResponseEntity<?> getEmployeePayrollHistory2(@RequestParam Integer userId) {
@@ -465,8 +419,8 @@ public class PayrollController {
             List<fpt.aptech.springbootapp.dtos.response.TbEmployeePayrollDTO> dtos = payrolls
                     .stream()
                     .map(ep -> {
-                        fpt.aptech.springbootapp.dtos.response.TbEmployeePayrollDTO dto =
-                                new fpt.aptech.springbootapp.dtos.response.TbEmployeePayrollDTO();
+                        fpt.aptech.springbootapp.dtos.response.TbEmployeePayrollDTO dto
+                                = new fpt.aptech.springbootapp.dtos.response.TbEmployeePayrollDTO();
 
                         dto.setEmployeePayrollId(ep.getId());
 
@@ -629,7 +583,7 @@ public class PayrollController {
             //tao allơeance mới
             TbPayrollAllowance allowance = new TbPayrollAllowance();
             allowance.setUser(user);
-            allowance.setEmployeePayroll(null); // không gắn với 1 payroll cụ thể hết nha
+            allowance.setEmployeePayroll(null);
             allowance.setAmount(request.getAmount());
             allowance.setType(type);
             allowance.setScope(AllowanceScope.RECURRING);
@@ -1415,6 +1369,7 @@ public class PayrollController {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class EmployeePayrollPreviewRequest {
+
         private Integer payrollId;
         private Integer userId;
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
@@ -1493,7 +1448,6 @@ public class PayrollController {
                         return n;
                     });
 
-            // Lưu đúng nghĩa: baseSalary = base salary của user (không phải timeSalary)
             BigDecimal baseSalary = user.getBaseSalary() != null ? user.getBaseSalary() : BigDecimal.ZERO;
             ep.setBaseSalary(baseSalary);
 
@@ -1523,8 +1477,8 @@ public class PayrollController {
 
             ep.setIncomeAfterDeductions(
                     preview.getGrossIncomeForTax() != null && preview.getTotalDeduction() != null
-                            ? preview.getGrossIncomeForTax().subtract(preview.getTotalDeduction()).setScale(SCALE, RoundingMode.HALF_UP)
-                            : BigDecimal.ZERO
+                    ? preview.getGrossIncomeForTax().subtract(preview.getTotalDeduction()).setScale(SCALE, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO
             );
 
             ep.setAllowance(preview.getAllowance() != null ? preview.getAllowance() : BigDecimal.ZERO);
@@ -1579,7 +1533,7 @@ public class PayrollController {
         TbUser user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new RuntimeException("User not found: " + request.getUserId()));
 
-        // 1) Recurring allowance trong tháng
+        // 1. Recurring allowance trong tháng
         List<TbPayrollAllowance> recurring = payrollAllowanceRepo
                 .findRecurringAllowancesForUserAndMonth(
                         user.getId(),
@@ -1593,14 +1547,14 @@ public class PayrollController {
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // 2) allowance nhập tay (editable)
+        // 2. allowance editable
         BigDecimal manualAllowance = request.getAllowance() != null ? request.getAllowance() : BigDecimal.ZERO;
         BigDecimal totalAllowance = recurringSum.add(manualAllowance).setScale(SCALE, RoundingMode.HALF_UP);
 
-        // 3) Base calc from DB sources (attendance/leave/OT/production/tax profile)
+        // 3.attendance/leave/OT/production/tax profile
         PayrollCalculationDTO calc = payrollCalculationService.calEmpSalary(user, payrollMonth, totalAllowance);
 
-        // 4) Apply overrides (nếu có) + recompute dependent values
+        // 4.Apply overrides (nếu có) + recompute dependent values
         BigDecimal actualWorkingDays = request.getOverrideActualWorkingDays() != null
                 ? request.getOverrideActualWorkingDays()
                 : calc.getActualWorkingDays();
@@ -1613,7 +1567,7 @@ public class PayrollController {
                 ? request.getOverrideOtHolidayHours()
                 : calc.getOtHolidayHours();
 
-        // Recompute overtime pay if override OT
+        // 5. override OT
         BigDecimal overtimePay = calc.getOvertimePay() != null ? calc.getOvertimePay() : BigDecimal.ZERO;
         boolean otOverridden = request.getOverrideOtWeekdayHours() != null || request.getOverrideOtHolidayHours() != null;
         if (otOverridden) {
@@ -1625,7 +1579,7 @@ public class PayrollController {
                     .setScale(SCALE, RoundingMode.HALF_UP);
         }
 
-        // Recompute timeSalary if override actualWorkingDays (TimeBased only)
+        // 6. Recompute timeSalary if override actualWorkingDays (TimeBased only)
         BigDecimal timeSalary = calc.getTimeSalary() != null ? calc.getTimeSalary() : BigDecimal.ZERO;
         if (user.getSalaryType() == TbUser.SalaryType.TimeBased && request.getOverrideActualWorkingDays() != null) {
             BigDecimal baseSalary = user.getBaseSalary() != null ? user.getBaseSalary() : BigDecimal.ZERO;
@@ -1667,8 +1621,12 @@ public class PayrollController {
 
             // C = 176 + totalOT (giờ)
             BigDecimal totalOtHours = BigDecimal.ZERO;
-            if (otWeekday != null) totalOtHours = totalOtHours.add(otWeekday);
-            if (otHoliday != null) totalOtHours = totalOtHours.add(otHoliday);
+            if (otWeekday != null) {
+                totalOtHours = totalOtHours.add(otWeekday);
+            }
+            if (otHoliday != null) {
+                totalOtHours = totalOtHours.add(otHoliday);
+            }
 
             BigDecimal C = HOURS_PER_MONTH.add(totalOtHours);
             if (C.compareTo(BigDecimal.ZERO) > 0) {
@@ -1700,15 +1658,12 @@ public class PayrollController {
                 .payrollId(request.getPayrollId())
                 .payrollMonth(payrollMonth)
                 .departmentName(null)
-
                 .userId(user.getId())
                 .fullName(user.getFullName())
                 .salaryType(user.getSalaryType() != null ? user.getSalaryType().toString() : null)
                 .hireDate(user.getHireDate())
-
                 .baseSalary(baseSalary)
                 .wageCoefficient(user.getWageCoefficient())
-
                 .standardWorkingDays(calc.getStandardWorkingDays())
                 .actualWorkingDays(actualWorkingDays)
                 .paidLeaveDays(calc.getPaidLeaveDays())
@@ -1716,34 +1671,26 @@ public class PayrollController {
                 .lateCount(calc.getLateCount())
                 .latePenalty(calc.getLatePenalty())
                 .timeSalary(timeSalary)
-
                 .productCount(calc.getProductCount())
                 .unitPrice(calc.getUnitPrice())
                 .productBonus(productBonus)
-
                 .ot1Hours(otWeekday)
                 .ot2Hours(otHoliday)
                 .overtimePay(overtimePay)
-
                 .insurance(calc.getInsurance())
                 .totalDeduction(totalDeduction)
                 .grossIncomeForTax(grossIncomeForTax)
                 .personalIncomeTax(totalTax)
-
                 //tong giam tru
                 .taxDeductionTotal(taxDTO != null ? taxDTO.getTotalDeduction() : BigDecimal.ZERO)
-
                 //chi tiet giam tru
                 .personalDeduction(taxDTO != null ? taxDTO.getPersonalDeduction() : BigDecimal.ZERO)
                 .dependentDeduction(taxDTO != null ? taxDTO.getDependentDeduction() : BigDecimal.ZERO)
                 .insuranceDeduction(taxDTO != null ? taxDTO.getInsuranceDeduction() : BigDecimal.ZERO)
                 .taxableIncome(taxDTO != null ? taxDTO.getTaxableIncome() : BigDecimal.ZERO)
-
                 .incomeAfterDeductions(incomeAfterDeductions)
-
                 .allowance(totalAllowance)
                 .totalPay(totalPay)
-
                 .note(request.getNote() != null ? request.getNote() : calc.getCalculationNote())
                 .createdAt(Instant.now())
                 .build();
@@ -1793,13 +1740,14 @@ public class PayrollController {
                     .filter(u -> u != null && u.getStatus() == TbUser.UserStatus.Active)
                     .toList();
 
-
             int createdCount = 0;
             List<Integer> createdUserIds = new ArrayList<>();
 
             for (TbUser user : usersWithAttendance) {
                 boolean exists = employeePayrollRepo.findByPayrollIdAndUserId(payroll.getId(), user.getId()).isPresent();
-                if (exists) continue;
+                if (exists) {
+                    continue;
+                }
 
                 TbEmployeePayroll ep = new TbEmployeePayroll();
                 ep.setPayroll(payroll);
@@ -1871,11 +1819,9 @@ public class PayrollController {
                 data.put("deptUsersNoAttendanceCount", deptNoAttendance.size());
                 data.put("deptUsersNoAttendanceSample", deptNoAttendance.stream().limit(50).toList());
 
-                // ===== DEBUG NATIVE ATTENDANCE CHECK (raw DB) =====
                 var rawAttendances = attendanceRepository.findAttendanceByDateRangeNative(start, end);
                 data.put("nativeAttendanceRowsInRange", rawAttendances != null ? rawAttendances.size() : 0);
 
-                // count distinct users in native result
                 Set<Integer> nativeUserIds = new HashSet<>();
                 if (rawAttendances != null) {
                     for (var a : rawAttendances) {
@@ -1886,7 +1832,6 @@ public class PayrollController {
                 }
                 data.put("nativeDistinctUsersInRange", nativeUserIds.size());
             }
-
 
             Map<String, Object> body = new HashMap<>();
             body.put("success", true);
@@ -1902,6 +1847,62 @@ public class PayrollController {
         }
     }
 
+    //AI PAYROLL ANALYSIS
+    @PostMapping("/analyze")
+    public ResponseEntity<?> analyzePayroll(@RequestBody PayrollAnalysisRequest request) {
+        try {
+            System.out.println("[PAYROLL_ANALYSIS] Analyzing payroll for " + request.getMonth() + "/" + request.getYear());
 
+            PayrollAnalysisResponse analysis = payrollAnalysisService.analyzePayroll(request);
+
+            System.out.println("[PAYROLL_ANALYSIS] Analysis completed successfully");
+
+            return ResponseEntity.ok(analysis);
+
+        } catch (IllegalArgumentException e) {
+            System.err.println("[PAYROLL_ANALYSIS] Validation error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(buildErrorResponse(e.getMessage()));
+        } catch (Exception e) {
+            System.err.println("[PAYROLL_ANALYSIS] Error: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(buildErrorResponse("Server Error: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Phân tích nhanh một tháng cụ thể GET
+     * /api/payroll/analyze/quick?year=2025&month=12
+     */
+    @GetMapping("/analyze/quick")
+    public ResponseEntity<?> quickAnalyze(
+            @RequestParam Integer year,
+            @RequestParam Integer month) {
+        try {
+            PayrollAnalysisRequest request = PayrollAnalysisRequest.builder()
+                    .year(year)
+                    .month(month)
+                    .analysisType("all")
+                    .compareWithPrevious(true)
+                    .language("vi")
+                    .build();
+
+            PayrollAnalysisResponse analysis = payrollAnalysisService.analyzePayroll(request);
+
+            Map<String, Object> quickResult = new HashMap<>();
+            quickResult.put("year", year);
+            quickResult.put("month", month);
+            quickResult.put("aiSummary", analysis.getAiSummary());
+            quickResult.put("totalEmployees", analysis.getOverview() != null ? analysis.getOverview().getTotalEmployees() : 0);
+            quickResult.put("totalCost", analysis.getOverview() != null ? analysis.getOverview().getTotalPayrollCost() : BigDecimal.ZERO);
+            quickResult.put("anomalyCount", analysis.getAnomalies() != null ? analysis.getAnomalies().size() : 0);
+            quickResult.put("recommendationCount", analysis.getRecommendations() != null ? analysis.getRecommendations().size() : 0);
+
+            return ResponseEntity.ok(quickResult);
+
+        } catch (Exception e) {
+            System.err.println("[PAYROLL_ANALYSIS] Quick analyze error: " + e.getMessage());
+            return ResponseEntity.status(500).body(buildErrorResponse("Error: " + e.getMessage()));
+        }
+    }
 
 }

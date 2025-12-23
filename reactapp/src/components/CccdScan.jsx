@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { scanCccd } from "../services/cccdService"; // API scan CCCD
+import { scanCccd } from "../services/cccdService";
 import { Button, CircularProgress, Snackbar, Alert, Box } from "@mui/material";
 
 const CccdScan = ({ onSuccess }) => {
@@ -15,13 +15,13 @@ const CccdScan = ({ onSuccess }) => {
     setLoading(true);
 
     try {
-      const data = await scanCccd(file); // gọi API trả về { fullName, gender, dob }
+      const data = await scanCccd(file);
       onSuccess(data);
 
-      setSnackbar({ open: true, message: "✅ Quét CCCD thành công!", severity: "success" });
+      setSnackbar({ open: true, message: "Quét CCCD thành công!", severity: "success" });
     } catch (err) {
       console.error(err);
-      setSnackbar({ open: true, message: "❌ Quét CCCD thất bại", severity: "error" });
+      setSnackbar({ open: true, message: "Quét CCCD thất bại", severity: "error" });
     } finally {
       setLoading(false);
     }
@@ -30,7 +30,7 @@ const CccdScan = ({ onSuccess }) => {
   return (
     <Box sx={{ mb: 2, textAlign: "center" }}>
       <Button variant="contained" component="label" disabled={loading}>
-        {loading ? <CircularProgress size={24} /> : "📷 Quét CCCD"}
+        {loading ? <CircularProgress size={24} /> : "Quét CCCD"}
         <input type="file" hidden accept="image/*" onChange={handleFileChange} disabled={loading} />
       </Button>
 

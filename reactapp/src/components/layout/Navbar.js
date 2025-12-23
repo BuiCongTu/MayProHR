@@ -60,9 +60,18 @@ const getNavLinks = (roleName) =>
         case 'FDirector':
             links = [
                 { title: 'Dashboard', path: '/dashboard' },
+                { title: 'Payroll', path: '/payroll' },
                 { title: 'Overtime Requests', path: '/overtime-request' },
                 { title: 'Proposal Approve', path: '/proposal-approve' },
                 { title: 'Overview', path: '/overview' },
+                { title: 'Reports', path: '/reports' },
+            ];
+            break;
+
+        case 'Accounting':
+            links = [
+                { title: 'Dashboard', path: '/dashboard' },
+                { title: 'Payroll', path: '/payroll' },
                 { title: 'Reports', path: '/reports' },
             ];
             break;
