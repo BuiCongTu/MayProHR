@@ -302,4 +302,60 @@ public class AttendanceController {
             ));
         }
     }
+
+    @GetMapping("/by-date")
+    public ResponseEntity<Map<String, Object>> getAttendanceByDate(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) Integer userId) {
+        try {
+            var attendances = attendanceService.getAttendanceByDateRangeAsDTO(date, date, userId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("date", date.toString());
+            response.put("totalRecords", attendances.size());
+            response.put("data", attendances);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error getting attendance by date", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "success", false,
+                    "message", "Error: " + e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/by-range")
+    public ResponseEntity<Map<String, Object>> getAttendanceByRange(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) Integer userId) {
+        try {
+            if (endDate.isBefore(startDate)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "endDate must be >= startDate"
+                ));
+            }
+
+            var attendances = attendanceService.getAttendanceByDateRangeAsDTO(startDate, endDate, userId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("startDate", startDate.toString());
+            response.put("endDate", endDate.toString());
+            response.put("totalRecords", attendances.size());
+            response.put("data", attendances);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error getting attendance by range", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "success", false,
+                    "message", "Error: " + e.getMessage()
+            ));
+        }
+    }
+
 }
