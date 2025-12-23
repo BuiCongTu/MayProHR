@@ -113,6 +113,8 @@ public class SecurityConfig {
                         "/api/payroll/**",
                         "/api/department/**",
                         "/api/face/config",
+                        "/api/cccd/scan",
+                        "/api/cccd/scan-application",
                         "/api/face-scan/attendance",
                         "/actuator/health",
                         "/api/lines/**",

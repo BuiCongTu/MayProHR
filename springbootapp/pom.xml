@@ -134,6 +134,19 @@
             <version>9.2.0</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-vision</artifactId>
+            <version>3.39.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>net.sourceforge.tess4j</groupId>
+            <artifactId>tess4j</artifactId>
+            <version>5.6.0</version>
+        </dependency>
+
+
     </dependencies>
 
     <build>

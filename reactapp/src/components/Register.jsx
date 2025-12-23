@@ -198,189 +198,189 @@ export default function Register() {
     };
 
     const onChange = async (e) => {
-    const { name, value } = e.target;
-    
-    // Cập nhật form state ngay
-    const updatedForm = { ...form, [name]: value };
-    setForm(updatedForm);
+        const { name, value } = e.target;
 
-    // Validate field
-    const fieldError = validateField(name, value);
-    setFieldErrors(prev => ({...prev, [name]: fieldError}));
+        // Cập nhật form state ngay
+        const updatedForm = { ...form, [name]: value };
+        setForm(updatedForm);
 
-    if (error) setError('');
+        // Validate field
+        const fieldError = validateField(name, value);
+        setFieldErrors(prev => ({ ...prev, [name]: fieldError }));
 
-    // clear duplicate user when role changes
-    if (name === 'roleId') {
-        setDuplicateUser(null);
-        setShowDuplicateModal(false);
-    }
+        if (error) setError('');
+
+        // clear duplicate user when role changes
+        if (name === 'roleId') {
+            setDuplicateUser(null);
+            setShowDuplicateModal(false);
+        }
 
         // Lấy role đã chọn để sử dụng trong hàm
-    const selectedRoleId = updatedForm.roleId;
-    const selectedRoleObj = selectedRoleId ? roles.find(r => r.id === parseInt(selectedRoleId)) : null;
-    const selectedRoleName = selectedRoleObj ? selectedRoleObj.name : null;
+        const selectedRoleId = updatedForm.roleId;
+        const selectedRoleObj = selectedRoleId ? roles.find(r => r.id === parseInt(selectedRoleId)) : null;
+        const selectedRoleName = selectedRoleObj ? selectedRoleObj.name : null;
 
         console.log('DEBUG: onChange name=' + name + ', selectedRoleName=' + selectedRoleName);
 
         // Xử lý Dept selection
-    if (name === 'departmentId' && value) {
-        try {
-            const parents = await formDataService.getRootLines(value);
-            console.log('Loaded parent lines:', parents);
-            setParentLines(Array.isArray(parents) ? parents : []);
+        if (name === 'departmentId' && value) {
+            try {
+                const parents = await formDataService.getRootLines(value);
+                console.log('Loaded parent lines:', parents);
+                setParentLines(Array.isArray(parents) ? parents : []);
 
-            const isFactoryManager = selectedRoleName === 'Factory Manager';
-            if (!isFactoryManager) {
-                setForm(prev => ({ ...prev, parentLineId: '', lineId: '', subLineId: '' }));
-            }
-            
-            setChildLines([]);
-            setSubLines([]);
-            setDuplicateUser(null);
-            setShowDuplicateModal(false);
-
-        } catch (err) {
-            console.error('Failed to load sections:', err);
-            setParentLines([]);
-        }
-    }
-
-    // Xử lý Section selection
-    if (name === 'parentLineId' && value) {
-        try {
-            const children = await formDataService.getChildLines(value);
-            console.log('Loaded child lines:', children);
-            setChildLines(Array.isArray(children) ? children : []);
-            setForm(prev => ({ ...prev, lineId: '', subLineId: '' }));
-            setSubLines([]);
-            setDuplicateUser(null);
-            setShowDuplicateModal(false);
-        } catch (err) {
-            console.error('Failed to load sub-sections:', err);
-            setChildLines([]);
-        }
-    }
-
-    // Xử lý Sub-Section selection
-    if (name === 'lineId' && value) {
-        try {
-            const subChildren = await formDataService.getChildLines(value);
-            setSubLines(Array.isArray(subChildren) ? subChildren : []);
-            setForm(prev => ({ ...prev, subLineId: '' }));
-            setDuplicateUser(null);
-            setShowDuplicateModal(false);
-        } catch (err) {
-            console.error('Failed to load work units:', err);
-            setSubLines([]);
-        }
-    }
-
-    // ========== KIỂM TRA DUPLICATE USER ==========
-    let shouldCheckDuplicate = false;
-
-    // 1. HR - Kiểm tra duplicate ngay khi chọn Role
-    if (name === 'roleId' && selectedRoleName === 'HR') {
-        shouldCheckDuplicate = true;
-        console.log('DEBUG: HR role selected, will check duplicate');
-    }
-    // 2. Factory Director - Kiểm tra duplicate ngay khi chọn Role
-    else if (name === 'roleId' && selectedRoleName === 'Factory Director') {
-        shouldCheckDuplicate = true;
-        console.log('DEBUG: Factory Director role selected, will check duplicate');
-    }
-    // 3. Admin - Kiểm tra duplicate ngay khi chọn Role
-    else if (name === 'roleId' && selectedRoleName === 'Admin') {
-        shouldCheckDuplicate = true;
-        console.log('DEBUG: Admin role selected, will check duplicate');
-    }
-    // 4. Factory Manager - Kiểm tra duplicate khi chọn Department
-    else if (name === 'departmentId' && selectedRoleName === 'Factory Manager' && value) {
-        shouldCheckDuplicate = true;
-        console.log('DEBUG: Factory Manager with department selected, will check duplicate');
-    }
-
-    // 5. Manager - Kiểm tra duplicate khi chọn Section (parentLineId)
-    else if (name === 'parentLineId' && selectedRoleName === 'Manager' && value) {
-        shouldCheckDuplicate = true;
-        console.log('DEBUG: Manager with section selected, will check duplicate');
-    }
-    // 6. Leader/Assistant Leader - Kiểm tra duplicate khi chọn Sub Section (lineId)
-    else if (name === 'lineId' && (selectedRoleName === 'Leader' || selectedRoleName === 'Assistant Leader') && value) {
-        shouldCheckDuplicate = true;
-        console.log('DEBUG: Leader/Assistant Leader with sub-section selected, will check duplicate');
-    }
-
-
-    // Thực hiện kiểm tra duplicate
-    if (shouldCheckDuplicate && selectedRoleId) {
-        try {
-            const noNeedDept = ['Factory Director', 'HR', 'Admin'].includes(selectedRoleName);
-            const currentDeptId = name === 'departmentId' ? value : updatedForm.departmentId;
-            const currentParentLineId = name === 'parentLineId' ? value : updatedForm.parentLineId;
-            const currentLineId = name === 'lineId' ? value : updatedForm.lineId;
-
-            console.log('DEBUG: Attempting duplicate check:');
-            console.log('  - selectedRoleName:', selectedRoleName);
-            console.log('  - noNeedDept:', noNeedDept);
-            console.log('  - currentDeptId:', currentDeptId);
-            console.log('  - roleId:', selectedRoleId);
-
-            let shouldProceed = false;
-
-            if (noNeedDept) {
-                // HR, Factory Director, Admin - không cần Department
-                shouldProceed = true;
-            } else if (selectedRoleName === 'Factory Manager' && currentDeptId) {
-                // Factory Manager - cần Department
-                shouldProceed = true;
-            } else if (selectedRoleName === 'Manager' && currentDeptId && currentParentLineId) {
-                // Manager - cần Department + Section
-                shouldProceed = true;
-            } else if ((selectedRoleName === 'Leader' || selectedRoleName === 'Assistant Leader') && currentDeptId && currentLineId) {
-                // Leader/Assistant Leader - cần Department + Sub Section
-                shouldProceed = true;
-            }
-
-            if (shouldProceed) {
-                console.log('DEBUG: Calling checkDuplicateUser with:', {
-                    departmentId: currentDeptId || null,
-                    parentLineId: currentParentLineId || null,
-                    lineId: currentLineId || null,
-                    subLineId: updatedForm.subLineId || null,
-                    roleId: selectedRoleId
-                });
-
-                const duplicate = await formDataService.checkDuplicateUser(
-                    currentDeptId || null,
-                    currentParentLineId || null,
-                    currentLineId || null,
-                    updatedForm.subLineId || null,
-                    parseInt(selectedRoleId)
-                );
-
-                if (duplicate) {
-                    console.log('DEBUG: Duplicate found:', duplicate.fullName);
-                    setDuplicateUser(duplicate);
-                    setShowDuplicateModal(true);
-                } else {
-                    console.log('DEBUG: No duplicate found');
-                    setDuplicateUser(null);
-                    setShowDuplicateModal(false);
+                const isFactoryManager = selectedRoleName === 'Factory Manager';
+                if (!isFactoryManager) {
+                    setForm(prev => ({ ...prev, parentLineId: '', lineId: '', subLineId: '' }));
                 }
-            } else {
-                console.log('DEBUG: Conditions not met, skipping duplicate check');
+
+                setChildLines([]);
+                setSubLines([]);
+                setDuplicateUser(null);
+                setShowDuplicateModal(false);
+
+            } catch (err) {
+                console.error('Failed to load sections:', err);
+                setParentLines([]);
             }
-        } catch (err) {
-            console.error('Failed to check duplicate user:', err);
         }
-    }
-};
+
+        // Xử lý Section selection
+        if (name === 'parentLineId' && value) {
+            try {
+                const children = await formDataService.getChildLines(value);
+                console.log('Loaded child lines:', children);
+                setChildLines(Array.isArray(children) ? children : []);
+                setForm(prev => ({ ...prev, lineId: '', subLineId: '' }));
+                setSubLines([]);
+                setDuplicateUser(null);
+                setShowDuplicateModal(false);
+            } catch (err) {
+                console.error('Failed to load sub-sections:', err);
+                setChildLines([]);
+            }
+        }
+
+        // Xử lý Sub-Section selection
+        if (name === 'lineId' && value) {
+            try {
+                const subChildren = await formDataService.getChildLines(value);
+                setSubLines(Array.isArray(subChildren) ? subChildren : []);
+                setForm(prev => ({ ...prev, subLineId: '' }));
+                setDuplicateUser(null);
+                setShowDuplicateModal(false);
+            } catch (err) {
+                console.error('Failed to load work units:', err);
+                setSubLines([]);
+            }
+        }
+
+        // ========== KIỂM TRA DUPLICATE USER ==========
+        let shouldCheckDuplicate = false;
+
+        // 1. HR - Kiểm tra duplicate ngay khi chọn Role
+        if (name === 'roleId' && selectedRoleName === 'HR') {
+            shouldCheckDuplicate = true;
+            console.log('DEBUG: HR role selected, will check duplicate');
+        }
+        // 2. Factory Director - Kiểm tra duplicate ngay khi chọn Role
+        else if (name === 'roleId' && selectedRoleName === 'Factory Director') {
+            shouldCheckDuplicate = true;
+            console.log('DEBUG: Factory Director role selected, will check duplicate');
+        }
+        // 3. Admin - Kiểm tra duplicate ngay khi chọn Role
+        else if (name === 'roleId' && selectedRoleName === 'Admin') {
+            shouldCheckDuplicate = true;
+            console.log('DEBUG: Admin role selected, will check duplicate');
+        }
+        // 4. Factory Manager - Kiểm tra duplicate khi chọn Department
+        else if (name === 'departmentId' && selectedRoleName === 'Factory Manager' && value) {
+            shouldCheckDuplicate = true;
+            console.log('DEBUG: Factory Manager with department selected, will check duplicate');
+        }
+
+        // 5. Manager - Kiểm tra duplicate khi chọn Section (parentLineId)
+        else if (name === 'parentLineId' && selectedRoleName === 'Manager' && value) {
+            shouldCheckDuplicate = true;
+            console.log('DEBUG: Manager with section selected, will check duplicate');
+        }
+        // 6. Leader/Assistant Leader - Kiểm tra duplicate khi chọn Sub Section (lineId)
+        else if (name === 'lineId' && (selectedRoleName === 'Leader' || selectedRoleName === 'Assistant Leader') && value) {
+            shouldCheckDuplicate = true;
+            console.log('DEBUG: Leader/Assistant Leader with sub-section selected, will check duplicate');
+        }
+
+
+        // Thực hiện kiểm tra duplicate
+        if (shouldCheckDuplicate && selectedRoleId) {
+            try {
+                const noNeedDept = ['Factory Director', 'HR', 'Admin'].includes(selectedRoleName);
+                const currentDeptId = name === 'departmentId' ? value : updatedForm.departmentId;
+                const currentParentLineId = name === 'parentLineId' ? value : updatedForm.parentLineId;
+                const currentLineId = name === 'lineId' ? value : updatedForm.lineId;
+
+                console.log('DEBUG: Attempting duplicate check:');
+                console.log('  - selectedRoleName:', selectedRoleName);
+                console.log('  - noNeedDept:', noNeedDept);
+                console.log('  - currentDeptId:', currentDeptId);
+                console.log('  - roleId:', selectedRoleId);
+
+                let shouldProceed = false;
+
+                if (noNeedDept) {
+                    // HR, Factory Director, Admin - không cần Department
+                    shouldProceed = true;
+                } else if (selectedRoleName === 'Factory Manager' && currentDeptId) {
+                    // Factory Manager - cần Department
+                    shouldProceed = true;
+                } else if (selectedRoleName === 'Manager' && currentDeptId && currentParentLineId) {
+                    // Manager - cần Department + Section
+                    shouldProceed = true;
+                } else if ((selectedRoleName === 'Leader' || selectedRoleName === 'Assistant Leader') && currentDeptId && currentLineId) {
+                    // Leader/Assistant Leader - cần Department + Sub Section
+                    shouldProceed = true;
+                }
+
+                if (shouldProceed) {
+                    console.log('DEBUG: Calling checkDuplicateUser with:', {
+                        departmentId: currentDeptId || null,
+                        parentLineId: currentParentLineId || null,
+                        lineId: currentLineId || null,
+                        subLineId: updatedForm.subLineId || null,
+                        roleId: selectedRoleId
+                    });
+
+                    const duplicate = await formDataService.checkDuplicateUser(
+                        currentDeptId || null,
+                        currentParentLineId || null,
+                        currentLineId || null,
+                        updatedForm.subLineId || null,
+                        parseInt(selectedRoleId)
+                    );
+
+                    if (duplicate) {
+                        console.log('DEBUG: Duplicate found:', duplicate.fullName);
+                        setDuplicateUser(duplicate);
+                        setShowDuplicateModal(true);
+                    } else {
+                        console.log('DEBUG: No duplicate found');
+                        setDuplicateUser(null);
+                        setShowDuplicateModal(false);
+                    }
+                } else {
+                    console.log('DEBUG: Conditions not met, skipping duplicate check');
+                }
+            } catch (err) {
+                console.error('Failed to check duplicate user:', err);
+            }
+        }
+    };
 
 
     const validate = () => {
         const errors = {};
-        
+
         // Kiểm tra các field bắt buộc
         if (!form.fullName.trim()) errors.fullName = 'Full name is required.';
         if (!form.email.trim()) errors.email = 'Email is required.';
@@ -403,11 +403,66 @@ export default function Register() {
 
         if (form.password && form.password.length < 6) errors.password = 'Password must be at least 6 characters.';
         if (form.password && form.password !== form.confirmPassword) errors.confirmPassword = 'Passwords do not match.';
-        
+
         if (form.baseSalary && isNaN(form.baseSalary)) errors.baseSalary = 'Base salary must be a number.';
 
         setFieldErrors(errors);
         return Object.keys(errors).length === 0;
+    };
+
+    const handleUploadCCCD = async (file) => {
+        setLoading(true);
+        setError('');
+        try {
+            const data = new FormData();
+            data.append("file", file);
+
+            const res = await formDataService.scanCCCD(data); // API trả về { fullName, email, phone, gender }
+
+            if (res.data) {
+                const dto = res.data;
+
+                let genderValue;
+                if (dto.gender !== undefined && dto.gender !== null) {
+                    if (typeof dto.gender === 'boolean') {
+                        genderValue = dto.gender ? 'true' : 'false';
+                    } else {
+                        const normalized = String(dto.gender).toLowerCase();
+                        if (normalized === 'male') genderValue = 'true';
+                        if (normalized === 'female') genderValue = 'false';
+                    }
+                }
+
+                setForm(prev => ({
+                    ...prev,
+                    fullName: dto.fullName || prev.fullName,
+                    gender: genderValue !== undefined ? genderValue : prev.gender
+                }));
+
+                const newFieldErrors = { ...fieldErrors };
+                const nextValues = {
+                    fullName: dto.fullName || '',
+                    gender: genderValue !== undefined ? genderValue : ''
+                };
+                ['fullName', 'gender'].forEach(f => {
+                    newFieldErrors[f] = validateField(f, nextValues[f]);
+                });
+                setFieldErrors(newFieldErrors);
+            } else {
+                setError('Không thể đọc thông tin CCCD.');
+            }
+        } catch (err) {
+            console.error('Failed to scan....:', err);
+
+            const serverMsg =
+                err.response?.data?.message ||
+                err.response?.data ||
+                err.message;
+
+            setError(`Quét CCCD thất bại: ${serverMsg || 'Vui lòng thử lại.'}`);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const onSubmit = async (e) => {
@@ -447,9 +502,9 @@ export default function Register() {
             if (response.success) {
                 // Redirect to verification page with token
                 navigate('/verify-registration', {
-                    state: { 
+                    state: {
                         token: response.data.token,
-                        verificationMethod: form.verificationMethod 
+                        verificationMethod: form.verificationMethod
                     }
                 });
             }
@@ -475,7 +530,7 @@ export default function Register() {
             <Container maxWidth="sm">
                 <Paper
                     elevation={10}
-                    sx={{padding: 4,borderRadius: 3,backgroundColor: 'rgba(255, 255, 255, 0.95)'}}>
+                    sx={{ padding: 4, borderRadius: 3, backgroundColor: 'rgba(255, 255, 255, 0.95)' }}>
                     <Box sx={{ textAlign: 'center', mb: 3 }}>
                         <Typography variant="h5" component="h1" fontWeight="bold" color="primary" gutterBottom>
                             Register New Employee
@@ -488,18 +543,39 @@ export default function Register() {
                         </Alert>
                     )}
 
-                
+
                     {duplicateUser && (
                         <Alert severity="error" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Box>
                                 <strong>User Already Exists!</strong>
-                                <br/>
+                                <br />
                                 <Typography variant="caption">
                                     {duplicateUser.fullName} ({duplicateUser.email}) is already registered for this position.
                                 </Typography>
                             </Box>
                         </Alert>
                     )}
+                    {/* Scan CCCD */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
+                        <Button
+                            variant="outlined"
+                            component="label"
+                            disabled={loading}
+                        >
+                            {loading ? 'Scanning...' : 'Scan...'}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                hidden
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        handleUploadCCCD(e.target.files[0]);
+                                    }
+                                }}
+                            />
+                        </Button>
+
+                    </Box>
 
                     <form onSubmit={onSubmit}>
                         {/* Full Name */}
@@ -515,7 +591,7 @@ export default function Register() {
                             disabled={loading}
                             error={!!fieldErrors.fullName}
                             helperText={fieldErrors.fullName || 'Enter your complete full name'}
-                            sx={{'.MuiFormLabel-asterisk': { color: 'red' }}}
+                            sx={{ '.MuiFormLabel-asterisk': { color: 'red' } }}
                         />
 
                         {/* Email */}
@@ -532,7 +608,7 @@ export default function Register() {
                             disabled={loading}
                             error={!!fieldErrors.email}
                             helperText={fieldErrors.email || 'Use a valid email address'}
-                            sx={{'.MuiFormLabel-asterisk': { color: 'red' }}}
+                            sx={{ '.MuiFormLabel-asterisk': { color: 'red' } }}
                         />
 
                         {/* Phone */}
@@ -548,7 +624,7 @@ export default function Register() {
                             disabled={loading}
                             error={!!fieldErrors.phone}
                             helperText={fieldErrors.phone || 'Phone must be 10-11 digits'}
-                            sx={{'.MuiFormLabel-asterisk': { color: 'red' }}}
+                            sx={{ '.MuiFormLabel-asterisk': { color: 'red' } }}
                         />
 
                         {/* Password */}
@@ -565,7 +641,7 @@ export default function Register() {
                             disabled={loading}
                             error={!!fieldErrors.password}
                             helperText={fieldErrors.password || 'Minimum 6 characters required'}
-                            sx={{'.MuiFormLabel-asterisk': { color: 'red' }}}
+                            sx={{ '.MuiFormLabel-asterisk': { color: 'red' } }}
                         />
 
                         {/* Confirm Password */}
@@ -581,7 +657,7 @@ export default function Register() {
                             disabled={loading}
                             error={!!fieldErrors.confirmPassword}
                             helperText={fieldErrors.confirmPassword || 'Re-enter your password'}
-                            sx={{'.MuiFormLabel-asterisk': { color: 'red' }}}
+                            sx={{ '.MuiFormLabel-asterisk': { color: 'red' } }}
                         />
 
                         {/* Gender */}
@@ -597,7 +673,7 @@ export default function Register() {
                             disabled={loading}
                             error={!!fieldErrors.gender}
                             helperText={fieldErrors.gender || ''}
-                            sx={{'.MuiFormLabel-asterisk': { color: 'red' }}}
+                            sx={{ '.MuiFormLabel-asterisk': { color: 'red' } }}
                         >
                             <MenuItem value="">-- Select Gender --</MenuItem>
                             <MenuItem value="true">Male</MenuItem>
@@ -620,12 +696,12 @@ export default function Register() {
                                 fieldErrors.roleId
                                     ? fieldErrors.roleId
                                     : !currentUser
-                                    ? "Please log in to see available positions"
-                                    : filteredRoles.length === 0
-                                    ? "You do not have permission to register users with any positions"
-                                    : "Select an appropriate job position"
+                                        ? "Please log in to see available positions"
+                                        : filteredRoles.length === 0
+                                            ? "You do not have permission to register users with any positions"
+                                            : "Select an appropriate job position"
                             }
-                            sx={{'.MuiFormLabel-asterisk': { color: 'red' }}}
+                            sx={{ '.MuiFormLabel-asterisk': { color: 'red' } }}
                         >
                             <MenuItem value="">-- Chọn vị trí --</MenuItem>
                             {filteredRoles.map((role) => (
@@ -649,7 +725,7 @@ export default function Register() {
                                 disabled={loading}
                                 error={!!fieldErrors.departmentId}
                                 helperText={fieldErrors.departmentId || 'Select your working department'}
-                                sx={{'.MuiFormLabel-asterisk': { color: 'red' }}}
+                                sx={{ '.MuiFormLabel-asterisk': { color: 'red' } }}
                             >
                                 <MenuItem value="">-- Select Department --</MenuItem>
                                 {departments.map((dept) => (
@@ -674,7 +750,7 @@ export default function Register() {
                                 disabled={loading || !form.departmentId}
                                 error={!!fieldErrors.parentLineId}
                                 helperText={fieldErrors.parentLineId || (!form.departmentId ? "Please select a department first" : "Select your working section")}
-                                sx={{'.MuiFormLabel-asterisk': { color: 'red' }}}
+                                sx={{ '.MuiFormLabel-asterisk': { color: 'red' } }}
                             >
                                 <MenuItem value="">-- Select Section --</MenuItem>
                                 {parentLines.map((line) => (
@@ -699,7 +775,7 @@ export default function Register() {
                                 disabled={loading || !form.parentLineId}
                                 error={!!fieldErrors.lineId}
                                 helperText={fieldErrors.lineId || (!form.parentLineId ? "Please select a section first" : "Select your working sub-section")}
-                                sx={{'.MuiFormLabel-asterisk': { color: 'red' }}}
+                                sx={{ '.MuiFormLabel-asterisk': { color: 'red' } }}
                             >
                                 <MenuItem value="">-- Select Sub Section --</MenuItem>
                                 {childLines.map((line) => (
@@ -724,7 +800,7 @@ export default function Register() {
                                 disabled={loading || !form.lineId}
                                 error={!!fieldErrors.subLineId}
                                 helperText={fieldErrors.subLineId || (!form.lineId ? "Please select a sub-section first" : "Select your specific work unit")}
-                                sx={{'.MuiFormLabel-asterisk': { color: 'red' }}}
+                                sx={{ '.MuiFormLabel-asterisk': { color: 'red' } }}
                             >
                                 <MenuItem value="">-- Select Work Unit --</MenuItem>
                                 {subLines.map((line) => (
@@ -749,7 +825,7 @@ export default function Register() {
                                 disabled={loading}
                                 error={!!fieldErrors.skillLevelId}
                                 helperText={fieldErrors.skillLevelId || 'Select your current skill level'}
-                                sx={{'.MuiFormLabel-asterisk': { color: 'red' }}}
+                                sx={{ '.MuiFormLabel-asterisk': { color: 'red' } }}
                             >
                                 <MenuItem value="">-- Select Skill Level --</MenuItem>
                                 {skillLevels.map((level) => (
@@ -856,9 +932,9 @@ export default function Register() {
                             Already have an account?{' '}
                             <span
                                 onClick={() => navigate('/login')}
-                                style={{color: '#667eea',cursor: 'pointer',fontWeight: 'bold',textDecoration: 'underline'}}>
-                Login now
-            </span>
+                                style={{ color: '#667eea', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' }}>
+                                Login now
+                            </span>
                         </Typography>
                     </Box>
                 </Paper>
