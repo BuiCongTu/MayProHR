@@ -7,22 +7,23 @@ import EmployeeProductionInput from '../../components/ModuleC/EmployeeProduction
 import HolidayManagement from "../../components/ModuleC/HolidayManagement";
 import PayrollApproval from '../../components/ModuleC/PayrollApproval';
 import PayrollDetail from '../../components/ModuleC/PayrollDetail';
+import PayrollEmployeeCalculator from '../../components/ModuleC/PayrollEmployeeCalculator';
+import PayrollEmployeeDetail from '../../components/ModuleC/PayrollEmployeeDetail';
 import PayrollList from '../../components/ModuleC/PayrollList';
 import PayrollReport from '../../components/ModuleC/PayrollReport';
-import ProductionLineManagement from "../../components/ModuleC/ProductionLineManagement";
 import ProductionManagement from "../../components/ModuleC/ProductionManagement";
 import TaxBracketManagement from "../../components/ModuleC/TaxBracketManagement";
 import TaxCalculator from '../../components/ModuleC/TaxCalculator';
 import TaxDeductionManagement from "../../components/ModuleC/TaxDeductionManagement";
+import PayrollAnalysis from './PayrollAnalysis';
 import PayrollDashboard from './PayrollDashboard';
-import PayrollEmployeeDetail from '../../components/ModuleC/PayrollEmployeeDetail';
-import PayrollEmployeeCalculator from '../../components/ModuleC/PayrollEmployeeCalculator';
 
 const PayrollRouter = () =>
 {
     return (
         <Routes>
             <Route path="/" element={<PayrollDashboard />} />
+            <Route path="/analysis" element={<PayrollAnalysis />} />
             <Route path="/list" element={<PayrollList />} />
             <Route path="/create" element={<CreatePayroll />} />
             <Route path="/report" element={<PayrollReport />} />

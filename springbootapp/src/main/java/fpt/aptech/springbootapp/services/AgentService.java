@@ -46,7 +46,6 @@ public class AgentService {
         this.ocrService = ocrService;
     }
 
-    // Use gemini-2.5-flash (has quota, 2.0 exhausted)
     private static final String GEMINI_URL
             = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent";
 
@@ -249,7 +248,7 @@ public class AgentService {
             result.put("cccdNumber", "");
         }
 
-        // DOB: dd/mm/yyyy or dd-mm-yyyy
+        // DOB: dd/mm/yyyy hoặc dd-mm-yyyy
         java.util.regex.Pattern dobPattern = java.util.regex.Pattern.compile("\\b\\d{2}[/-]\\d{2}[/-]\\d{4}\\b");
         java.util.regex.Matcher dobMatcher = dobPattern.matcher(ocrText);
         if (dobMatcher.find()) {
@@ -258,11 +257,10 @@ public class AgentService {
             result.put("dob", "");
         }
 
-        // Gender - look for both Vietnamese and English
         String gender = extractGender(ocrText);
         result.put("gender", gender);
 
-        // Name - improved extraction
+        // Name
         String fullName = extractFullName(ocrText);
         result.put("fullName", fullName);
 
@@ -307,10 +305,8 @@ public class AgentService {
             "ĐÀ NẶNG", "CẦN THƠ", "HẢI PHÒNG",
             "PHUỴ", "THÁI BÌNH", "NAM ĐỊNH",
             "LONG AN", "ĐỒNG NAI", "BÌNH DƯƠNG",
-            // CCCD document title keywords
             "CĂN CƯỚC", "CAN CƯỚC", "CÔNG DÂN", "CONG DAN", "GÔNG DÁN",
             "IDENTITY", "CARD", "CMND", "CHỨNG MINH",
-            // Application form keywords (ban giám đốc, công ty, ...)
             "BAN GIÁM", "BAN GIDM", "GIÁM ĐỐC", "GIAM DOC",
             "CÔNG TY", "CONG TY", "CTNG TY", "CING TY",
             "QUẢN LÝ", "QUAN LY", "MBIN SV", "MÔI SV",
@@ -320,23 +316,20 @@ public class AgentService {
 
         String[] lines = text.split("\\n");
 
-        // Strategy 1: Look for name after keywords (including OCR errors)
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
             String lower = line.toLowerCase();
 
-            // OCR common errors: "Hy và tên" (= "Họ và tên"), "tows", "tôi tên là:", "CMND số:"
+            // OCR common errors
             if (lower.matches(".*(h[yoọ]\\s*v[aà]\\s*t[eê]n|tôi\\s*t[eê]n\\s*l[aà]|tows|t[eê]u\\s*l[aà]|t[eê]n[:\\s]|full\\s*name|name[:\\s]).*")
                     || lower.matches(".*(cmnd|cccd)\\s*s[oốô][:\\s]*.*")) {
 
-                // Try to extract name from same line (after keyword)
                 String candidate = extractNameFromLine(line);
                 if (!candidate.isEmpty() && !isAddressKeyword(candidate, addressBlacklist)) {
                     System.out.println("[Name] Found after label in same line: " + candidate);
                     return candidate;
                 }
 
-                // Try next line
                 if (i + 1 < lines.length) {
                     String nextLine = lines[i + 1].trim();
                     String cleanedNextLine = normalizeOcrName(nextLine);
@@ -348,7 +341,6 @@ public class AgentService {
                     }
                 }
 
-                // Try line +2 (for multi-line names)
                 if (i + 2 < lines.length) {
                     String nextLine2 = lines[i + 2].trim();
                     String cleanedNextLine2 = normalizeOcrName(nextLine2);
@@ -362,8 +354,6 @@ public class AgentService {
             }
         }
 
-        // Strategy 2: Look for Vietnamese names (ALL CAPS or Title Case), excluding addresses
-        // Pattern 1: ALL CAPS (CCCD format: "NGUYÊN MINH QUẦN")
         java.util.regex.Pattern allCapsPattern = java.util.regex.Pattern.compile(
                 "\\b[A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]{2,}(?:\\s+[A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]{2,}){1,3}\\b"
         );
@@ -372,13 +362,11 @@ public class AgentService {
         while (allCapsMatcher.find()) {
             String candidate = allCapsMatcher.group().toUpperCase();
 
-            // Skip if in blacklist
             if (isAddressKeyword(candidate, addressBlacklist)) {
                 System.out.println("[Name] Skipped blacklisted: " + candidate);
                 continue;
             }
 
-            // Validate: Must have at least 1 word with >= 3 chars (filter "LY SE", "AN HA"...)
             String[] words = candidate.split("\\s+");
             boolean hasLongWord = false;
             for (String word : words) {
@@ -397,7 +385,6 @@ public class AgentService {
             return candidate;
         }
 
-        // Pattern 2: Title Case (Application form: "Nguyen Minh Quan")
         java.util.regex.Pattern titleCasePattern = java.util.regex.Pattern.compile(
                 "\\b[A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ][a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+(?:\\s+[A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ][a-zàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]+){1,3}\\b"
         );
@@ -406,13 +393,11 @@ public class AgentService {
         while (titleCaseMatcher.find()) {
             String candidate = titleCaseMatcher.group().toUpperCase();
 
-            // Skip if in blacklist
             if (isAddressKeyword(candidate, addressBlacklist)) {
                 System.out.println("[Name] Skipped blacklisted: " + candidate);
                 continue;
             }
 
-            // Validate: Must have at least 1 word with >= 3 chars
             String[] words = candidate.split("\\s+");
             boolean hasLongWord = false;
             for (String word : words) {
@@ -434,32 +419,25 @@ public class AgentService {
         return "";
     }
 
-    // Normalize OCR name with typos: "Ngmyeễm Wim IĐức" -> "Nguyen Van Duc"
     private String normalizeOcrName(String text) {
         if (text == null || text.isEmpty()) {
             return "";
         }
 
-        // Remove dots, commas, hyphens at start/end
         String cleaned = text.replaceAll("^[.\\-,:\\s]+|[.\\-,:\\s]+$", "");
 
-        // Remove multiple dots/special chars: "..." -> " "
         cleaned = cleaned.replaceAll("[.]{2,}", " ");
 
-        // Split and validate each word
         String[] words = cleaned.split("[\\s.\\-,]+");
         java.util.List<String> validWords = new java.util.ArrayList<>();
 
-        // Blacklist words to remove
         String[] stopWords = {"TÔI", "TOI", "CHÚN", "CHUN", "LÀ", "LA", "MÔI", "MOI"};
 
         for (String word : words) {
-            // Skip very short words (OCR noise)
             if (word.length() < 2) {
                 continue;
             }
 
-            // Skip blacklisted stop words
             String upperWord = word.toUpperCase();
             boolean isStopWord = false;
             for (String stop : stopWords) {
@@ -473,7 +451,6 @@ public class AgentService {
                 continue;
             }
 
-            // Skip words with too many special chars or numbers
             if (word.matches(".*[0-9]{2,}.*")) {
                 continue;
             }
@@ -484,7 +461,6 @@ public class AgentService {
             validWords.add(word);
         }
 
-        // Must have 2-5 words to be a valid name
         if (validWords.size() < 2 || validWords.size() > 5) {
             return "";
         }
@@ -493,7 +469,6 @@ public class AgentService {
     }
 
     private String extractNameFromLine(String line) {
-        // Remove common OCR error keywords and extract what's after
         String cleaned = line.replaceAll("(?i)(tôi\\s*t[eê]n\\s*l[aà][:\\s]*|t[eê]u\\s*l[aà][:\\s]*|tows|t[eê]n[:\\s]*|h[oọ]\\s*v[aà]\\s*t[eê]n[:\\s]*|full\\s*name[:\\s]*|name[:\\s]*|cmnd\\s*s[oốô][:\\s]*|cccd\\s*s[oốô][:\\s]*)", "").trim();
 
         // Normalize OCR errors
@@ -502,7 +477,6 @@ public class AgentService {
             cleaned = normalized;
         }
 
-        // Check if remaining text looks like a name
         if (isVietnameseName(cleaned)) {
             return cleaned.toUpperCase();
         }
@@ -541,24 +515,18 @@ public class AgentService {
             return false;
         }
 
-        // Remove leading/trailing spaces and normalize
         text = text.trim();
 
-        // Must have 2-4 words
         String[] words = text.split("\\s+");
         if (words.length < 2 || words.length > 5) {  // Allow up to 5 words for compound names
             return false;
         }
 
-        // Each word should start with uppercase (or be all uppercase)
         for (String word : words) {
             if (word.isEmpty()) {
                 continue;
             }
 
-            // Check if word is either:
-            // 1. All uppercase (NGUYỄN)
-            // 2. Starts with uppercase (Nguyễn)
             boolean isAllCaps = word.equals(word.toUpperCase());
             boolean startsWithCaps = Character.isUpperCase(word.charAt(0));
 
@@ -583,7 +551,7 @@ public class AgentService {
         return dto;
     }
 
-    // Scan application form (đơn xin việc) - only extract Name and Gender
+    // Scan(đơn xin việc)
     public ApplicationFormDto scanApplicationForm(MultipartFile file) throws Exception {
         String ocrText;
 
@@ -607,15 +575,12 @@ public class AgentService {
         System.out.println("[Application] OCR Text length: " + ocrText.length());
         System.out.println("[Application] First 300 chars: " + ocrText.substring(0, Math.min(300, ocrText.length())));
 
-        // Extract full name
         String fullName = extractFullName(ocrText);
         dto.setFullName(fullName.isEmpty() ? "Không tìm thấy" : fullName);
 
-        // Extract gender
         String gender = extractGender(ocrText);
         dto.setGender(gender.isEmpty() ? "Không xác định" : gender);
 
-        // Optional: extract phone and email if available
         dto.setPhone(extractPhone(ocrText));
         dto.setEmail(extractEmail(ocrText));
 
@@ -624,7 +589,6 @@ public class AgentService {
     }
 
     private String extractPhone(String text) {
-        // Vietnamese phone: 10 digits starting with 0
         java.util.regex.Pattern phonePattern = java.util.regex.Pattern.compile("\\b0\\d{9}\\b");
         java.util.regex.Matcher phoneMatcher = phonePattern.matcher(text);
         if (phoneMatcher.find()) {

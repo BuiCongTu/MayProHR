@@ -45,8 +45,6 @@ public class SecurityConfig {
         this.userDetailsService = userDetailsService;
     }
 
-    // --- FIX 1: REMOVED @Bean ANNOTATION HERE ---
-    // This ensures the filter is NOT registered globally
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
         return new JwtAuthenticationFilter(jwtUtils);
     }
@@ -69,8 +67,6 @@ public class SecurityConfig {
         return configuration.getAuthenticationManager();
     }
 
-    // --- FIX 2: HIGH PRIORITY CORS FILTER ---
-    // This runs BEFORE everything else to ensure the browser gets the correct headers
     @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE)
     public CorsFilter corsFilter() {
