@@ -1,4 +1,4 @@
-// factory managre
+// ProposalConfirm.js
 import React from 'react';
 import { getCurrentUser } from '../../../services/authService';
 import ProposalList from './ProposalList';
@@ -23,10 +23,10 @@ function ProposalConfirm() {
 
     return (
         <ProposalList
-            title="Confirm Position Change Proposals"
-            mode="view"
+            title="My Position Change Proposals"
+            proposalType="position-change"
             filterByProposerId={user.id}
-            defaultStatus=""
+            defaultStatus="" // hiển thị tất cả
         />
     );
 }

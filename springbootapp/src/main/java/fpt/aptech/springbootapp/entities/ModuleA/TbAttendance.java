@@ -55,8 +55,4 @@ public class TbAttendance {
     @Column(name = "created_at")
     private Instant createdAt;
 
-    public enum AttendanceStatus {
-        SUCCESS, LATE, MANUAL, ERROR
-    }
-
 }

@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import fpt.aptech.springbootapp.entities.ModuleA.AttendanceStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -195,7 +196,7 @@ public class FaceScanServiceImp implements FaceScanService {
                 });
 
                 attendance.setTimeIn(scanTime);
-                attendance.setStatus(TbAttendance.AttendanceStatus.SUCCESS);
+                attendance.setStatus(AttendanceStatus.SUCCESS);
 
                 TbAttendance saved = attendanceRepository.save(attendance);
                 scanLog.setAttendanceId(saved.getId());

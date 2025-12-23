@@ -3,265 +3,278 @@ import { useState } from 'react';
 import CameraCapture from '../../components/attendance/CameraCapture';
 
 const CheckInPage = () => {
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [result, setResult] = useState(null);
+    const [error, setError] = useState(null);
 
-  const handleCapture = async (imageBase64) => {
-    setLoading(true);
-    setError(null);
-    setResult(null);
+    const handleCapture = async (imageBase64) => {
+        setLoading(true);
+        setError(null);
+        setResult(null);
 
-    try {
-      const response = await axios.post('/api/attendance/checkin', {
-        imageBase64,
-        scanType: 'CHECK_IN'
-      });
+        try {
+            const response = await axios.post('/api/attendance/checkin', {
+                imageBase64,
+                scanType: 'CHECK_IN'
+            });
 
-      if (response.data.success) {
-        setResult(response.data);
-        
-        // Success notification
-        showNotification('success', 
-          `Chào ${response.data.fullName}! Check-in thành công lúc ${response.data.timeIn}`
-        );
-      } else {
-        setError(response.data.message);
-      }
-    } catch (err) {
-      const errorMessage = err.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.';
-      setError(errorMessage);
-      showNotification('error', errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
+            if (response.data.success) {
+                setResult(response.data);
+                showNotification(
+                    'success',
+                    `Chào ${response.data.fullName}! Check-in thành công lúc ${response.data.timeIn}`
+                );
+            } else {
+                setError(response.data.message);
+            }
+        } catch (err) {
+            const errorMessage = err.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.';
+            setError(errorMessage);
+            showNotification('error', errorMessage);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  const showNotification = (type, message) => {
-    // You can use a toast library here (react-toastify, etc.)
-    alert(message);
-  };
+    const showNotification = (type, message) => {
+        alert(message);
+    };
 
-  const reset = () => {
-    setResult(null);
-    setError(null);
-  };
+    const reset = () => {
+        setResult(null);
+        setError(null);
+    };
 
-  return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Check-In</h1>
-        <p style={styles.subtitle}>Nhìn vào camera để chấm công</p>
-      </div>
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'SUCCESS': return '#4CAF50';
+            case 'LATE': return '#FF9800';
+            case 'ERROR': return '#F44336';
+            case 'UNSCHEDULED': return '#9C27B0';
+            case 'EARLY_LEAVE': return '#FF5722';
+            case 'OVERTIME': return '#2196F3';
+            default: return '#000';
+        }
+    };
 
-      {!result ? (
-        <>
-          <CameraCapture 
-            onCapture={handleCapture}
-            autoCapture={false}
-          />
+    const getStatusText = (status) => {
+        switch (status) {
+            case 'SUCCESS': return '✓ Đúng giờ';
+            case 'LATE': return '⚠ Trễ';
+            case 'ERROR': return '❌ Lỗi';
+            case 'UNSCHEDULED': return '⚠ Ngoài giờ';
+            case 'EARLY_LEAVE': return '⚠ Về sớm';
+            case 'OVERTIME': return '⏱ OT';
+            default: return status;
+        }
+    };
 
-          {loading && (
-            <div style={styles.loadingOverlay}>
-              <div style={styles.spinner}></div>
-              <p>Đang nhận diện khuôn mặt...</p>
+    return (
+        <div style={styles.container}>
+            <div style={styles.header}>
+                <h1 style={styles.title}>Check-In</h1>
+                <p style={styles.subtitle}>Nhìn vào camera để chấm công</p>
             </div>
-          )}
 
-          {error && (
-            <div style={styles.errorBox}>
-              <h3>Thất Bại</h3>
-              <p>{error}</p>
-              <button onClick={reset} style={styles.retryButton}>
-                Thử Lại
-              </button>
-            </div>
-          )}
-        </>
-      ) : (
-        <div style={styles.successBox}>
-          <div style={styles.successIcon}></div>
-          <h2>Chấm Công Thành Công!</h2>
-          
-          <div style={styles.infoGrid}>
-            <div style={styles.infoItem}>
-              <span style={styles.infoLabel}>Nhân viên:</span>
-              <span style={styles.infoValue}>{result.fullName}</span>
-            </div>
-            
-            <div style={styles.infoItem}>
-              <span style={styles.infoLabel}>Thời gian:</span>
-              <span style={styles.infoValue}>{result.timeIn}</span>
-            </div>
-            
-            <div style={styles.infoItem}>
-              <span style={styles.infoLabel}>Ngày:</span>
-              <span style={styles.infoValue}>{result.date}</span>
-            </div>
-            
-            <div style={styles.infoItem}>
-              <span style={styles.infoLabel}>Trạng thái:</span>
-              <span style={{
-                ...styles.infoValue,
-                color: result.status === 'SUCCESS' ? '#4CAF50' : '#ff9800'
-              }}>
-                {result.status === 'SUCCESS' ? '✓ Đúng giờ' : '⚠ Trễ'}
+            {!result ? (
+                <>
+                    <CameraCapture onCapture={handleCapture} autoCapture={false} />
+
+                    {loading && (
+                        <div style={styles.loadingOverlay}>
+                            <div style={styles.spinner}></div>
+                            <p>Đang nhận diện khuôn mặt...</p>
+                        </div>
+                    )}
+
+                    {error && (
+                        <div style={styles.errorBox}>
+                            <h3>Thất Bại</h3>
+                            <p>{error}</p>
+                            <button onClick={reset} style={styles.retryButton}>
+                                Thử Lại
+                            </button>
+                        </div>
+                    )}
+                </>
+            ) : (
+                <div style={styles.successBox}>
+                    <div style={styles.successIcon}></div>
+                    <h2>Chấm Công Thành Công!</h2>
+
+                    <div style={styles.infoGrid}>
+                        <div style={styles.infoItem}>
+                            <span style={styles.infoLabel}>Nhân viên:</span>
+                            <span style={styles.infoValue}>{result.fullName}</span>
+                        </div>
+
+                        <div style={styles.infoItem}>
+                            <span style={styles.infoLabel}>Thời gian:</span>
+                            <span style={styles.infoValue}>{result.timeIn}</span>
+                        </div>
+
+                        <div style={styles.infoItem}>
+                            <span style={styles.infoLabel}>Ngày:</span>
+                            <span style={styles.infoValue}>{result.date}</span>
+                        </div>
+
+                        <div style={styles.infoItem}>
+                            <span style={styles.infoLabel}>Trạng thái:</span>
+                            <span style={{ ...styles.infoValue, color: getStatusColor(result.status) }}>
+                {getStatusText(result.status)}
               </span>
-            </div>
-          </div>
+                        </div>
+                    </div>
 
-          <div style={styles.actions}>
-            <button onClick={reset} style={styles.doneButton}>
-              Hoàn Tất
-            </button>
-            <a href="/attendance/history" style={styles.historyLink}>
-              Xem Lịch Sử
-            </a>
-          </div>
+                    <div style={styles.actions}>
+                        <button onClick={reset} style={styles.doneButton}>
+                            Hoàn Tất
+                        </button>
+                        <a href="/attendance/history" style={styles.historyLink}>
+                            Xem Lịch Sử
+                        </a>
+                    </div>
+                </div>
+            )}
         </div>
-      )}
-    </div>
-  );
+    );
 };
 
+// --- Styles (giữ nguyên) ---
 const styles = {
-  container: {
-    maxWidth: '800px',
-    margin: '0 auto',
-    padding: '20px',
-    fontFamily: 'Arial, sans-serif',
-  },
-  header: {
-    textAlign: 'center',
-    marginBottom: '30px',
-  },
-  title: {
-    fontSize: '36px',
-    color: '#333',
-    marginBottom: '10px',
-  },
-  subtitle: {
-    fontSize: '18px',
-    color: '#666',
-  },
-  loadingOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-    color: 'white',
-    zIndex: 1000,
-  },
-  spinner: {
-    width: '50px',
-    height: '50px',
-    border: '5px solid #f3f3f3',
-    borderTop: '5px solid #3498db',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
-  },
-  errorBox: {
-    backgroundColor: '#ffebee',
-    border: '2px solid #f44336',
-    borderRadius: '10px',
-    padding: '30px',
-    textAlign: 'center',
-    marginTop: '20px',
-  },
-  retryButton: {
-    marginTop: '20px',
-    padding: '10px 30px',
-    fontSize: '16px',
-    backgroundColor: '#f44336',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-  },
-  successBox: {
-    backgroundColor: '#e8f5e9',
-    border: '3px solid #4CAF50',
-    borderRadius: '15px',
-    padding: '40px',
-    textAlign: 'center',
-    marginTop: '20px',
-  },
-  successIcon: {
-    fontSize: '72px',
-    marginBottom: '20px',
-  },
-  infoGrid: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '20px',
-    marginTop: '30px',
-    textAlign: 'left',
-  },
-  infoItem: {
-    backgroundColor: 'white',
-    padding: '15px',
-    borderRadius: '8px',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-  },
-  infoLabel: {
-    display: 'block',
-    fontSize: '14px',
-    color: '#666',
-    marginBottom: '5px',
-  },
-  infoValue: {
-    display: 'block',
-    fontSize: '18px',
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  actions: {
-    marginTop: '30px',
-    display: 'flex',
-    gap: '15px',
-    justifyContent: 'center',
-  },
-  doneButton: {
-    padding: '12px 40px',
-    fontSize: '16px',
-    backgroundColor: '#4CAF50',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    fontWeight: 'bold',
-  },
-  historyLink: {
-    padding: '12px 40px',
-    fontSize: '16px',
-    backgroundColor: '#2196F3',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    textDecoration: 'none',
-    display: 'inline-block',
-    fontWeight: 'bold',
-  },
+    container: {
+        maxWidth: '800px',
+        margin: '0 auto',
+        padding: '20px',
+        fontFamily: 'Arial, sans-serif'
+    },
+    header: {
+        textAlign: 'center',
+        marginBottom: '30px'
+    },
+    title: {
+        fontSize: '36px',
+        color: '#333',
+        marginBottom: '10px'
+    },
+    subtitle: {
+        fontSize: '18px',
+        color: '#666'
+    },
+    loadingOverlay: {
+        position: 'fixed',
+        top: 0, left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        color: 'white',
+        zIndex: 1000
+    },
+    spinner: {
+        width: '50px',
+        height: '50px',
+        border: '5px solid #f3f3f3',
+        borderTop: '5px solid #3498db',
+        borderRadius: '50%',
+        animation: 'spin 1s linear infinite'
+    },
+    errorBox: {
+        backgroundColor: '#ffebee',
+        border: '2px solid #f44336',
+        borderRadius: '10px',
+        padding: '30px',
+        textAlign: 'center',
+        marginTop: '20px'
+    },
+    retryButton: {
+        marginTop: '20px',
+        padding: '10px 30px',
+        fontSize: '16px',
+        backgroundColor: '#f44336',
+        color: 'white',
+        border: 'none',
+        borderRadius: '5px',
+        cursor: 'pointer'
+    },
+    successBox: {
+        backgroundColor: '#e8f5e9',
+        border: '3px solid #4CAF50',
+        borderRadius: '15px',
+        padding: '40px',
+        textAlign: 'center',
+        marginTop: '20px'
+    },
+    successIcon: {
+        fontSize: '72px',
+        marginBottom: '20px'
+    },
+    infoGrid: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '20px',
+        marginTop: '30px',
+        textAlign: 'left'
+    },
+    infoItem: {
+        backgroundColor: 'white',
+        padding: '15px',
+        borderRadius: '8px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    },
+    infoLabel: {
+        display: 'block',
+        fontSize: '14px',
+        color: '#666',
+        marginBottom: '5px'
+    },
+    infoValue: {
+        display: 'block',
+        fontSize: '18px',
+        fontWeight: 'bold',
+        color: '#333'
+    },
+    actions: {
+        marginTop: '30px',
+        display: 'flex',
+        gap: '15px',
+        justifyContent: 'center'
+    },
+    doneButton: {
+        padding: '12px 40px',
+        fontSize: '16px',
+        backgroundColor: '#4CAF50',
+        color: 'white',
+        border: 'none',
+        borderRadius: '5px',
+        cursor: 'pointer',
+        fontWeight: 'bold'
+    },
+    historyLink: {
+        padding: '12px 40px',
+        fontSize: '16px',
+        backgroundColor: '#2196F3',
+        color: 'white',
+        border: 'none',
+        borderRadius: '5px',
+        textDecoration: 'none',
+        display: 'inline-block',
+        fontWeight: 'bold'
+    }
 };
 
-// Add spinner animation
+// Spinner animation
 const spinnerAnimation = `
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 `;
 
 if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement('style');
-  styleSheet.textContent = spinnerAnimation;
-  document.head.appendChild(styleSheet);
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = spinnerAnimation;
+    document.head.appendChild(styleSheet);
 }
 
 export default CheckInPage;

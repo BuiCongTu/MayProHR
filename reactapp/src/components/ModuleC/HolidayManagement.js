@@ -4,8 +4,10 @@ import {
     getHolidays,
     createHoliday,
     updateHoliday,
-    deleteHoliday
+    deleteHoliday,
+    replicateHolidays
 } from '../../services/moduleC/holidayService';
+
 import '../../styles/payroll.css';
 const HolidayManagement = () =>{
     const [holidays, setHolidays] = useState([]);
@@ -27,6 +29,11 @@ const HolidayManagement = () =>{
     const [error, setError] = useState('');
     const [info, setInfo] = useState('');
 
+    const [repFromYear, setRepFromYear] = useState(new Date().getFullYear());
+    const [repToYear, setRepToYear] = useState(new Date().getFullYear() + 1);
+    const [repOverwrite, setRepOverwrite] = useState(false);
+    const [replicating, setReplicating] = useState(false);
+
     //load holidays
     const loadHolidays = async () => {
         try {
@@ -46,6 +53,26 @@ const HolidayManagement = () =>{
     useEffect(() => {
         loadHolidays();
     }, []);
+
+    const handleReplicate = async () => {
+        const ok = window.confirm(
+            `Replicate holidays từ ${repFromYear} sang ${repToYear}? (overwrite=${repOverwrite})`
+        );
+        if (!ok) return;
+
+        try {
+            setReplicating(true);
+            setError('');
+            setInfo('');
+            await replicateHolidays(repFromYear, repToYear, repOverwrite);
+            setInfo('Replicate holidays thành công.');
+            await loadHolidays();
+        } catch (err) {
+            setError(err?.response?.data?.message || err.message || 'Failed to replicate holidays');
+        } finally {
+            setReplicating(false);
+        }
+    };
 
     const handleFilterSubmit = async (e) =>
     {
@@ -209,8 +236,61 @@ const HolidayManagement = () =>{
                     </Form>
                 </Card.Body>
             </Card>
+// admin hr
+            <Card className="mb-4 shadow-sm">
+                <Card.Header className="bg-light">
+                    <h6 className="mb-0">Replicate Holidays (Admin)</h6>
+                </Card.Header>
+                <Card.Body>
+                    <Row className="gy-3">
+                        <Col md={3}>
+                            <Form.Group>
+                                <Form.Label>From Year</Form.Label>
+                                <Form.Control
+                                    type="number"
+                                    min="2000"
+                                    max="2100"
+                                    value={repFromYear}
+                                    onChange={(e) => setRepFromYear(Number(e.target.value))}
+                                />
+                            </Form.Group>
+                        </Col>
+                        <Col md={3}>
+                            <Form.Group>
+                                <Form.Label>To Year</Form.Label>
+                                <Form.Control
+                                    type="number"
+                                    min="2000"
+                                    max="2100"
+                                    value={repToYear}
+                                    onChange={(e) => setRepToYear(Number(e.target.value))}
+                                />
+                            </Form.Group>
+                        </Col>
+                        <Col md={3} className="d-flex align-items-end">
+                            <Form.Check
+                                type="checkbox"
+                                id="rep-overwrite"
+                                label="Overwrite existing"
+                                checked={repOverwrite}
+                                onChange={(e) => setRepOverwrite(e.target.checked)}
+                            />
+                        </Col>
+                        <Col md={3} className="d-flex align-items-end justify-content-end">
+                            <Button
+                                variant="warning"
+                                onClick={handleReplicate}
+                                disabled={replicating}
+                            >
+                                {replicating ? 'Replicating...' : 'Replicate'}
+                            </Button>
+                        </Col>
+                    </Row>
+                </Card.Body>
+            </Card>
 
-        {/*    create/ edit form*/}
+
+            {/*    create/ edit form*/}
             <Card className="mb-4 shadow-sm">
                 <Card.Header className="bg-light d-flex justify-content-between align-items-center">
                     <h6 className="mb-0">

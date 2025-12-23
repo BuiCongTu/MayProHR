@@ -48,9 +48,8 @@ const getNavLinks = (roleName) =>
                 { title: 'Employee List', path: '/users' },
                 { title: 'Pay Management', path: '/payroll/' },
                 { title: 'Overtime Requests', path: '/overtime-request' },
-                { title: 'Salary Proposal', path: '/salary-proposal' },
+                { title: 'Proposal', path: '/position-change' },
                 { title: 'Attendance', path: '/attendance/register-face' },
-                { title: 'Skill Proposal', path: '/skill-proposal' },
                 { title: 'Leave Request', path: '/leave-request' },
                 { title: 'Reports', path: '/reports' },
             ];
@@ -62,7 +61,7 @@ const getNavLinks = (roleName) =>
                 { title: 'Dashboard', path: '/dashboard' },
                 { title: 'Payroll', path: '/payroll' },
                 { title: 'Overtime Requests', path: '/overtime-request' },
-                { title: 'Proposal Approve', path: '/proposal-approve' },
+                { title: 'Proposal', path: '/factory-director/proposals' },
                 { title: 'Overview', path: '/overview' },
                 { title: 'Reports', path: '/reports' },
             ];

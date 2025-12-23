@@ -10,6 +10,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import fpt.aptech.springbootapp.dtos.ModuleC.PayrollDetailDTO;
+import fpt.aptech.springbootapp.entities.ModuleA.AttendanceStatus;
 import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.EmployeePayrollRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
@@ -194,7 +195,7 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
 
         // Đếm ngày muộn
         List<TbAttendance> lateAttendances = attendsRepo
-                .findByUserAndDateBetweenAndStatus(user, startDate, endDate, TbAttendance.AttendanceStatus.LATE);
+                .findByUserAndDateBetweenAndStatus(user, startDate, endDate, AttendanceStatus.LATE);
         int lateCount = lateAttendances.size();
         payDto.setLateCount(lateCount);
 
