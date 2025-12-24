@@ -6,6 +6,7 @@ import '../configs/api_config.dart';
 class AuthService {
   static const tokenKey = "jwt_token";
   static const roleKey = "role";
+  static const userKey = "user_data";
 
   //// Login
   static Future<Map<String, dynamic>?> login(String phone, String password) async {
@@ -27,6 +28,7 @@ class AuthService {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString(tokenKey, token);
           await prefs.setString(roleKey, roleName);
+          await prefs.setString(userKey, jsonEncode(userData));
 
           return {"token": token, "role": roleName, "user": userData};
         } else {
