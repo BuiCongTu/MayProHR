@@ -416,9 +416,10 @@ export default function OvertimeRequestList() {
                     sx={{ whiteSpace: 'nowrap' }}
                 >
                     <ToggleButton value="">All</ToggleButton>
-                    {!isLineManager && <ToggleButton value="pending" color="warning">Pending</ToggleButton>}
+                    {/*{!isLineManager && <ToggleButton value="pending" color="warning">Pending</ToggleButton>}*/}
                     <ToggleButton value="open" color="info">Open</ToggleButton>
                     <ToggleButton value="processed" color="success">Processed</ToggleButton>
+                    {!isLineManager && <ToggleButton value="expired" color="default">Expired</ToggleButton>}
                 </ToggleButtonGroup>
 
                 <Box flexGrow={1} />

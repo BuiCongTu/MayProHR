@@ -206,7 +206,7 @@ export default function OvertimeTicketList() {
                     <ToggleButton value="all">All</ToggleButton>
                     <ToggleButton value="submitted" color="info">Submitted</ToggleButton>
                     <ToggleButton value="approved" color="success">Approved</ToggleButton>
-                    <ToggleButton value="rejected" color="error">Rejected</ToggleButton>
+                    {/*<ToggleButton value="rejected" color="error">Rejected</ToggleButton>*/}
                 </ToggleButtonGroup>
 
                 <Box flexGrow={1} />
