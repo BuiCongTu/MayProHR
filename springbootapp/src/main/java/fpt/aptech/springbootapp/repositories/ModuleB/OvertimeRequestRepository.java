@@ -35,7 +35,7 @@ public interface OvertimeRequestRepository extends JpaRepository<TbOvertimeReque
         AND (
             overtime_date < :today 
             OR 
-            (overtime_date = :today AND start_time < CAST(:now AS TIME))
+            (overtime_date = :today AND start_time <= CAST(:now AS TIME))
         )
         """, nativeQuery = true)
     List<TbOvertimeRequest> findExpiredPendingRequests(

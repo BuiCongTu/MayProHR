@@ -44,6 +44,7 @@ public class OvertimeAutomationService {
     private final WebSocketService webSocketService;
     private final OvertimeTicketMapper ticketMapper;
     private final OvertimeRequestMapper requestMapper;
+    private final DemoTimeService demoTimeService;
 
     @Autowired
     public OvertimeAutomationService(OvertimeTicketEmployeeRepository employeeRepo,
@@ -52,7 +53,8 @@ public class OvertimeAutomationService {
                                      NotificationService notificationService,
                                      WebSocketService webSocketService,
                                      OvertimeTicketMapper ticketMapper,
-                                     OvertimeRequestMapper requestMapper) {
+                                     OvertimeRequestMapper requestMapper,
+                                     DemoTimeService demoTimeService) {
         this.employeeRepo = employeeRepo;
         this.ticketRepo = ticketRepo;
         this.requestRepo = requestRepo;
@@ -60,17 +62,21 @@ public class OvertimeAutomationService {
         this.webSocketService = webSocketService;
         this.ticketMapper = ticketMapper;
         this.requestMapper = requestMapper;
+        this.demoTimeService = demoTimeService;
     }
 
     /**
      * 1. Auto-Reject Pending Employees who haven't responded before shift starts
-     * Runs every 5 minutes
+     * Runs every minute
      */
-    @Scheduled(cron = "0 */5 * * * *")
+    @Scheduled(cron = "0 */1 * * * *")
     @Transactional
     public void autoRejectEmployees() {
-        LocalDate today = LocalDate.now();
-        LocalTime cutoffTime = LocalTime.now().plusMinutes(employeeCutoffMinutes);
+        //LocalDate today = LocalDate.now();
+        //LocalTime cutoffTime = LocalTime.now().plusMinutes(employeeCutoffMinutes);
+
+        LocalDate today = demoTimeService.getCurrentDate();
+        LocalTime cutoffTime = demoTimeService.getCurrentTime().plusMinutes(employeeCutoffMinutes);
 
         List<TbOvertimeTicketEmployee> staleEmployees = employeeRepo.findPendingEmployeesNearStart(today, cutoffTime);
 
@@ -100,13 +106,16 @@ public class OvertimeAutomationService {
 
     /**
      * 2. Auto-Approve Tickets
-     * Runs every 10 minutes
+     * Runs every minute
      */
-    @Scheduled(cron = "0 */10 * * * *")
+    @Scheduled(cron = "0 */1 * * * *")
     @Transactional
     public void autoApproveTickets() {
-        LocalDate today = LocalDate.now();
-        LocalTime cutoffTime = LocalTime.now().plusMinutes(ticketAutoApproveMinutes);
+        //LocalDate today = LocalDate.now();
+        //LocalTime cutoffTime = LocalTime.now().plusMinutes(ticketAutoApproveMinutes);
+
+        LocalDate today = demoTimeService.getCurrentDate();
+        LocalTime cutoffTime = demoTimeService.getCurrentTime().plusMinutes(ticketAutoApproveMinutes);
 
         List<TbOvertimeTicket> pendingTickets = ticketRepo.findSubmittedTicketsNearStart(today, cutoffTime);
 
@@ -141,13 +150,16 @@ public class OvertimeAutomationService {
 
     /**
      * 3. Auto-Process Requests (Close them for Payroll)
-     * Runs every 30 minutes
+     * Runs every minute
      */
-    @Scheduled(cron = "0 */30 * * * *")
+    @Scheduled(cron = "0 */1 * * * *")
     @Transactional
     public void autoProcessRequests() {
-        LocalDate today = LocalDate.now();
-        LocalTime now = LocalTime.now();
+        //LocalDate today = LocalDate.now();
+        //LocalTime now = LocalTime.now();
+
+        LocalDate today = demoTimeService.getCurrentDate();
+        LocalTime now = demoTimeService.getCurrentTime();
 
         List<TbOvertimeRequest> finishedRequests = requestRepo.findFinishedRequests(today, now);
 
@@ -176,13 +188,16 @@ public class OvertimeAutomationService {
 
     /**
      * 4. Auto-Expire Pending Requests (Shift Start Time Passed)
-     * Runs every 30 minutes
+     * Runs every minute
      */
-    @Scheduled(cron = "0 */30 * * * *")
+    @Scheduled(cron = "0 */1 * * * *")
     @Transactional
     public void autoExpireRequests() {
-        LocalDate today = LocalDate.now();
-        LocalTime now = LocalTime.now();
+        //LocalDate today = LocalDate.now();
+        //LocalTime now = LocalTime.now();
+
+        LocalDate today = demoTimeService.getCurrentDate();
+        LocalTime now = demoTimeService.getCurrentTime();
 
         List<TbOvertimeRequest> expiredRequests = requestRepo.findExpiredPendingRequests(today, now);
 

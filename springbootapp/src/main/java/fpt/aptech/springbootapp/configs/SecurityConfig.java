@@ -115,7 +115,8 @@ public class SecurityConfig {
                         "/api/lines/**",
                         "/api/line/**",
                         "/api/user/**",
-                        "/api/form-data/**"
+                        "/api/form-data/**",
+                        "/api/automation/demo/**"
                 ).permitAll()
                 // Protected APIs
                 .requestMatchers(
