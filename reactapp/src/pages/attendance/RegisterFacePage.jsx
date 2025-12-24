@@ -63,7 +63,7 @@ const RegisterFacePage = () => {
             setAllUsers(Array.isArray(data) ? data : []);
         } catch (e) {
             console.error('Failed to fetch users:', e);
-            setError('Không thể tải danh sách nhân viên');
+            setError('Can not fetch users from server.');
         }
     };
 
@@ -127,14 +127,13 @@ const RegisterFacePage = () => {
         }
 
         // not found -> inform user and force login
-        alert('❌ Token hết hạn, vui lòng đăng nhập lại.');
+        alert('❌ Token expired, please log in again.');
         window.location.href = '/login';
         return null;
 
         // helper
         function normalizeToken(t) {
             const s = t.trim();
-            // if stored as "Bearer xxxxx", strip prefix (so callers can reliably add Bearer if needed)
             return s.replace(/^Bearer\s+/i, '');
         }
     };
@@ -146,8 +145,8 @@ const RegisterFacePage = () => {
         setResult(null);
 
         try {
-            if (!selectedUserId) return alert('❌ Chưa chọn nhân viên.');
-            if (!imageBase64 || imageBase64.length < 100) return alert('❌ Hình ảnh không hợp lệ.');
+            if (!selectedUserId) return alert('❌ Please select a user first.');
+            if (!imageBase64 || imageBase64.length < 100) return alert('❌ Invalid image.');
 
             const token = getToken();
             if (!token) return;
@@ -160,17 +159,17 @@ const RegisterFacePage = () => {
                     cameraRef.current.stopCamera();
                 }
                 setResult(data);
-                alert('✅ Đăng ký khuôn mặt thành công!');
+                alert('✅ Face registration successful!');
                 setStep(3);
             } else {
-                setError(data.message || 'Đăng ký thất bại');
+                setError(data.message || 'Registration failed');
                 // Tắt camera khi có lỗi để user restart
                 if (cameraRef.current?.stopCamera) {
                     setTimeout(() => cameraRef.current.stopCamera(), 1000);
                 }
             }
         } catch (err) {
-            const msg = err.response?.data?.message || err.message || 'Có lỗi khi đăng ký khuôn mặt';
+            const msg = err.response?.data?.message || err.message || 'Error registering face';
             setError(msg);
             alert('❌ ' + msg);
             // Tắt camera khi exception
@@ -193,12 +192,12 @@ const RegisterFacePage = () => {
             const response = await attendanceService.trainModel();
             if (response.success) {
                 setResult({ ...result, modelTrained: true });
-                alert('✅ Huấn luyện mô hình thành công!');
+                alert('✅ Model training successful!');
             } else {
                 setError(response.message);
             }
         } catch (err) {
-            const msg = err.response?.data?.message || 'Có lỗi huấn luyện mô hình';
+            const msg = err.response?.data?.message || 'Error training model';
             setError(msg);
             alert('❌ ' + msg);
         } finally {
@@ -228,40 +227,40 @@ const RegisterFacePage = () => {
 
     if (accessDenied) return (
         <div style={{ textAlign: 'center', marginTop: 50 }}>
-            <h2>Quyền truy cập bị từ chối</h2>
-            <p>Bạn cần đăng nhập bằng tài khoản HR hoặc Admin.</p>
+            <h2>Access Denied</h2>
+            <p>You need to log in with an HR or Admin account.</p>
         </div>
     );
 
     return (
         <div style={styles.container}>
             <div style={styles.header}>
-                <h1 style={styles.title}>👤 Đăng Ký Khuôn Mặt</h1>
-                <p style={styles.subtitle}>Chỉ dành cho HR/Admin - Đăng ký nhân viên mới</p>
+                <h1 style={styles.title}>👤 Register Face</h1>
+                <p style={styles.subtitle}>For HR/Admin only - Register new employees</p>
             </div>
 
             {/* Progress Steps */}
             <div style={styles.progressBar}>
                 <div style={{ ...styles.progressStep, ...(step >= 1 ? styles.activeStep : {}) }}>
                     <div style={styles.stepNumber}>1</div>
-                    <span>Chọn Nhân Viên</span>
+                    <span>Select User</span>
                 </div>
                 <div style={styles.progressLine}></div>
                 <div style={{ ...styles.progressStep, ...(step >= 2 ? styles.activeStep : {}) }}>
                     <div style={styles.stepNumber}>2</div>
-                    <span>Chụp Khuôn Mặt</span>
+                    <span>Capture Face</span>
                 </div>
                 <div style={styles.progressLine}></div>
                 <div style={{ ...styles.progressStep, ...(step >= 3 ? styles.activeStep : {}) }}>
                     <div style={styles.stepNumber}>3</div>
-                    <span>Huấn Luyện</span>
+                    <span>Train Model</span>
                 </div>
             </div>
 
             {/* Step 1: Select User */}
             {step === 1 && (
                 <div style={styles.userListContainer}>
-                    <h3 style={styles.sectionTitle}>Chọn Nhân Viên Cần Đăng Ký</h3>
+                    <h3 style={styles.sectionTitle}>Select User to Register</h3>
                     <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'center' }}>
                         <div style={{ flex: 1 }}>
                             <select
@@ -287,7 +286,7 @@ const RegisterFacePage = () => {
                                 onChange={(e) => setSelectedLine(e.target.value ? Number(e.target.value) : null)}
                                 style={{ width: '100%', padding: 10, borderRadius: 6 }}
                             >
-                                <option value="">-- Chọn Line --</option>
+                                <option value="">-- Select Line --</option>
                                 {lines.map(l => (
                                     <option key={l.id} value={l.id}>{l.name}</option>
                                 ))}
@@ -300,16 +299,16 @@ const RegisterFacePage = () => {
                                 onChange={(e) => setFilterStatus(e.target.value)}
                                 style={{ width: '100%', padding: 10, borderRadius: 6 }}
                             >
-                                <option value="all">Tất cả</option>
-                                <option value="registered">Đã đăng ký face</option>
-                                <option value="not_registered">Chưa đăng ký face</option>
+                                <option value="all">All</option>
+                                <option value="registered">Face Registered</option>
+                                <option value="not_registered">Face Not Registered</option>
                             </select>
                         </div>
                     </div>
                     <div style={styles.searchBox}>
                         <input
                             type="text"
-                            placeholder="🔍 Tìm kiếm nhân viên..."
+                            placeholder="🔍 Search employees..."
                             style={styles.searchInput}
                             onChange={(e) => {
                                 const query = e.target.value.toLowerCase().trim();
@@ -356,26 +355,25 @@ const RegisterFacePage = () => {
                             <h3>Chi tiết nhân viên</h3>
                             {(() => {
                                 const su = getSelectedUser();
-                                if (!su) return <p>Không tìm thấy nhân viên</p>;
+                                if (!su) return <p>Not Found user</p>;
                                 const hasFace = !!(su.faceData ?? su.face_data ?? null);
                                 return (
                                     <div>
-                                        <p><strong>Tên:</strong> {su.fullName || su.full_name || su.name}</p>
-                                        <p><strong>SDT:</strong> {su.phone}</p>
+                                        <p><strong>Name:</strong> {su.fullName || su.full_name || su.name}</p>
+                                        <p><strong>Phone:</strong> {su.phone}</p>
                                         <p><strong>Email:</strong> {su.email}</p>
-                                        <p><strong>Phòng ban:</strong> {su.department?.name || su.departmentName || 'N/A'}</p>
+                                        <p><strong>Department:</strong> {su.department?.name || su.departmentName || 'N/A'}</p>
                                         <p><strong>Line:</strong> {su.line?.name || su.lineName || 'N/A'}</p>
-                                        <p><strong>Trạng thái:</strong> {hasFace ? 'Đã đăng ký face' : 'Chưa đăng ký face'}</p>
-
+                                        <p><strong>Status:</strong> {hasFace ? 'Face Registered' : 'Face Not Registered'}</p>
                                         <div style={{ marginTop: 12 }}>
                                             {!hasFace ? (
-                                                <button onClick={proceedToCapture} style={styles.trainButton}>Chụp Khuôn Mặt</button>
+                                                <button onClick={proceedToCapture} style={styles.trainButton}>Capture Face</button>
                                             ) : (
                                                 <div>
-                                                    <button onClick={proceedToCapture} style={styles.trainButton}>Đăng ký lại / Chụp lại</button>
+                                                    <button onClick={proceedToCapture} style={styles.trainButton}>Re-register / Recapture</button>
                                                 </div>
                                             )}
-                                            <button onClick={() => setShowUserDetail(false)} style={{ marginLeft: 12, padding: '10px 20px' }}>Đóng</button>
+                                            <button onClick={() => setShowUserDetail(false)} style={{ marginLeft: 12, padding: '10px 20px' }}>Close</button>
                                         </div>
                                     </div>
                                 );
@@ -389,7 +387,7 @@ const RegisterFacePage = () => {
             {step === 2 && (
                 <div style={styles.captureContainer}>
                     <div style={styles.selectedUserBanner}>
-                        <h3>Đăng ký khuôn mặt cho: <strong>{getSelectedUser()?.fullName}</strong></h3>
+                        <h3>Register Face for: <strong>{getSelectedUser()?.fullName}</strong></h3>
                     </div>
 
                     <CameraCapture
@@ -401,22 +399,22 @@ const RegisterFacePage = () => {
                     {loading && (
                         <div style={styles.loadingOverlay}>
                             <div style={styles.spinner}></div>
-                            <p>Đang xử lý khuôn mặt...</p>
+                            <p>Processing face...</p>
                         </div>
                     )}
 
                     {error && (
                         <div style={styles.errorBox}>
-                            <h3>❌ Thất Bại</h3>
+                            <h3>❌ Failed</h3>
                             <p>{error}</p>
                             <button onClick={() => setError(null)} style={styles.retryButton}>
-                                Thử Lại
+                                Retry
                             </button>
                         </div>
                     )}
 
                     <button onClick={() => setStep(1)} style={styles.backButton}>
-                        ← Quay Lại
+                        ← Back
                     </button>
                 </div>
             )}
@@ -425,18 +423,18 @@ const RegisterFacePage = () => {
             {step === 3 && (
                 <div style={styles.trainContainer}>
                     <div style={styles.successIcon}>✅</div>
-                    <h2>Đăng Ký Khuôn Mặt Thành Công!</h2>
+                    <h2>Face Registration Successful!</h2>
 
                     <div style={styles.infoCard}>
-                        <p><strong>Nhân viên:</strong> {getSelectedUser()?.fullName}</p>
+                        <p><strong>Employee:</strong> {getSelectedUser()?.fullName}</p>
                         <p><strong>Email:</strong> {getSelectedUser()?.email}</p>
-                        <p><strong>Trạng thái:</strong> Đã lưu dữ liệu khuôn mặt</p>
+                        <p><strong>Status:</strong> Face data saved</p>
                     </div>
 
                     <div style={styles.warningBox}>
-                        <h3>⚠️ Bước Quan Trọng</h3>
-                        <p>Bạn cần <strong>huấn luyện mô hình</strong> để hệ thống có thể nhận diện khuôn mặt này.</p>
-                        <p>Quá trình này sẽ mất khoảng 10-30 giây.</p>
+                        <h3>⚠️ Important Step</h3>
+                        <p>You need to <strong>train the model</strong> for the system to recognize this face.</p>
+                        <p>This process will take approximately 10-30 seconds.</p>
                     </div>
 
                     {!result?.modelTrained ? (
@@ -444,24 +442,24 @@ const RegisterFacePage = () => {
                             onClick={handleTrainModel}
                             style={styles.trainButton}
                             disabled={loading || !selectedUserId || !result}
-                            title={!selectedUserId || !result ? 'Chọn nhân viên và đăng ký khuôn mặt trước khi huấn luyện' : ''}
+                            title={!selectedUserId || !result ? 'Select an employee and register face before training' : ''}
                         >
-                            {loading ? '⏳ Đang Huấn Luyện...' : '🚀 Huấn Luyện Mô Hình'}
+                            {loading ? '⏳ Training...' : '🚀 Train Model'}
                         </button>
                     ) : (
                         <div style={styles.successBox}>
-                            <h3>✅ Hoàn Tất!</h3>
-                            <p>Mô hình đã được huấn luyện thành công.</p>
-                            <p>Nhân viên <strong>{getSelectedUser()?.fullName}</strong> có thể check-in ngay bây giờ!</p>
+                            <h3>✅ Completed!</h3>
+                            <p>The model has been successfully trained.</p>
+                            <p>Employee <strong>{getSelectedUser()?.fullName}</strong> can check in now!</p>
                         </div>
                     )}
 
                     <div style={styles.actions}>
                         <button onClick={reset} style={styles.registerAnotherButton}>
-                            Đăng Ký Nhân Viên Khác
+                            Register Another Employee
                         </button>
                         <a href="/attendance/checkin" style={styles.goToCheckinLink}>
-                            Đi Đến Check-In
+                            Go To Check-In
                         </a>
                     </div>
                 </div>
@@ -470,7 +468,7 @@ const RegisterFacePage = () => {
             {loading && (
                 <div style={styles.loadingOverlay}>
                     <div style={styles.spinner}></div>
-                    <p>Đang xử lý...</p>
+                    <p>Processing...</p>
                 </div>
             )}
         </div>

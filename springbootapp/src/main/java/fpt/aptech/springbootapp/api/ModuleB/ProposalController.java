@@ -4,14 +4,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.web.bind.annotation.*;
 
 import fpt.aptech.springbootapp.dtos.ModuleB.ProposalDTO;
 import fpt.aptech.springbootapp.dtos.ModuleB.requests.PositionChangeRequest;
@@ -27,10 +21,12 @@ import fpt.aptech.springbootapp.services.interfaces.ProposalService;
 public class ProposalController {
 
     private final ProposalService proposalService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Autowired
-    public ProposalController(ProposalService proposalService) {
+    public ProposalController(ProposalService proposalService, SimpMessagingTemplate messagingTemplate) {
         this.proposalService = proposalService;
+        this.messagingTemplate = messagingTemplate;
     }
 
     @GetMapping("/salary-increase")
@@ -53,26 +49,36 @@ public class ProposalController {
 
     @PostMapping("/salary-increase")
     public ProposalDTO createSalary(@RequestBody SalaryIncreaseRequest req) {
-        return proposalService.createSalaryIncreaseProposal(req);
+        ProposalDTO dto = proposalService.createSalaryIncreaseProposal(req);
+        messagingTemplate.convertAndSend("/topic/proposals", dto); // realtime update
+        return dto;
     }
 
     @PostMapping("/position-change")
     public ProposalDTO createPosition(@RequestBody PositionChangeRequest req) {
-        return proposalService.createPositionChangeProposal(req);
+        ProposalDTO dto = proposalService.createPositionChangeProposal(req);
+        messagingTemplate.convertAndSend("/topic/proposals", dto);
+        return dto;
     }
 
     @PostMapping("/skill-level")
     public ProposalDTO createSkill(@RequestBody SkillLevelChangeRequest req) {
-        return proposalService.createSkillLevelChangeProposal(req);
+        ProposalDTO dto = proposalService.createSkillLevelChangeProposal(req);
+        messagingTemplate.convertAndSend("/topic/proposals", dto);
+        return dto;
     }
 
     @PutMapping("/{id}/approve")
     public ProposalDTO approve(@PathVariable("id") Integer id, @RequestParam("approverId") Integer approverId) {
-        return proposalService.approveProposal(id, approverId);
+        ProposalDTO dto = proposalService.approveProposal(id, approverId);
+        messagingTemplate.convertAndSend("/topic/proposals", dto);
+        return dto;
     }
 
     @PutMapping("/{id}/reject")
     public ProposalDTO reject(@PathVariable("id") Integer id, @RequestBody RejectRequest req) {
-        return proposalService.rejectProposal(id, req.getApproverId(), req.getReason());
+        ProposalDTO dto = proposalService.rejectProposal(id, req.getApproverId(), req.getReason());
+        messagingTemplate.convertAndSend("/topic/proposals", dto);
+        return dto;
     }
 }

@@ -33,6 +33,7 @@ import Profile from "./pages/profile/Profile";
 import UserList from "./pages/users/UserList";
 import AttendanceReportPage from "./pages/attendance/AttendanceReportPage";
 import UserDetail from "./pages/users/UserDetail";
+import LeaveRequestDetail from "./pages/moduleA/LeaveRequestDetail";
 
 import { setupAxiosInterceptors } from "./services/authService";
 
@@ -66,7 +67,6 @@ function App()
                             <Route index element={<DashboardRouter />} />
                             <Route path="dashboard" element={<DashboardRouter />} />
 
-                            //
                             <Route path="/attendance/checkin" element={<CheckInPage />} />
                             <Route path="/attendance/checkout" element={<CheckOutPage />} />
                             <Route path="/attendance/register-face" element={<RegisterFacePage />} />
@@ -95,7 +95,9 @@ function App()
                             <Route path="/skill-proposal" element={<SkillProposalPage />} />
 
                             <Route path="/factory-director/proposals" element={<FactoryDirectorPage />} />
+
                             <Route path="/leave-request" element={<LeaveRequestManagement />} />
+                            <Route path="/leave-request/:id" element={<LeaveRequestDetail />} />
 
                             {/* Ticket Routes */}
                             <Route path="/overtime-ticket" element={<OvertimeTicketList />} />

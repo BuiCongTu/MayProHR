@@ -18,11 +18,14 @@ import fpt.aptech.springbootapp.dtos.ModuleB.requests.SalaryIncreaseRequest;
 import fpt.aptech.springbootapp.dtos.ModuleB.requests.SkillLevelChangeRequest;
 import fpt.aptech.springbootapp.entities.Core.TbUser;
 import fpt.aptech.springbootapp.entities.ModuleB.TbProposal;
+import fpt.aptech.springbootapp.entities.System.TbNotification;
 import fpt.aptech.springbootapp.mappers.ModuleB.ProposalMapper;
 import fpt.aptech.springbootapp.repositories.DepartmentRepository;
 import fpt.aptech.springbootapp.repositories.ModuleB.ProposalRepository;
 import fpt.aptech.springbootapp.repositories.RoleRepository;
 import fpt.aptech.springbootapp.repositories.UserRepository;
+import fpt.aptech.springbootapp.services.System.NotificationService;
+import fpt.aptech.springbootapp.services.System.WebSocketService;
 import fpt.aptech.springbootapp.services.interfaces.ProposalService;
 import fpt.aptech.springbootapp.specifications.ProposalSpecification;
 
@@ -34,6 +37,8 @@ public class ProposalServiceImpl implements ProposalService {
     private final RoleRepository roleRepository;
     private final DepartmentRepository departmentRepository;
     private final ObjectMapper objectMapper;
+    private final NotificationService notificationService;
+    private final WebSocketService webSocketService;
 
     @Autowired
     public ProposalServiceImpl(
@@ -41,19 +46,23 @@ public class ProposalServiceImpl implements ProposalService {
             UserRepository userRepository,
             RoleRepository roleRepository,
             DepartmentRepository departmentRepository,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            NotificationService notificationService,
+            WebSocketService webSocketService
     ) {
         this.proposalRepository = proposalRepository;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.departmentRepository = departmentRepository;
         this.objectMapper = objectMapper;
+        this.notificationService = notificationService;
+        this.webSocketService = webSocketService;
     }
 
     @Override
     public Page<ProposalDTO> getFilteredProposal(fpt.aptech.springbootapp.filter.ProposalFilter filter, Pageable pageable) {
         var spec = ProposalSpecification.build(filter);
-        return proposalRepository.findAll(spec, pageable).map(fpt.aptech.springbootapp.mappers.ModuleB.ProposalMapper::toDTO);
+        return proposalRepository.findAll(spec, pageable).map(ProposalMapper::toDTO);
     }
 
     // ---------- CREATE Salary ----------
@@ -70,7 +79,6 @@ public class ProposalServiceImpl implements ProposalService {
         BigDecimal currentSalary = targetUser.getBaseSalary() != null ? targetUser.getBaseSalary() : BigDecimal.ZERO;
         BigDecimal increaseAmount = BigDecimal.valueOf(req.getIncreaseAmount());
 
-        // Check new salary > current salary
         if (increaseAmount.compareTo(BigDecimal.ZERO) <= 0
                 || currentSalary.add(increaseAmount).compareTo(currentSalary) <= 0) {
             throw new RuntimeException("Invalid increase amount");
@@ -87,6 +95,19 @@ public class ProposalServiceImpl implements ProposalService {
         proposal.setCreatedAt(Instant.now());
 
         proposalRepository.save(proposal);
+
+        // --- Notification & WebSocket ---
+        try {
+            userRepository.findByRoleName("Factory Director").forEach(director -> {
+                String msg = "New Proposal #" + proposal.getId() + " from " +
+                        proposal.getProposer().getFullName() + " is pending your approval.";
+                notificationService.sendNotification(director, msg, TbNotification.NotificationType.other);
+            });
+            webSocketService.sendGlobalUpdate("/topic/proposals", ProposalMapper.toDTO(proposal));
+        } catch (Exception e) {
+            System.err.println("Failed to send proposal notification: " + e.getMessage());
+        }
+
         return ProposalMapper.toDTO(proposal);
     }
 
@@ -97,12 +118,24 @@ public class ProposalServiceImpl implements ProposalService {
         TbUser proposer = userRepository.findById(req.getProposerId()).orElseThrow();
         TbUser target = userRepository.findById(req.getTargetUserId()).orElseThrow();
 
-        // validate role and department exist
         roleRepository.findById(req.getNewRoleId()).orElseThrow(() -> new IllegalArgumentException("Role not found"));
         departmentRepository.findById(req.getNewDepartmentId()).orElseThrow(() -> new IllegalArgumentException("Department not found"));
 
         TbProposal p = ProposalMapper.fromPositionRequest(req, proposer, target);
         proposalRepository.save(p);
+
+        // --- Notification & WebSocket ---
+        try {
+            userRepository.findByRoleName("Factory Director").forEach(director -> {
+                String msg = "New Proposal #" + p.getId() + " from " +
+                        proposer.getFullName() + " is pending your approval.";
+                notificationService.sendNotification(director, msg, TbNotification.NotificationType.other);
+            });
+            webSocketService.sendGlobalUpdate("/topic/proposals", ProposalMapper.toDTO(p));
+        } catch (Exception e) {
+            System.err.println("Failed to send proposal notification: " + e.getMessage());
+        }
+
         return ProposalMapper.toDTO(p);
     }
 
@@ -113,9 +146,21 @@ public class ProposalServiceImpl implements ProposalService {
         TbUser proposer = userRepository.findById(req.getProposerId()).orElseThrow();
         TbUser target = userRepository.findById(req.getTargetUserId()).orElseThrow();
 
-        // Note: assume SkillLevel repo exists; validate separately if needed
         TbProposal p = ProposalMapper.fromSkillRequest(req, proposer, target);
         proposalRepository.save(p);
+
+        // --- Notification & WebSocket ---
+        try {
+            userRepository.findByRoleName("Factory Director").forEach(director -> {
+                String msg = "New Proposal #" + p.getId() + " from " +
+                        proposer.getFullName() + " is pending your approval.";
+                notificationService.sendNotification(director, msg, TbNotification.NotificationType.other);
+            });
+            webSocketService.sendGlobalUpdate("/topic/proposals", ProposalMapper.toDTO(p));
+        } catch (Exception e) {
+            System.err.println("Failed to send proposal notification: " + e.getMessage());
+        }
+
         return ProposalMapper.toDTO(p);
     }
 
@@ -134,8 +179,26 @@ public class ProposalServiceImpl implements ProposalService {
         p.setApprovedBy(approver);
         proposalRepository.save(p);
 
-        // apply side-effects
         applyApprovedEffects(p);
+
+        // --- Notification & WebSocket ---
+        try {
+            String msg = "Your Proposal #" + p.getId() + " has been approved by " + approver.getFullName();
+            notificationService.sendNotification(p.getProposer(), msg, TbNotification.NotificationType.approval);
+
+            // Notify HR if salary increase
+            if (p.getType() == TbProposal.ProposalType.SalaryIncrease) {
+                TbUser target = p.getTargetUser();
+                String hrMsg = "Salary increase proposal #" + p.getId() + " approved for " + target.getFullName();
+                userRepository.findByRoleName("HR").forEach(hr ->
+                        notificationService.sendNotification(hr, hrMsg, TbNotification.NotificationType.approval)
+                );
+            }
+
+            webSocketService.sendGlobalUpdate("/topic/proposals", ProposalMapper.toDTO(p));
+        } catch (Exception e) {
+            System.err.println("Failed to send approval notification: " + e.getMessage());
+        }
 
         return ProposalMapper.toDTO(p);
     }
@@ -156,7 +219,15 @@ public class ProposalServiceImpl implements ProposalService {
         p.setRejectReason(rejectReason);
         proposalRepository.save(p);
 
-        // TODO: send notification (notificationService.notify(...))
+        // --- Notification & WebSocket ---
+        try {
+            String msg = "Your Proposal #" + p.getId() + " was rejected by " + approver.getFullName();
+            notificationService.sendNotification(p.getProposer(), msg, TbNotification.NotificationType.rejection);
+            webSocketService.sendGlobalUpdate("/topic/proposals", ProposalMapper.toDTO(p));
+        } catch (Exception e) {
+            System.err.println("Failed to send rejection notification: " + e.getMessage());
+        }
+
         return ProposalMapper.toDTO(p);
     }
 
@@ -165,25 +236,15 @@ public class ProposalServiceImpl implements ProposalService {
         if (increase == null || increase <= 0) {
             throw new IllegalArgumentException("Invalid increase amount");
         }
-        // example rule mapping (adjust values to your business):
         String roleName = target.getRole() != null ? target.getRole().getName() : "Worker";
         int min;
         switch (roleName) {
-            case "Factory Director":
-                min = 500000;
-                break;
-            case "Factory Manager":
-                min = 400000;
-                break;
-            case "Manager":
-                min = 300000;
-                break;
+            case "Factory Director": min = 500000; break;
+            case "Factory Manager": min = 400000; break;
+            case "Manager": min = 300000; break;
             case "Leader":
-            case "Assistant Leader":
-                min = 250000;
-                break;
-            default:
-                min = 200000;
+            case "Assistant Leader": min = 250000; break;
+            default: min = 200000;
         }
         if (increase < min) {
             throw new IllegalArgumentException("Increase amount is below allowed minimum for role");
@@ -193,21 +254,15 @@ public class ProposalServiceImpl implements ProposalService {
     private void applyApprovedEffects(TbProposal p) {
         try {
             if (p.getType() == TbProposal.ProposalType.SalaryIncrease) {
-                // parse details JSON and update user's baseSalary
                 Map<String, Object> details = objectMapper.readValue(p.getDetails(), Map.class);
                 Object inc = details.get("increase");
                 if (inc != null) {
                     Integer increase = (inc instanceof Number) ? ((Number) inc).intValue() : Integer.parseInt(inc.toString());
                     TbUser target = p.getTargetUser();
-                    if (target.getBaseSalary() == null) {
-                        target.setBaseSalary(java.math.BigDecimal.ZERO);
-                    }
-                    target.setBaseSalary(target.getBaseSalary().add(java.math.BigDecimal.valueOf(increase)));
+                    if (target.getBaseSalary() == null) target.setBaseSalary(BigDecimal.ZERO);
+                    target.setBaseSalary(target.getBaseSalary().add(BigDecimal.valueOf(increase)));
                     userRepository.save(target);
-
-                    // TODO: call payroll API to update (POST /payroll/update-user)
                 }
-                // TODO: send notification to HR/payroll
             } else if (p.getType() == TbProposal.ProposalType.PositionChange) {
                 Map<String, Object> details = objectMapper.readValue(p.getDetails(), Map.class);
                 Object roleIdObj = details.get("new_role_id");
@@ -225,28 +280,29 @@ public class ProposalServiceImpl implements ProposalService {
                 }
                 if (newSalaryObj != null && !"null".equals(newSalaryObj.toString())) {
                     Integer newSalary = (newSalaryObj instanceof Number) ? ((Number) newSalaryObj).intValue() : Integer.parseInt(newSalaryObj.toString());
-                    target.setBaseSalary(java.math.BigDecimal.valueOf(newSalary));
+                    target.setBaseSalary(BigDecimal.valueOf(newSalary));
                 }
                 userRepository.save(target);
-                // TODO: notify payroll & HR
             } else if (p.getType() == TbProposal.ProposalType.SkillLevelChange) {
-                // when skill-level approved, automatically create a salary proposal (business rule)
-                // parse details to get new skill level id, compute increase amount as business rule
                 Map<String, Object> details = objectMapper.readValue(p.getDetails(), Map.class);
-                // example: newSkill => automatic increase 200k (you can compute)
                 int autoIncrease = 200000;
                 SalaryIncreaseRequest req = new SalaryIncreaseRequest();
                 req.setProposerId(p.getApprovedBy().getId());
                 req.setTargetUserId(p.getTargetUser().getId());
                 req.setIncreaseAmount(autoIncrease);
                 req.setReason("Auto-generated salary increase after skill-level upgrade");
-                // create and save automatically - mark as pending so director can approve
+
                 TbProposal auto = ProposalMapper.fromSalaryRequest(req, p.getApprovedBy(), p.getTargetUser());
                 proposalRepository.save(auto);
-                // TODO: notify director/Hr about auto-created salary proposal
+
+                // Notify director/HR about auto-created salary proposal
+                userRepository.findByRoleName("Factory Director").forEach(director -> {
+                    String msg = "Auto-created Salary Increase Proposal #" + auto.getId() +
+                            " for " + p.getTargetUser().getFullName() + " awaiting your approval";
+                    notificationService.sendNotification(director, msg, TbNotification.NotificationType.other);
+                });
             }
         } catch (Exception ex) {
-            // log error
             ex.printStackTrace();
         }
     }

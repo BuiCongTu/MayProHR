@@ -8,6 +8,7 @@ import '../payroll/my_payroll_select_screen.dart';
 import '../attendance/AttendanceCalendarScreen.dart';
 import '../../configs/AttendanceApi.dart';
 import '../../services/storage_service.dart';
+import '../leave/leave_list_screen.dart';
 
 class UserHome extends StatelessWidget {
   const UserHome({super.key});
@@ -164,6 +165,34 @@ class UserHome extends StatelessWidget {
                             api: api,
                             userId: userId,
                           ),
+                        ),
+                      );
+                    },
+                  ),
+
+                  _buildMenuCard(
+                    context,
+                    title: "Leave Request",
+                    icon: Icons.beach_access,
+                    color: Colors.green,
+                    onTap: () async {
+                      final userId = _extractUserId(
+                        auth.currentUser?.cast<String, dynamic>(),
+                      );
+
+                      if (userId == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Không lấy được userId. Vui lòng đăng nhập lại.'),
+                          ),
+                        );
+                        return;
+                      }
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => LeaveListScreen(userId: userId),
                         ),
                       );
                     },
