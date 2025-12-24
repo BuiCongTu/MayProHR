@@ -514,8 +514,8 @@ public class OvertimeTicketServiceImpl implements OvertimeTicketService {
                 String lineName = assignment.getLine() != null ? assignment.getLine().getName() : "Line";
 
                 String message = String.format(
-                        "Gap Alert: %s has declined the OT invite for %s (Ticket #%d). Please assign a replacement.",
-                        empName, lineName, ticketId
+                        "Gap Alert: %s has declined the OT invite for %s (Request #%d). Please assign a replacement.",
+                        empName, lineName, assignment.getOvertimeTicket().getOvertimeRequest().getId()
                 );
 
                 notificationService.sendNotification(manager, message, TbNotification.NotificationType.other);

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createOvertimeRequest } from '../../../services/moduleB/overtimeService';
 import { getAllDepartments, getLinesByDepartment } from "../../../services/departmentService";
 import { getCurrentUser } from "../../../services/authService";
+import { getHolidays } from "../../../services/moduleC/holidayService";
 import ErrorPage from '../../ErrorPage';
 
 import {
@@ -103,6 +104,7 @@ function OvertimeRequestForm() {
     const [selectedGrandchildren, setSelectedGrandchildren] = useState({});
     const [grandchildQuotas, setGrandchildQuotas] = useState({});
 
+    const [holidays, setHolidays] = useState([]);
     const [isSpecialDay, setIsSpecialDay] = useState(false);
     const [timeError, setTimeError] = useState(null);
     const [displayDuration, setDisplayDuration] = useState("1h 0m");
@@ -122,6 +124,25 @@ function OvertimeRequestForm() {
         }
         loadData();
     }, [isFactoryManager]);
+
+    useEffect(() => {
+        if (!isFactoryManager) return;
+        async function fetchHolidaysData() {
+            try {
+                const year = formData.overtimeDate
+                    ? new Date(formData.overtimeDate).getFullYear()
+                    : new Date().getFullYear();
+
+                const data = await getHolidays(year);
+                if (Array.isArray(data)) {
+                    setHolidays(data.map(h => h.holidayDate));
+                }
+            } catch (err) {
+                console.error("Failed to fetch holidays", err);
+            }
+        }
+        fetchHolidaysData();
+    }, [formData.overtimeDate, isFactoryManager]);
 
     useEffect(() => {
         if (!isFactoryManager) return;
@@ -154,9 +175,15 @@ function OvertimeRequestForm() {
         if (formData.overtimeDate) {
             const dayOfWeek = new Date(formData.overtimeDate).getDay();
             const isSunday = dayOfWeek === 0;
-            setIsSpecialDay(isSunday);
 
-            if (!isSunday && formData.startTime !== '17:00') {
+            const isHoliday = holidays.includes(formData.overtimeDate);
+
+            // Special Day = Sunday OR Holiday
+            const special = isSunday || isHoliday;
+            setIsSpecialDay(special);
+
+            // If NOT special (Normal day), force start time to 17:00
+            if (!special && formData.startTime !== '17:00') {
                 setFormData(prev => ({...prev, startTime: '17:00'}));
             }
         }
@@ -184,7 +211,7 @@ function OvertimeRequestForm() {
                 setTimeError(null);
             }
         }
-    }, [formData.overtimeDate, formData.startTime, formData.endTime]);
+    }, [formData.overtimeDate, formData.startTime, formData.endTime, holidays]);
 
     // --- HELPERS ---
 
@@ -521,6 +548,13 @@ function OvertimeRequestForm() {
                             />
                         </Grid>
                     </Grid>
+
+                    {/* Show holiday alert if special day */}
+                    {isSpecialDay && (
+                        <Alert severity="info" sx={{ mt: -2 }}>
+                            Selected date is a Sunday or Holiday. Start time is flexible.
+                        </Alert>
+                    )}
 
                     {timeError && <Alert severity="error" sx={{mt: -2}}>{timeError}</Alert>}
 
