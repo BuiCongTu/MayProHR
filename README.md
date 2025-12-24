@@ -24,6 +24,8 @@ Important: The backend requires a 'firebase-service-account.json' (get key from 
 
 Example:
 
-To set specific time (in this exmple date:2025-12-24, time: 17:00:00): POST http://localhost:9999/api/automation/demo/set-time?datetime=2025-12-24T17:00:00 
+To set specific time (in this exmple date: 2025-12-24, time: 17:00:00): POST http://localhost:9999/api/automation/demo/set-time?datetime=2025-12-24T17:00:00 
 
 To reset time to system time: POST http://localhost:9999/api/automation/demo/reset-time
+
+To see whether the system is running at real system time or virtual time: GET http://localhost:9999/api/automation/demo/status
