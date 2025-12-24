@@ -1,9 +1,9 @@
 class ApiConfig {
   // Cấu hình URL backend
-  static const String baseUrl = 'http://192.168.2.14:9999';
-  // static const String baseUrl = 'http://172.16.1.116:9999';
+  // static const String baseUrl = 'http://192.168.2.14:9999';
+  static const String baseUrl = 'http://172.16.2.59:9999';
 
-  //Phu fixed url
+  //Phu fixed urlr
   // static const String baseUrl = 'http://100.69.135.59:9999';
 
   // API Timeouts (milliseconds)

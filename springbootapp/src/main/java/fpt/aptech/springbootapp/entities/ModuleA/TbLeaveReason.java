@@ -3,6 +3,7 @@ package fpt.aptech.springbootapp.entities.ModuleA;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.CascadeType;
@@ -46,6 +47,7 @@ public class TbLeaveReason {
     @Column(name = "description")
     private String description;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "leaveReason", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<TbLeaveRequest> leaveRequests = new ArrayList<>();
 

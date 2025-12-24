@@ -566,6 +566,7 @@ export default function Register() {
                                 type="file"
                                 accept="image/*"
                                 hidden
+                                aria-label="cccd-file"
                                 onChange={(e) => {
                                     if (e.target.files && e.target.files[0]) {
                                         handleUploadCCCD(e.target.files[0]);
@@ -573,7 +574,6 @@ export default function Register() {
                                 }}
                             />
                         </Button>
-
                     </Box>
 
                     <form onSubmit={onSubmit}>

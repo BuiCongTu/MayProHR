@@ -1,16 +1,14 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CccdScan from "./CccdScan";
+import { scanCccd } from "../services/cccdService";
 
 jest.mock("../services/cccdService", () => ({
   scanCccd: jest.fn(),
 }));
 
-import { scanCccd } from "../services/cccdService";
-
 describe("CccdScan", () => {
   beforeAll(() => {
-    // JSDOM may not implement this
     global.URL.createObjectURL = jest.fn(() => "blob:mock");
   });
 
@@ -25,11 +23,9 @@ describe("CccdScan", () => {
 
     render(<CccdScan onSuccess={onSuccess} />);
 
-    const label = screen.getByText(/quét cccd/i).closest("label");
-    const input = label?.querySelector("input[type='file']");
-    expect(input).toBeInTheDocument();
-
+    const input = screen.getByLabelText("cccd-file");
     const file = new File(["dummy"], "cccd.png", { type: "image/png" });
+
     await userEvent.upload(input, file);
 
     await waitFor(() => expect(scanCccd).toHaveBeenCalledTimes(1));
@@ -48,9 +44,9 @@ describe("CccdScan", () => {
 
     render(<CccdScan onSuccess={onSuccess} />);
 
-    const label = screen.getByText(/quét cccd/i).closest("label");
-    const input = label?.querySelector("input[type='file']");
+    const input = screen.getByLabelText("cccd-file");
     const file = new File(["dummy"], "cccd.png", { type: "image/png" });
+
     await userEvent.upload(input, file);
 
     await waitFor(() => expect(scanCccd).toHaveBeenCalledTimes(1));

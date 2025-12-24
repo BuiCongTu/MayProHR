@@ -10,6 +10,24 @@ const extractData = (response) =>
   }
   return response.data;
 };
+export const confirmLeaveRequest = async (id) =>
+{
+    const response = await axiosInstance.put(`${API_BASE}/${id}/confirm`);
+    return extractData(response);
+};
+
+export const approveLeaveRequest = async (id) =>
+{
+    const response = await axiosInstance.put(`${API_BASE}/${id}/approve`);
+    return extractData(response);
+};
+
+export const rejectLeaveRequest = async (id, rejectReason) =>
+{
+    const response = await axiosInstance.put(`${API_BASE}/${id}/reject`, { rejectReason });
+    return extractData(response);
+};
+
 
 // Get all leave requests
 export const getAllLeaveRequests = async (filters = {}) =>

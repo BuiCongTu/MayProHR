@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Register from "./Register";
+import * as formDataService from "../services/formDataService";
 
 jest.mock("react-router-dom", () => ({
   useNavigate: () => jest.fn(),
@@ -17,8 +18,6 @@ jest.mock("../services/formDataService", () => ({
   scanCCCD: jest.fn(),
 }));
 
-import * as formDataService from "../services/formDataService";
-
 describe("Register - Scan CCCD button", () => {
   afterEach(() => {
     jest.clearAllMocks();
@@ -34,27 +33,19 @@ describe("Register - Scan CCCD button", () => {
 
     render(<Register />);
 
-    // Wait for initial async option loads to settle
     await waitFor(() => expect(formDataService.getDepartments).toHaveBeenCalledTimes(1));
 
-    const scanButton = screen.getByRole("button", { name: /scan cccd/i });
-    const input = scanButton.querySelector("input[type='file']");
-    expect(input).toBeInTheDocument();
-
+    const input = screen.getByLabelText("cccd-file");
     const file = new File(["dummy"], "cccd.png", { type: "image/png" });
     await userEvent.upload(input, file);
 
     await waitFor(() => expect(formDataService.scanCCCD).toHaveBeenCalledTimes(1));
 
-    // Full Name should be populated
     const fullNameInput = await screen.findByLabelText(/full name/i);
     await waitFor(() => expect(fullNameInput).toHaveValue("Nguyen Van A"));
 
-    // Gender should map male -> "true"
-    const genderHiddenInput = document.querySelector("input[name='gender']");
-    await waitFor(() => expect(genderHiddenInput).toHaveValue("true"));
-
+    // Gender: male -> "true" (theo code map trong Register.jsx)
     const genderCombo = screen.getByRole("combobox", { name: /gender/i });
-    expect(genderCombo).toHaveTextContent(/male/i);
+    await waitFor(() => expect(genderCombo).toHaveValue("true"));
   });
 });

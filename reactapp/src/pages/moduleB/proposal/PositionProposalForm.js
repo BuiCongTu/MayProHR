@@ -35,6 +35,9 @@ function PositionProposalForm()
         salaryType: '',
         reason: ''
     });
+    const [salaryTouched, setSalaryTouched] = useState(false);
+    const [salaryTypeTouched, setSalaryTypeTouched] = useState(false);
+
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -102,14 +105,14 @@ function PositionProposalForm()
 
         setFormData(prev => ({
             ...prev,
-            newSalary: prev.newSalary === '' || prev.newSalary == null
+            newSalary: !salaryTouched
                 ? (selectedUserDetails.baseSalary ?? '')
                 : prev.newSalary,
-            salaryType: prev.salaryType === '' || prev.salaryType == null
+            salaryType: !salaryTypeTouched
                 ? (selectedUserDetails.salaryType || '')
                 : prev.salaryType
         }));
-    }, [selectedUserDetails]);
+    }, [selectedUserDetails, salaryTouched, salaryTypeTouched]);
 
     // Load full user details when target user changes (to show current info)
     useEffect(() =>
@@ -137,11 +140,25 @@ function PositionProposalForm()
                 setLoadingUserDetails(false);
             }
         };
+        setSalaryTouched(false);
+        setSalaryTypeTouched(false);
 
         loadDetails();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData.targetUser?.id]);
 
+    const handleChange = (e) =>
+    {
+        const { name, value } = e.target;
+
+        if (name === 'newSalary') setSalaryTouched(true);
+        if (name === 'salaryType') setSalaryTypeTouched(true);
+
+        setFormData((prev) => ({
+            ...prev,
+            [name]: value
+        }));
+    };
 
     const handleDepartmentChange = async (_e, value) =>
     {
@@ -194,15 +211,6 @@ function PositionProposalForm()
             />
         );
     }
-
-    const handleChange = (e) =>
-    {
-        const { name, value } = e.target;
-        setFormData((prev) => ({
-            ...prev,
-            [name]: value
-        }));
-    };
 
     const handleNumberKeyDown = (e) =>
     {
@@ -467,6 +475,7 @@ function PositionProposalForm()
                                                         {...params}
                                                         label="Current Department"
                                                         required
+                                                        fullWidth
                                                         size="small"
                                                     />
                                                 )}
@@ -496,7 +505,12 @@ function PositionProposalForm()
                                                         <strong>Department:</strong>{' '}
                                                         {getCurrentDepartmentName(formData.targetUser)}
                                                     </Typography>
+                                                    <Typography variant="body2">
+                                                        <strong>Base Salary:</strong>{' '}
+                                                        {selectedUserDetails?.baseSalary ?? formData.targetUser?.baseSalary ?? '-'}
+                                                    </Typography>
                                                 </Paper>
+
                                             )}
 
                                         </Grid>
@@ -623,7 +637,9 @@ function PositionProposalForm()
                                                         {...params}
                                                         label="New Position"
                                                         required
-                                                        size="small"
+                                                        fullWidth
+                                                        size="medium"
+                                                        sx={{ minWidth: 200 }}
                                                     />
                                                 )}
                                             />
@@ -640,6 +656,7 @@ function PositionProposalForm()
                                                 }
                                                 value={formData.newDepartment}
                                                 fullWidth
+                                                sx={{ minWidth: 200 }}
                                                 onChange={(_e, value) =>
                                                     setFormData((prev) => ({
                                                         ...prev,
@@ -651,7 +668,9 @@ function PositionProposalForm()
                                                         {...params}
                                                         label="New Department"
                                                         required
+                                                        fullWidth
                                                         size="small"
+                                                        sx={{ minWidth: 420 }}
                                                     />
                                                 )}
                                             />

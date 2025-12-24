@@ -60,14 +60,18 @@ function ProposalList({ title, proposalType, filterByProposerId, defaultStatus }
                         <TableCell>Target Employee</TableCell>
                         <TableCell>Reason</TableCell>
                         <TableCell>Status</TableCell>
-                        <TableCell>Approved by</TableCell>
+                        {statusFilter === "approved" && <TableCell>Approved By</TableCell>}
+                        {statusFilter === "rejected" && <TableCell>Reject Reason</TableCell>}
                         <TableCell>Created At</TableCell>
                     </TableRow>
                 </TableHead>
+
                 <TableBody>
                     {data.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={7} align="center">No proposals found.</TableCell>
+                            <TableCell colSpan={statusFilter === "approved" || statusFilter === "rejected" ? 8 : 7} align="center">
+                                No proposals found.
+                            </TableCell>
                         </TableRow>
                     ) : (
                         data.map(p => (
@@ -77,12 +81,14 @@ function ProposalList({ title, proposalType, filterByProposerId, defaultStatus }
                                 <TableCell>{p.targetUserName} (ID: {p.targetUserId})</TableCell>
                                 <TableCell>{p.reason || '-'}</TableCell>
                                 <TableCell>{p.status}</TableCell>
-                                <TableCell>{p.approvedByName || '-'}</TableCell>
+                                {statusFilter === "approved" && <TableCell>{p.approvedByName || '-'}</TableCell>}
+                                {statusFilter === "rejected" && <TableCell>{p.rejectReason || '-'}</TableCell>}
                                 <TableCell>{p.createdAt ? new Date(p.createdAt).toLocaleString() : '-'}</TableCell>
                             </TableRow>
                         ))
                     )}
                 </TableBody>
+
             </Table>
         </Paper>
     );

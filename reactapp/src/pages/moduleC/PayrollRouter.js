@@ -17,6 +17,7 @@ import TaxCalculator from '../../components/ModuleC/TaxCalculator';
 import TaxDeductionManagement from "../../components/ModuleC/TaxDeductionManagement";
 import PayrollAnalysis from './PayrollAnalysis';
 import PayrollDashboard from './PayrollDashboard';
+import ProductionLineManagement from "../../components/ModuleC/ProductionLineManagement";
 
 const PayrollRouter = () =>
 {
@@ -37,7 +38,7 @@ const PayrollRouter = () =>
             <Route path="/attendance" element={<AttendanceManagement />} /> // bảng chấm công test ok
             <Route path="/leave-request" element={<LeaveRequestManagement />} /> // xin nghỉ phép test oko
 
-            {/*bỏ qua không xài <Route path="/production-line" element={<ProductionLineManagement />} /> */}
+            <Route path="/production-line" element={<ProductionLineManagement />} />
             <Route path="/:payrollId/calculate" element={<PayrollEmployeeCalculator />} />
             <Route path="/:payrollId/approve" element={<PayrollApproval />} />
             <Route path="/:payrollId/employee/:employeePayrollId" element={<PayrollEmployeeDetail />} />

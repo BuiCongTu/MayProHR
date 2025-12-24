@@ -29,6 +29,14 @@ const getNavLinks = (roleName) =>
             links = [];
             break;
 
+        case 'HR':
+            links = [
+                { title: 'Dashboard', path: '/dashboard' },
+                { title: 'Employee List', path: '/users' },
+                { title: 'Attendance', path: '/attendance' },
+                { title: 'Leave Request', path: '/leave-request' },];
+            break;
+
         case 'Manager':
             links = [
                 { title: 'Dashboard', path: '/dashboard' },
@@ -46,7 +54,21 @@ const getNavLinks = (roleName) =>
             links = [
                 { title: 'Dashboard', path: '/dashboard' },
                 { title: 'Employee List', path: '/users' },
-                { title: 'Pay Management', path: '/payroll/' },
+
+                {
+                    title: 'Pay Management',
+                    path: '/payroll',
+                    children: [
+                        { title: 'Payroll Dasshboard', path: '/payroll' },
+                        { title: 'Allowances', path: '/payroll/allowances/recurring' },
+                        { title: 'Holidays', path: '/payroll/holidays' },
+                        { title: 'Deduction', path: '/payroll/tax-deduction' },
+                        { title: 'Tax Bracket', path: '/payroll/tax-bracket' },
+                        { title: 'Production', path: '/payroll/production' },
+                        { title: 'Employee Production', path: '/payroll/employee-production' },
+                    ],
+                },
+
                 { title: 'Overtime Requests', path: '/overtime-request' },
                 { title: 'Proposal', path: '/position-change' },
                 { title: 'Attendance', path: '/attendance/register-face' },
@@ -63,6 +85,7 @@ const getNavLinks = (roleName) =>
                 { title: 'Overtime Requests', path: '/overtime-request' },
                 { title: 'Proposal', path: '/factory-director/proposals' },
                 { title: 'Overview', path: '/overview' },
+                { title: 'Leave Request', path: '/leave-request' },
                 { title: 'Reports', path: '/reports' },
             ];
             break;
@@ -107,8 +130,11 @@ const Navbar = () =>
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
 
+    const [payrollMenuAnchor, setPayrollMenuAnchor] = useState(null);
+
     // Responsive Drawer State
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [mobilePayrollOpen, setMobilePayrollOpen] = useState(false);
 
     const { subscribe, connected } = useWebSocket();
 
@@ -179,13 +205,15 @@ const Navbar = () =>
         return () => { if (sub) sub.unsubscribe(); };
     }, [connected, isLoggedIn, subscribe]);
 
-
     // --- HANDLERS ---
     const handleMenuClick = (event) => setAnchorEl(event.currentTarget);
     const handleMenuClose = () => setAnchorEl(null);
     const handleNotificationClick = (event) => setNotificationAnchor(event.currentTarget);
     const handleNotificationClose = () => setNotificationAnchor(null);
     const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
+
+    const handlePayrollMenuOpen = (event) => setPayrollMenuAnchor(event.currentTarget);
+    const handlePayrollMenuClose = () => setPayrollMenuAnchor(null);
 
     const handleProfile = () => { handleMenuClose(); navigate('/profile'); };
     const handleLogout = () => { handleMenuClose(); navigate('/logout'); };
@@ -207,20 +235,33 @@ const Navbar = () =>
             setUnreadCount(prev => Math.max(0, prev - 1));
         }
 
-        const msg = notif.message;
-        if (msg.includes("Request #"))
+        const msg = notif.message || '';
+
+        // ✅ LeaveRequest MUST be checked BEFORE "Request #"
+        const leaveMatch = msg.match(/Leave\s*Request\s*#(\d+)/i);
+        if (leaveMatch)
         {
-            const match = msg.match(/Request #(\d+)/);
-            if (match) navigate(`/overtime-request/${match[1]}`);
+            navigate(`/leave-request/${leaveMatch[1]}`);
+            return;
         }
-        else if (msg.includes("Ticket #"))
+
+        const overtimeReqMatch = msg.match(/\bRequest\s*#(\d+)\b/i);
+        if (overtimeReqMatch)
         {
-            const match = msg.match(/Ticket #(\d+)/);
-            if (match) navigate(`/overtime-ticket/${match[1]}`);
+            navigate(`/overtime-request/${overtimeReqMatch[1]}`);
+            return;
         }
-        else if (msg.includes("Leave"))
+
+        const ticketMatch = msg.match(/\bTicket\s*#(\d+)\b/i);
+        if (ticketMatch)
         {
-            navigate('/leave-requests');
+            navigate(`/overtime-ticket/${ticketMatch[1]}`);
+            return;
+        }
+
+        if (msg.toLowerCase().includes("leave"))
+        {
+            navigate('/leave-request');
         }
     };
 
@@ -247,6 +288,9 @@ const Navbar = () =>
         return <Info fontSize="small" color="info" />;
     };
 
+    const payrollLink = navLinks.find(l => l.title === 'Pay Management' && Array.isArray(l.children));
+    const payrollChildren = payrollLink?.children || [];
+
     // --- MOBILE DRAWER CONTENT ---
     const drawer = (
         <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
@@ -256,18 +300,56 @@ const Navbar = () =>
             </Box>
             <Divider />
             <List>
-                {navLinks.map((link) => (
-                    <ListItem key={link.title} disablePadding>
-                        <ListItemButton
-                            component={Link}
-                            to={link.path}
-                            selected={location.pathname === link.path}
-                            sx={{ textAlign: 'left', pl: 4 }}
-                        >
-                            <ListItemText primary={link.title} />
-                        </ListItemButton>
-                    </ListItem>
-                ))}
+                {navLinks.map((link) =>
+                {
+                    const hasChildren = Array.isArray(link.children) && link.children.length > 0;
+
+                    if (!hasChildren)
+                    {
+                        return (
+                            <ListItem key={link.title} disablePadding>
+                                <ListItemButton
+                                    component={Link}
+                                    to={link.path}
+                                    selected={location.pathname === link.path}
+                                    sx={{ textAlign: 'left', pl: 4 }}
+                                >
+                                    <ListItemText primary={link.title} />
+                                </ListItemButton>
+                            </ListItem>
+                        );
+                    }
+
+                    return (
+                        <Box key={link.title}>
+                            <ListItem disablePadding>
+                                <ListItemButton
+                                    onClick={(e) =>
+                                    {
+                                        e.stopPropagation();
+                                        setMobilePayrollOpen(v => !v);
+                                    }}
+                                    sx={{ textAlign: 'left', pl: 4 }}
+                                >
+                                    <ListItemText primary={link.title} />
+                                </ListItemButton>
+                            </ListItem>
+
+                            {mobilePayrollOpen && link.children.map((child) => (
+                                <ListItem key={child.title} disablePadding>
+                                    <ListItemButton
+                                        component={Link}
+                                        to={child.path}
+                                        selected={location.pathname === child.path}
+                                        sx={{ textAlign: 'left', pl: 7 }}
+                                    >
+                                        <ListItemText primary={child.title} />
+                                    </ListItemButton>
+                                </ListItem>
+                            ))}
+                        </Box>
+                    );
+                })}
             </List>
         </Box>
     );
@@ -308,21 +390,66 @@ const Navbar = () =>
                             <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}>
                                 {navLinks.map((link) =>
                                 {
-                                    const isActive = location.pathname === link.path;
+                                    const hasChildren = Array.isArray(link.children) && link.children.length > 0;
+
+                                    if (!hasChildren)
+                                    {
+                                        const isActive = location.pathname === link.path;
+                                        return (
+                                            <Button
+                                                key={link.title}
+                                                color="inherit"
+                                                component={Link}
+                                                to={link.path}
+                                                sx={{
+                                                    textDecoration: 'none', margin: '0 4px', fontSize: '13px',
+                                                    ...(isActive && { backgroundColor: 'rgba(255, 255, 255, 0.2)', fontWeight: 'bold' }),
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
+                                                {link.title}
+                                            </Button>
+                                        );
+                                    }
+
+                                    const isAnyChildActive = link.children.some(c => location.pathname === c.path);
+
                                     return (
-                                        <Button
-                                            key={link.title}
-                                            color="inherit"
-                                            component={Link}
-                                            to={link.path}
-                                            sx={{
-                                                textDecoration: 'none', margin: '0 4px', fontSize: '13px',
-                                                ...(isActive && { backgroundColor: 'rgba(255, 255, 255, 0.2)', fontWeight: 'bold' }),
-                                                whiteSpace: 'nowrap'
-                                            }}
-                                        >
-                                            {link.title}
-                                        </Button>
+                                        <Box key={link.title} sx={{ display: 'inline-flex', alignItems: 'center' }}>
+                                            <Button
+                                                color="inherit"
+                                                onClick={handlePayrollMenuOpen}
+                                                sx={{
+                                                    textDecoration: 'none', margin: '0 4px', fontSize: '13px',
+                                                    ...((isAnyChildActive || location.pathname === link.path) && { backgroundColor: 'rgba(255, 255, 255, 0.2)', fontWeight: 'bold' }),
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
+                                                {link.title}
+                                            </Button>
+
+                                            <Menu
+                                                anchorEl={payrollMenuAnchor}
+                                                open={Boolean(payrollMenuAnchor)}
+                                                onClose={handlePayrollMenuClose}
+                                                transformOrigin={{ horizontal: 'left', vertical: 'top' }}
+                                                anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
+                                            >
+                                                {payrollChildren.map((child) => (
+                                                    <MenuItem
+                                                        key={child.title}
+                                                        onClick={() =>
+                                                        {
+                                                            handlePayrollMenuClose();
+                                                            navigate(child.path);
+                                                        }}
+                                                        selected={location.pathname === child.path}
+                                                    >
+                                                        {child.title}
+                                                    </MenuItem>
+                                                ))}
+                                            </Menu>
+                                        </Box>
                                     );
                                 })}
                             </Box>

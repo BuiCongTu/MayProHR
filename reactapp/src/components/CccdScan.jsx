@@ -31,7 +31,14 @@ const CccdScan = ({ onSuccess }) => {
     <Box sx={{ mb: 2, textAlign: "center" }}>
       <Button variant="contained" component="label" disabled={loading}>
         {loading ? <CircularProgress size={24} /> : "Quét CCCD"}
-        <input type="file" hidden accept="image/*" onChange={handleFileChange} disabled={loading} />
+        <input
+          type="file"
+          hidden
+          accept="image/*"
+          aria-label="cccd-file"
+          onChange={handleFileChange}
+          disabled={loading}
+        />
       </Button>
 
       {filePreview && (
