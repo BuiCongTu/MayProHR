@@ -17,10 +17,13 @@ pip install -r requirements_api.txt
 Xem chi tiết tại: `face_attendant_svm/SETUP_ENVIRONMENT.md`
 
 ---- Flutter app Notification ----
+
 Important: The backend requires a 'firebase-service-account.json' (get key from firebase console) file for flutter app push-notifications. This file is not in the repo for security. Get this file and place it in springbootapp/src/main/resources/.
 
 ---- Demo Overtime Automation Scheduler ----
+
 Example:
+
 To set specific time (in this exmple date:2025-12-24, time: 17:00:00): POST http://localhost:9999/api/automation/demo/set-time?datetime=2025-12-24T17:00:00 
 
 To reset time to system time: POST http://localhost:9999/api/automation/demo/reset-time
