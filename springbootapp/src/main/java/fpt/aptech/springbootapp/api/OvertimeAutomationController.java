@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/automation/demo")
@@ -64,5 +66,28 @@ public class OvertimeAutomationController {
     public ResponseEntity<String> triggerExpire() {
         automationService.autoExpireRequests();
         return ResponseEntity.ok("Triggered Expire Logic (at " + demoTimeService.getCurrentTime() + ")");
+    }
+
+    @GetMapping("/status")
+    public ResponseEntity<Map<String, Object>> getStatus() {
+        Map<String, Object> status = new HashMap<>();
+
+        boolean isFixed = demoTimeService.isTimeFixed();
+        LocalDateTime virtualNow = LocalDateTime.of(
+                demoTimeService.getCurrentDate(),
+                demoTimeService.getCurrentTime()
+        );
+
+        status.put("timeMachineActive", isFixed);
+        status.put("virtualTime", virtualNow.toString());
+        status.put("realSystemTime", LocalDateTime.now().toString());
+
+        if (isFixed) {
+            status.put("message", "SYSTEM TIME IS FROZEN. Automation will run based on Virtual Time.");
+        } else {
+            status.put("message", "System is running on real time.");
+        }
+
+        return ResponseEntity.ok(status);
     }
 }
