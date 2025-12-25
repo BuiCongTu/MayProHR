@@ -236,7 +236,7 @@ const HolidayManagement = () =>{
                     </Form>
                 </Card.Body>
             </Card>
-// admin hr
+{/*// admin hr*/}
             <Card className="mb-4 shadow-sm">
                 <Card.Header className="bg-light">
                     <h6 className="mb-0">Replicate Holidays (Admin)</h6>

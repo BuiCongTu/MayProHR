@@ -37,7 +37,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 || path.contains("/api/auth/register")
                 || path.contains("/api/auth/forgot-password")
                 || path.contains("/api/auth/reset-password")
-                || path.contains("/api/payroll/")
                 || path.contains("/api/face-scan/attendance")) {
             filterChain.doFilter(request, response);
             return;
@@ -65,8 +64,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     role = "USER";
                 }
 
+                // Normalize role: "Factory Director" -> "FACTORY_DIRECTOR"
+                String normalizedRole = role
+                        .trim()
+                        .toUpperCase()
+                        .replaceAll("[^A-Z0-9]+", "_");
+
                 List<SimpleGrantedAuthority> authorities = List
-                        .of(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()));
+                        .of(new SimpleGrantedAuthority("ROLE_" + normalizedRole));
 
                 UsernamePasswordAuthenticationToken authToken
                         = new UsernamePasswordAuthenticationToken(email, null, authorities);

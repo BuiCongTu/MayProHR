@@ -142,7 +142,7 @@ public class TbEmployeePayroll {
     private BigDecimal incomeAfterDeductions = BigDecimal.ZERO;
 
     public enum CalculationStatus {
-        draft, calculated, confirmed
+        draft, calculated, confirmed, approved
     }
 
     @Enumerated(EnumType.STRING)

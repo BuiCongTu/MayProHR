@@ -103,10 +103,11 @@ public class SecurityConfig {
                 // Public APIs
                 .requestMatchers(
                         "/api/auth/**",
+
                         "/socket/**",
                         "/api/overtime/**",
                         "/api/proposal/**",
-                        "/api/payroll/**",
+
                         "/api/department/**",
                         "/api/face/config",
                         "/api/cccd/scan",
@@ -120,6 +121,7 @@ public class SecurityConfig {
                 ).permitAll()
                 // Protected APIs
                 .requestMatchers(
+                        "/api/payroll/**",
                         "/api/face-scan/**",
                         "/api/face-training/**",
                         "/api/attendance/**",
