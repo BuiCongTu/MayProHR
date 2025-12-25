@@ -20,10 +20,19 @@ class _MyOvertimeScreenState extends State<MyOvertimeScreen> with SingleTickerPr
   bool _isLoading = true;
   String? _error;
 
+  late int _selectedMonth;
+  late int _selectedYear;
+  final List<int> _availableYears = List.generate(5, (index) => DateTime.now().year + 1 - index);
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+
+    final now = DateTime.now();
+    _selectedMonth = now.month;
+    _selectedYear = now.year;
+
     _wsService.connect();
     _wsService.onUpdate.listen((_) {
       print("Real-time update triggered");
@@ -71,7 +80,6 @@ class _MyOvertimeScreenState extends State<MyOvertimeScreen> with SingleTickerPr
 
   Future<void> _respond(int ticketId, String status) async {
     try {
-      // Show loading indicator
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -80,7 +88,7 @@ class _MyOvertimeScreenState extends State<MyOvertimeScreen> with SingleTickerPr
 
       await _overtimeService.respondToInvite(ticketId, status);
 
-      Navigator.pop(context); // Close loading dialog
+      Navigator.pop(context);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -88,20 +96,32 @@ class _MyOvertimeScreenState extends State<MyOvertimeScreen> with SingleTickerPr
             backgroundColor: Colors.green
         ),
       );
-      _loadData(); // Refresh list to remove the item
+      _loadData();
     } catch (e) {
-      Navigator.pop(context); // Close loading dialog
+      Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
       );
     }
   }
 
+  DateTime? _parseDate(String dateStr) {
+    return DateTime.tryParse(dateStr);
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Filter Lists locally based on status
     final pendingList = _allInvites.where((i) => i.status.toLowerCase() == 'pending').toList();
-    final historyList = _allInvites.where((i) => i.status.toLowerCase() != 'pending').toList();
+    pendingList.sort((a, b) {
+      return a.overtimeDate.compareTo(b.overtimeDate);
+    });
+
+    final historyListAll = _allInvites.where((i) => i.status.toLowerCase() != 'pending').toList();
+    final filteredHistoryList = historyListAll.where((item) {
+      final date = _parseDate(item.overtimeDate);
+      if (date == null) return false;
+      return date.month == _selectedMonth && date.year == _selectedYear;
+    }).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -132,7 +152,7 @@ class _MyOvertimeScreenState extends State<MyOvertimeScreen> with SingleTickerPr
         controller: _tabController,
         children: [
           _buildPendingList(pendingList),
-          _buildHistoryList(historyList),
+          _buildHistoryList(filteredHistoryList),
         ],
       ),
     );
@@ -178,7 +198,7 @@ class _MyOvertimeScreenState extends State<MyOvertimeScreen> with SingleTickerPr
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text("Manager: ${item.managerName}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                Text("Line: ${item.lineName}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 4),
                 Row(
                   children: [
@@ -188,11 +208,11 @@ class _MyOvertimeScreenState extends State<MyOvertimeScreen> with SingleTickerPr
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text("Line: ${item.lineName}", style: const TextStyle(color: Colors.blueGrey)),
+                Text("Manager: ${item.managerName}", style: const TextStyle(color: Colors.blueGrey)),
 
                 const SizedBox(height: 12),
 
-                // 3. PROGRESS BAR
+                // PROGRESS BAR
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
@@ -250,42 +270,90 @@ class _MyOvertimeScreenState extends State<MyOvertimeScreen> with SingleTickerPr
   }
 
   Widget _buildHistoryList(List<OvertimeInvite> list) {
-    if (list.isEmpty) return const Center(child: Text("No history found."));
+    return Column(
+      children: [
+        // Filter Bar
+        Container(
+          padding: const EdgeInsets.all(12),
+          color: Colors.grey[100],
+          child: Row(
+            children: [
+              const Icon(Icons.filter_list, color: Colors.blue),
+              const SizedBox(width: 8),
+              const Text("Filter: ", style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(width: 12),
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: list.length,
-      itemBuilder: (ctx, index) {
-        final item = list[index];
-        final isAccepted = item.status.toLowerCase() == 'accepted';
-        final bool isHighlighted = (item.ticketId == widget.highlightTicketId);
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: isHighlighted
-                ? const BorderSide(color: Colors.orange, width: 2)
-                : BorderSide.none,
-          ),
-          child: ListTile(
-            leading: Icon(
-              isAccepted ? Icons.check_circle : Icons.cancel,
-              color: isAccepted ? Colors.green : Colors.red,
-              size: 32,
-            ),
-            title: Text(item.overtimeDate),
-            subtitle: Text("${item.startTime} - ${item.endTime} (${item.hours}h)"),
-            trailing: Text(
-              isAccepted ? "ACCEPTED" : "REJECTED",
-              style: TextStyle(
-                  color: isAccepted ? Colors.green : Colors.red,
-                  fontWeight: FontWeight.bold
+              // Month Dropdown
+              DropdownButton<int>(
+                value: _selectedMonth,
+                items: List.generate(12, (index) => index + 1)
+                    .map((m) => DropdownMenuItem(
+                  value: m,
+                  child: Text("Month $m"),
+                )).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedMonth = val);
+                },
               ),
-            ),
+              const SizedBox(width: 16),
+
+              // Year Dropdown
+              DropdownButton<int>(
+                value: _selectedYear,
+                items: _availableYears
+                    .map((y) => DropdownMenuItem(
+                  value: y,
+                  child: Text("$y"),
+                )).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedYear = val);
+                },
+              ),
+            ],
           ),
-        );
-      },
+        ),
+
+        // List Content
+        Expanded(
+          child: list.isEmpty
+              ? Center(child: Text("No history found for Month $_selectedMonth/$_selectedYear."))
+              : ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: list.length,
+            itemBuilder: (ctx, index) {
+              final item = list[index];
+              final isAccepted = item.status.toLowerCase() == 'accepted';
+              final bool isHighlighted = (item.ticketId == widget.highlightTicketId);
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: isHighlighted
+                      ? const BorderSide(color: Colors.orange, width: 2)
+                      : BorderSide.none,
+                ),
+                child: ListTile(
+                  leading: Icon(
+                    isAccepted ? Icons.check_circle : Icons.cancel,
+                    color: isAccepted ? Colors.green : Colors.red,
+                    size: 32,
+                  ),
+                  title: Text(item.overtimeDate),
+                  subtitle: Text("${item.startTime} - ${item.endTime} (${item.hours}h)"),
+                  trailing: Text(
+                    isAccepted ? "ACCEPTED" : "REJECTED",
+                    style: TextStyle(
+                        color: isAccepted ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.bold
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

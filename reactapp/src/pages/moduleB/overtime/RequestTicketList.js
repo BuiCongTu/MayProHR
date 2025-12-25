@@ -169,7 +169,7 @@ function RequestTicketList({request, refreshTrigger}) {
                         <ToggleButton value="">All</ToggleButton>
                         <ToggleButton value="submitted">Submitted</ToggleButton>
                         <ToggleButton value="approved">Approved</ToggleButton>
-                        <ToggleButton value="rejected">Rejected</ToggleButton>
+                        {/*<ToggleButton value="rejected">Rejected</ToggleButton>*/}
                     </ToggleButtonGroup>
                 </Box>
             </Stack>

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
@@ -14,6 +15,17 @@ class AuthProvider with ChangeNotifier {
     if (!prefs.containsKey(AuthService.tokenKey)) return;
 
     token = prefs.getString(AuthService.tokenKey);
+
+    if (prefs.containsKey(AuthService.userKey)) {
+      final userStr = prefs.getString(AuthService.userKey);
+      if (userStr != null) {
+        try {
+          currentUser = jsonDecode(userStr);
+        } catch (e) {
+          print("Error decoding saved user data: $e");
+        }
+      }
+    }
 
     notifyListeners();
 

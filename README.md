@@ -96,3 +96,4 @@ Your configuration may vary depending on `application.properties` and React prox
 - Spring Boot: commonly `http://localhost:9999` (check logs / config)
 - Python Face API: depends on script configuration
 ---
+

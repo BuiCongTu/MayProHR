@@ -44,15 +44,15 @@ export default function WorkflowStepper({ status }) {
 
     let activeStep = 0;
     let isRejected = false;
-    let isExpired = false; // [NEW] Flag for expiry
+    let isExpired = false;
 
     // --- DETERMINE ACTIVE STEP ---
     if (s === 'draft') activeStep = 0;
     else if (s === 'pending') activeStep = 1;
     else if (s === 'rejected') { activeStep = 1; isRejected = true; }
-    else if (s === 'expired') { activeStep = 1; isExpired = true; } // [NEW] Handle expired status
+    else if (s === 'expired') { activeStep = 1; isExpired = true; }
     else if (s === 'open') activeStep = 2;
-    else if (s === 'processed') activeStep = 4; // Completed
+    else if (s === 'processed') activeStep = 4;
 
     // --- DYNAMIC LABELS ---
     // Step 1: Draft
