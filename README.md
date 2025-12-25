@@ -1,9 +1,4 @@
 # MayProHR
-May Professional Human Resources
-
-ERD: [https://app.diagrams.net/#HBuiCongTu%2FMayProHR%2Fmain%2FMayProHR.drawio#%7B%22pageId%22%3A%22Qdr_kwHjScFgfIdC0VMU%22%7D](https://app.diagrams.net/#HBuiCongTu%2FMayProHR%2Fmain%2FERD_MayPay_27-11-2025.drawio#%7B%22pageId%22%3A%22W4VcvkPIQewVUlpZOtXx%22%7D)
-
-# MayProHR
 
 Professional Human Resources system for face-based attendance and related services.
 

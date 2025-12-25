@@ -6,32 +6,41 @@ import { getCurrentUser } from '../../services/authService';
 import { getAllDepartments } from '../../services/departmentService';
 import { generatePayroll } from '../../services/moduleC/payrollService';
 
-
-
 const CreatePayroll = () =>
 {
     const navigate = useNavigate();
     const user = getCurrentUser();
 
-    // Factory Director là người tạo
-    const isFactoryDirector = useMemo(() =>
+    // Factory Director và Accounting được quyền tạo Payroll
+    const canCreatePayroll = useMemo(() =>
     {
         const role = user?.roleName;
-        return role === 'Factory Director' || role === 'FDirector';
+        return role === 'Factory Director' || role === 'Accounting';
     }, [user?.roleName]);
 
     const [departments, setDepartments] = useState([]);
     const [departmentsLoading, setDepartmentsLoading] = useState(true);
 
+    const now = new Date();
     const [form, setForm] = useState({
         departmentId: '',
-        month: '', // YYYY-MM (from <input type="month" />)
-        allowance: ''
+        year: String(now.getFullYear()),
+        month: String(now.getMonth() + 1).padStart(2, '0'),
+        allowance: '',
+        createDefaultPending: true
     });
 
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [info, setInfo] = useState('');
+
+    const [autoPayrollHint, setAutoPayrollHint] = useState('');
+
+    const selectedYearMonth = useMemo(() =>
+    {
+        if (!form.year || !form.month) return '';
+        return `${form.year}-${String(form.month).padStart(2, '0')}`;
+    }, [form.year, form.month]);
 
     useEffect(() =>
     {
@@ -54,31 +63,60 @@ const CreatePayroll = () =>
         loadDepartments();
     }, []);
 
-    if (!isFactoryDirector)
+    // Hiển thị “ngày cuối tháng” như gợi ý lịch auto
+    useEffect(() =>
+    {
+        const yyyyMm = selectedYearMonth;
+        if (!yyyyMm || typeof yyyyMm !== 'string' || !yyyyMm.includes('-'))
+        {
+            setAutoPayrollHint('');
+            return;
+        }
+
+        const [yStr, mStr] = yyyyMm.split('-');
+        const y = Number(yStr);
+        const m = Number(mStr);
+        if (!y || !m)
+        {
+            setAutoPayrollHint('');
+            return;
+        }
+
+        const lastDay = new Date(y, m, 0);
+        const dd = String(lastDay.getDate()).padStart(2, '0');
+        const mm = String(m).padStart(2, '0');
+
+        setAutoPayrollHint(
+            `Gợi ý lịch tự động: ngày cuối tháng ${dd}/${mm}/${y}.`
+        );
+    }, [selectedYearMonth]);
+
+    if (!canCreatePayroll)
     {
         return (
             <ErrorPage
                 code={403}
                 title="Access Forbidden"
-                message="Only Factory Director can create payroll."
+                message="Only Factory Director or Accounting can create payroll."
             />
         );
     }
 
     const handleChange = (e) =>
     {
-        const { name, value } = e.target;
-        setForm(prev => ({ ...prev, [name]: value }));
+        const { name, value, type, checked } = e.target;
+        const nextValue = type === 'checkbox' ? checked : value;
+        setForm(prev => ({ ...prev, [name]: nextValue }));
     };
 
-    const toIsoDateFirstDay = (yyyyMm) =>
+    const toIsoDateFirstDayFromYearMonth = (yearStr, monthStr) =>
     {
-        // Backend nhận LocalDate => cần YYYY-MM-DD
-        // input type="month" trả về YYYY-MM
-        if (!yyyyMm || typeof yyyyMm !== 'string' || !yyyyMm.includes('-')) return '';
-        const [y, m] = yyyyMm.split('-');
-        if (!y || !m) return '';
-        return `${y}-${m}-01`;
+        const y = String(yearStr || '').trim();
+        const m = String(monthStr || '').trim();
+        if (!/^\d{4}$/.test(y)) return '';
+        if (!/^\d{1,2}$/.test(m) && !/^\d{2}$/.test(m)) return '';
+        const mm = String(Number(m)).padStart(2, '0');
+        return `${y}-${mm}-01`;
     };
 
     const handleSubmit = async (e) =>
@@ -92,16 +130,16 @@ const CreatePayroll = () =>
             setError('Please select a department');
             return;
         }
-        if (!form.month)
+        if (!form.year || !form.month)
         {
-            setError('Please select a month');
+            setError('Please select year and month');
             return;
         }
 
-        const monthIso = toIsoDateFirstDay(form.month);
+        const monthIso = toIsoDateFirstDayFromYearMonth(form.year, form.month);
         if (!monthIso)
         {
-            setError('Invalid month format');
+            setError('Invalid year/month');
             return;
         }
 
@@ -112,8 +150,12 @@ const CreatePayroll = () =>
             return;
         }
 
+        const modeText = form.createDefaultPending
+            ? 'DEFAULT (Pending) payroll'
+            : 'payroll';
+
         const confirmed = window.confirm(
-            `Create payroll for department #${form.departmentId} for month ${form.month}?`
+            `Create ${modeText} for department #${form.departmentId} for month ${selectedYearMonth}?`
         );
         if (!confirmed) return;
 
@@ -121,13 +163,18 @@ const CreatePayroll = () =>
         {
             setSubmitting(true);
 
+            // API backend đúng là: POST /api/payroll/generate
             const data = await generatePayroll(
                 Number(form.departmentId),
                 monthIso,
-                allowanceNumber
+                form.createDefaultPending ? 0 : allowanceNumber
             );
 
-            setInfo('Payroll created successfully.');
+            setInfo(
+                form.createDefaultPending
+                    ? 'Đã tạo bảng lương mặc định (Pending).'
+                    : 'Payroll created successfully.'
+            );
 
             const payrollId = data?.payrollId || data?.id;
             if (payrollId)
@@ -153,12 +200,13 @@ const CreatePayroll = () =>
 
     return (
         <div className="payroll-list-container p-4">
-            <h2>Tạo Bảng Lương (Factory Director)</h2>
+            <h2>Tạo Bảng Lương (Factory Director / Accounting)</h2>
 
-            {(error || info) && (
+            {(error || info || autoPayrollHint) && (
                 <div className="mb-3">
                     {error && <Alert variant="danger">{error}</Alert>}
                     {info && <Alert variant="success">{info}</Alert>}
+                    {autoPayrollHint && <Alert variant="info" className="mb-0">{autoPayrollHint}</Alert>}
                 </div>
             )}
 
@@ -198,14 +246,39 @@ const CreatePayroll = () =>
                             <Col md={6}>
                                 <Form.Group>
                                     <Form.Label>Month <span style={{ color: 'red' }}>*</span></Form.Label>
-                                    <Form.Control
-                                        type="month"
-                                        name="month"
-                                        value={form.month}
-                                        onChange={handleChange}
-                                    />
+
+                                    <Row className="g-2">
+                                        <Col xs={6}>
+                                            <Form.Select
+                                                name="year"
+                                                value={form.year}
+                                                onChange={handleChange}
+                                            >
+                                                {Array.from({ length: 7 }).map((_, i) =>
+                                                {
+                                                    const y = String(now.getFullYear() - 3 + i);
+                                                    return <option key={y} value={y}>{y}</option>;
+                                                })}
+                                            </Form.Select>
+                                        </Col>
+
+                                        <Col xs={6}>
+                                            <Form.Select
+                                                name="month"
+                                                value={form.month}
+                                                onChange={handleChange}
+                                            >
+                                                {Array.from({ length: 12 }).map((_, i) =>
+                                                {
+                                                    const m = String(i + 1).padStart(2, '0');
+                                                    return <option key={m} value={m}>{m}</option>;
+                                                })}
+                                            </Form.Select>
+                                        </Col>
+                                    </Row>
+
                                     <Form.Text className="text-muted">
-                                        The system will normalize to the 1st day of the month when creating payroll.
+                                        Tháng/Năm đã chọn: <strong>{selectedYearMonth}</strong> (gửi backend dạng: {toIsoDateFirstDayFromYearMonth(form.year, form.month)})
                                     </Form.Text>
                                 </Form.Group>
                             </Col>
@@ -213,6 +286,16 @@ const CreatePayroll = () =>
 
                         <Row className="gy-3 mt-1">
                             <Col md={6}>
+                                <Form.Group className="mb-2">
+                                    <Form.Check
+                                        type="checkbox"
+                                        name="createDefaultPending"
+                                        checked={!!form.createDefaultPending}
+                                        onChange={handleChange}
+                                        label="Tạo bảng lương mặc định cho employee theo Department + Tháng (Pending)"
+                                    />
+                                </Form.Group>
+
                                 <Form.Group>
                                     <Form.Label>Allowance (optional)</Form.Label>
                                     <Form.Control
@@ -223,6 +306,7 @@ const CreatePayroll = () =>
                                         min="0"
                                         step="1"
                                         placeholder="0"
+                                        disabled={!!form.createDefaultPending}
                                     />
                                 </Form.Group>
                             </Col>
@@ -231,12 +315,9 @@ const CreatePayroll = () =>
                                 <Form.Group>
                                     <Form.Label>Created By</Form.Label>
                                     <Form.Control
-                                        value={`${user?.fullName || 'N/A'} (${user?.roleName || 'N/A'})`}
+                                        value={`${user?.roleName || 'N/A'} (${user?.roleName || 'N/A'})`}
                                         readOnly
                                     />
-                                    <Form.Text className="text-muted">
-                                        createdBy should be set in the backend based on the JWT of the Factory Director.
-                                    </Form.Text>
                                 </Form.Group>
                             </Col>
                         </Row>

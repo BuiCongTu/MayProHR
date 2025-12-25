@@ -397,11 +397,94 @@ export const recalculatePayroll = async (employeePayrollId, additionalAllowance 
         throw error;
     }
 };
+export const autoCalculateAllPayrolls = async (payrollIds = [], options = {}) => {
+    const {
+        perPayrollConcurrency = 4,
+        onPayrollProgress = null
+    } = options;
 
-/* Lấy danh sách lương theo bộ phận và tháng
- * @param {number} departmentId - ID bộ phận
- * @param {string} month - Tháng (format: YYYY-MM)
- */
+    const ids = (Array.isArray(payrollIds) ? payrollIds : [])
+        .map(Number)
+        .filter(Boolean);
+
+    let payrollDone = 0;
+    const failedPayrollIds = [];
+
+    for (const payrollId of ids) {
+        try {
+            await recalculateAllEmployeesInPayroll(payrollId, {
+                concurrency: perPayrollConcurrency
+            });
+        } catch (e) {
+            failedPayrollIds.push(payrollId);
+        } finally {
+            payrollDone += 1;
+            if (typeof onPayrollProgress === 'function') {
+                onPayrollProgress({ done: payrollDone, total: ids.length });
+            }
+        }
+    }
+
+    return {
+        totalPayrolls: ids.length,
+        failedPayrolls: failedPayrollIds.length,
+        failedPayrollIds
+    };
+};
+
+// Auto recalculate toàn bộ employee trong 1 payroll
+export const recalculateAllEmployeesInPayroll = async (payrollId, options = {}) => {
+    const {
+        additionalAllowance = null,
+        concurrency = 4,
+        onProgress = null
+    } = options;
+
+    const detail = await getPayrollDetail(payrollId);
+
+    const employeePayrolls = detail?.employeePayrolls || detail?.employees || [];
+    const ids = employeePayrolls
+        .map(e => e?.employeePayrollId ?? e?.id)
+        .filter(Boolean);
+
+    if (ids.length === 0) {
+        return { total: 0, success: 0, failed: 0, failedIds: [] };
+    }
+
+    let done = 0;
+    let success = 0;
+    const failedIds = [];
+
+    const worker = async () => {
+        while (true) {
+            const nextId = ids.shift();
+            if (!nextId) return;
+
+            try {
+                await recalculatePayroll(nextId, additionalAllowance);
+                success += 1;
+            } catch (e) {
+                failedIds.push(nextId);
+            } finally {
+                done += 1;
+                if (typeof onProgress === 'function') {
+                    onProgress({ done, total: done + ids.length });
+                }
+            }
+        }
+    };
+
+    const poolSize = Math.max(1, Math.min(concurrency, ids.length));
+    await Promise.all(Array.from({ length: poolSize }).map(() => worker()));
+
+    return {
+        total: done,
+        success,
+        failed: failedIds.length,
+        failedIds
+    };
+};
+
 export const getPayrollByDepartmentAndMonth = async (departmentId, month) => {
     try {
         const response = await axiosInstance.get(
@@ -494,5 +577,7 @@ export default {
     getEmployeePayrollHistory,
     previewEmployeePayroll,
     confirmEmployeePayroll,
-    syncPayrollEmployeesFromAttendance
+    syncPayrollEmployeesFromAttendance,
+    recalculateAllEmployeesInPayroll,
+    autoCalculateAllPayrolls
 };

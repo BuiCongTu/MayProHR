@@ -45,7 +45,6 @@ const getNavLinks = (roleName) =>
                 { title: 'Overtime Requests', path: '/overtime-request' },
                 { title: 'Overtime Tickets', path: '/overtime-ticket' },
 
-                { title: 'Reports', path: '/reports' },
             ];
             break;
 
@@ -73,7 +72,7 @@ const getNavLinks = (roleName) =>
                 { title: 'Proposal', path: '/position-change' },
                 { title: 'Attendance', path: '/attendance/register-face' },
                 { title: 'Leave Request', path: '/leave-request' },
-                { title: 'Reports', path: '/reports' },
+                { title: 'Reports', path: '/payroll/report' },
             ];
             break;
 
@@ -82,11 +81,12 @@ const getNavLinks = (roleName) =>
             links = [
                 { title: 'Dashboard', path: '/dashboard' },
                 { title: 'Payroll', path: '/payroll' },
+                { title: 'Create', path: '/payroll/create' },
                 { title: 'Overtime Requests', path: '/overtime-request' },
                 { title: 'Proposal', path: '/factory-director/proposals' },
                 { title: 'Overview', path: '/overview' },
                 { title: 'Leave Request', path: '/leave-request' },
-                { title: 'Reports', path: '/reports' },
+                { title: 'Reports', path: '/payroll/report' },
             ];
             break;
 
@@ -94,7 +94,8 @@ const getNavLinks = (roleName) =>
             links = [
                 { title: 'Dashboard', path: '/dashboard' },
                 { title: 'Payroll', path: '/payroll' },
-                { title: 'Reports', path: '/reports' },
+                { title: 'Create', path: '/payroll/create' },
+                { title: 'Reports', path: '/payroll/report' },
             ];
             break;
 
