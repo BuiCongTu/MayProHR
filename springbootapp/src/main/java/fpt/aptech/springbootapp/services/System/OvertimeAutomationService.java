@@ -127,16 +127,16 @@ public class OvertimeAutomationService {
                 ticket.setReason("Auto-approved by System (Shift Imminent)");
 
                 // Notify Manager
-//                notificationService.sendNotification(ticket.getManager(),
-//                        "Ticket #" + ticket.getId() + " has been auto-approved as the shift is starting soon.",
-//                        TbNotification.NotificationType.approval);
+               notificationService.sendNotification(ticket.getManager(),
+                       "Ticket #" + ticket.getId() + " has been auto-approved as the shift is starting soon.",
+                       TbNotification.NotificationType.approval);
 
                 // Notify Director (Optional FY)
-//                if (ticket.getOvertimeRequest().getFactoryManager() != null) {
-//                    notificationService.sendNotification(ticket.getOvertimeRequest().getFactoryManager(),
-//                            "Ticket #" + ticket.getId() + " was auto-approved by system.",
-//                            TbNotification.NotificationType.other);
-//                }
+               if (ticket.getOvertimeRequest().getFactoryManager() != null) {
+                   notificationService.sendNotification(ticket.getOvertimeRequest().getFactoryManager(),
+                           "Ticket #" + ticket.getId() + " was auto-approved by system.",
+                           TbNotification.NotificationType.other);
+               }
             }
 
             ticketRepo.saveAll(pendingTickets);
