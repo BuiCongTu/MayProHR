@@ -273,7 +273,7 @@ const RegisterFacePage = () => {
                                 }}
                                 style={{ width: '100%', padding: 10, borderRadius: 6 }}
                             >
-                                <option value="">-- Chọn Phòng Ban --</option>
+                                <option value="">-- Select Department --</option>
                                 {departments.map(d => (
                                     <option key={d.id ?? d.departmentId} value={d.id ?? d.departmentId}>{d.name ?? d.departmentName}</option>
                                 ))}
@@ -352,7 +352,7 @@ const RegisterFacePage = () => {
                     {/* Selected user detail (before capture) */}
                     {showUserDetail && selectedUserId && (
                         <div style={{ marginTop: 20, padding: 20, border: '2px solid #eee', borderRadius: 8, background: '#fafafa' }}>
-                            <h3>Chi tiết nhân viên</h3>
+                            <h3>Employee Details</h3>
                             {(() => {
                                 const su = getSelectedUser();
                                 if (!su) return <p>Not Found user</p>;

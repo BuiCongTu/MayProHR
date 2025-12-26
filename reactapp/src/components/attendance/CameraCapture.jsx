@@ -28,7 +28,7 @@ const CameraCapture = forwardRef(({ onCapture, autoCapture = false, autoStopOnCa
             }
         } catch (err) {
             console.error('Error accessing camera:', err);
-            setError('Không thể truy cập camera. Vui lòng kiểm tra quyền truy cập.');
+            setError('Cannot access camera. Please make sure you have granted camera access in your browser settings.');
         }
     };
 
@@ -53,7 +53,7 @@ const CameraCapture = forwardRef(({ onCapture, autoCapture = false, autoStopOnCa
     useEffect(() => {
         startCamera();
         return () => {
-            // Cleanup: tắt camera khi component unmount
+            // Cleanup: stop camera when component unmounts
             stopCamera();
         };
     }, [stopCamera]);
@@ -103,7 +103,7 @@ const CameraCapture = forwardRef(({ onCapture, autoCapture = false, autoStopOnCa
             return imageBase64;
         } catch (err) {
             console.error('Error capturing image:', err);
-            setError('Lỗi khi chụp ảnh. Vui lòng thử lại.');
+            setError('Error capturing image:');
             // Auto-stop on error to allow user to restart fresh
             if (autoStopOnCapture) {
                 setTimeout(() => {
@@ -161,7 +161,7 @@ const CameraCapture = forwardRef(({ onCapture, autoCapture = false, autoStopOnCa
             {lastCapture && (
                 <Paper sx={{ mb: 2, overflow: 'hidden', backgroundColor: '#f5f5f5', p: 1 }}>
                     <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>
-                        📷 Ảnh vừa chụp:
+                        📷 Captured Image:
                     </Typography>
                     <Box
                         component="img"
@@ -181,7 +181,7 @@ const CameraCapture = forwardRef(({ onCapture, autoCapture = false, autoStopOnCa
                         startIcon={<PhotoCamera />}
                         onClick={startCamera}
                     >
-                        Bật Camera
+                        Start Camera
                     </Button>
                 )}
 
@@ -194,7 +194,7 @@ const CameraCapture = forwardRef(({ onCapture, autoCapture = false, autoStopOnCa
                             onClick={captureImage}
                             disabled={isCapturing}
                         >
-                            {isCapturing ? 'Đang chụp...' : 'Chụp Ảnh'}
+                            {isCapturing ? 'Capturing...' : 'Capture'}
                         </Button>
                         <Button
                             variant="outlined"
@@ -202,7 +202,7 @@ const CameraCapture = forwardRef(({ onCapture, autoCapture = false, autoStopOnCa
                             startIcon={<Close />}
                             onClick={stopCamera}
                         >
-                            Tắt Camera
+                            Stop Camera
                         </Button>
                     </>
                 )}
@@ -211,13 +211,13 @@ const CameraCapture = forwardRef(({ onCapture, autoCapture = false, autoStopOnCa
             {/* Instructions */}
             <Paper sx={{ p: 2, backgroundColor: '#e3f2fd', borderLeft: '4px solid #2196F3' }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                    📝 Hướng dẫn chụp ảnh:
+                    📝 Instructions:
                 </Typography>
                 <Box component="ul" sx={{ pl: 2, m: 0 }}>
-                    <Typography component="li" variant="body2">✓ Nhìn thẳng vào camera</Typography>
-                    <Typography component="li" variant="body2">✓ Đảm bảo đủ ánh sáng</Typography>
-                    <Typography component="li" variant="body2">✓ KHÔNG đeo khẩu trang</Typography>
-                    <Typography component="li" variant="body2">✓ Khuôn mặt chiếm ~70% khung hình</Typography>
+                    <Typography component="li" variant="body2">✓ Look straight at the camera</Typography>
+                    <Typography component="li" variant="body2">✓ Ensure sufficient lighting</Typography>
+                    <Typography component="li" variant="body2">✓ Do NOT wear a mask</Typography>
+                    <Typography component="li" variant="body2">✓ Face should occupy ~70% of the frame</Typography>
                 </Box>
             </Paper>
 

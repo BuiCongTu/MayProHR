@@ -111,7 +111,10 @@ const TimeBasedPayrollBreakdown = ({ employeePayrollId, payrollMonth }) => {
                             <td className="text-right">{breakdown.actualWorkingDays} ngày</td>
                         </tr>
                         <tr className="table-success">
-                            <td><strong>Lương thời gian</strong> (cơ bản / 26 × ngày công)</td>
+                            <td>
+                                <strong>Lương thời gian</strong>
+                                {` (cơ bản / ${breakdown.standardWorkingDays} × ngày công)`}
+                            </td>
                             <td className="text-right"><strong>{formatCurrency(breakdown.timeSalary)}</strong></td>
                         </tr>
                         </tbody>

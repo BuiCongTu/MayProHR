@@ -55,7 +55,7 @@ const PayrollAnalysis = () =>
     } catch (err)
     {
       console.error('Analysis error:', err);
-      setError(err.response?.data?.message || err.message || 'Không thể phân tích payroll');
+      setError(err.response?.data?.message || err.message || 'command failed. Please try again.');
     } finally
     {
       setLoading(false);
@@ -108,7 +108,7 @@ const PayrollAnalysis = () =>
           <Badge bg="info" className="ms-2">Powered by Gemini AI</Badge>
         </h2>
         <Button variant="outline-secondary" onClick={() => navigate('/payroll')}>
-          Quay lại
+          &larr; Back to Payroll
         </Button>
       </div>
 
@@ -116,14 +116,14 @@ const PayrollAnalysis = () =>
       <Card className="mb-4 shadow-sm">
         <Card.Header className="bg-primary text-white">
           <FaCalendarAlt className="me-2" />
-          Chọn kỳ phân tích
+          Select Analysis Period
         </Card.Header>
         <Card.Body>
           <Form onSubmit={handleAnalyze}>
             <Row>
               <Col md={3}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Năm</Form.Label>
+                  <Form.Label>Year</Form.Label>
                   <Form.Select
                     value={year}
                     onChange={(e) => setYear(parseInt(e.target.value))}
@@ -136,28 +136,28 @@ const PayrollAnalysis = () =>
               </Col>
               <Col md={3}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Tháng</Form.Label>
+                  <Form.Label>Month</Form.Label>
                   <Form.Select
                     value={month}
                     onChange={(e) => setMonth(parseInt(e.target.value))}
                   >
                     {[...Array(12)].map((_, i) => (
-                      <option key={i + 1} value={i + 1}>Tháng {i + 1}</option>
+                      <option key={i + 1} value={i + 1}>Month {i + 1}</option>
                     ))}
                   </Form.Select>
                 </Form.Group>
               </Col>
               <Col md={3}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Loại phân tích</Form.Label>
+                  <Form.Label>Analysis Type</Form.Label>
                   <Form.Select
                     value={analysisType}
                     onChange={(e) => setAnalysisType(e.target.value)}
                   >
-                    <option value="all">Toàn bộ</option>
-                    <option value="overview">Tổng quan</option>
-                    <option value="anomaly">Bất thường</option>
-                    <option value="recommendations">Gợi ý</option>
+                    <option value="all">All</option>
+                    <option value="overview">Overview</option>
+                    <option value="anomaly">Anomaly</option>
+                    <option value="recommendations">Recommendations</option>
                   </Form.Select>
                 </Form.Group>
               </Col>
@@ -167,7 +167,7 @@ const PayrollAnalysis = () =>
                   <div>
                     <Form.Check
                       type="checkbox"
-                      label="So sánh tháng trước"
+                      label="Compare with previous month"
                       checked={compareWithPrevious}
                       onChange={(e) => setCompareWithPrevious(e.target.checked)}
                     />
@@ -184,12 +184,12 @@ const PayrollAnalysis = () =>
               {loading ? (
                 <>
                   <Spinner animation="border" size="sm" className="me-2" />
-                  Đang phân tích với AI...
+                  Analyzing with AI...
                 </>
               ) : (
                 <>
                   <FaRobot className="me-2" />
-                  Phân tích ngay
+                  Analyze Now
                 </>
               )}
             </Button>
@@ -212,7 +212,7 @@ const PayrollAnalysis = () =>
             <Card className="mb-4 shadow-sm border-success">
               <Card.Header className="bg-success text-white">
                 <FaRobot className="me-2" />
-                Tóm tắt phân tích AI
+                AI Analysis Summary
               </Card.Header>
               <Card.Body>
                 <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.8' }}>
@@ -227,20 +227,20 @@ const PayrollAnalysis = () =>
             <Card className="mb-4 shadow-sm">
               <Card.Header className="bg-info text-white">
                 <FaChartLine className="me-2" />
-                Tổng quan
+                Overview
               </Card.Header>
               <Card.Body>
                 <Row>
                   <Col md={3} className="mb-3">
                     <div className="text-center p-3 bg-light rounded">
                       <FaUsers className="text-primary mb-2" size={30} />
-                      <h6 className="text-muted mb-1">Tổng nhân viên</h6>
+                      <h6 className="text-muted mb-1">Total Employees</h6>
                       <h3 className="text-primary">{analysis.overview.totalEmployees}</h3>
                     </div>
                   </Col>
                   <Col md={3} className="mb-3">
                     <div className="text-center p-3 bg-light rounded">
-                      <h6 className="text-muted mb-1">Tổng chi phí</h6>
+                      <h6 className="text-muted mb-1">Total Cost</h6>
                       <h5 className="text-danger">
                         {formatCurrency(analysis.overview.totalPayrollCost)}
                       </h5>
@@ -248,7 +248,7 @@ const PayrollAnalysis = () =>
                   </Col>
                   <Col md={3} className="mb-3">
                     <div className="text-center p-3 bg-light rounded">
-                      <h6 className="text-muted mb-1">Lương TB</h6>
+                      <h6 className="text-muted mb-1">Average Salary</h6>
                       <h5 className="text-success">
                         {formatCurrency(analysis.overview.averageSalary)}
                       </h5>
@@ -256,7 +256,7 @@ const PayrollAnalysis = () =>
                   </Col>
                   <Col md={3} className="mb-3">
                     <div className="text-center p-3 bg-light rounded">
-                      <h6 className="text-muted mb-1">Tổng OT</h6>
+                      <h6 className="text-muted mb-1">Total OT</h6>
                       <h5 className="text-warning">
                         {formatCurrency(analysis.overview.totalOvertimePay)}
                       </h5>
@@ -267,7 +267,7 @@ const PayrollAnalysis = () =>
                 {/* Top Earners */}
                 {analysis.overview.topEarners && analysis.overview.topEarners.length > 0 && (
                   <div className="mt-3">
-                    <h6 className="text-muted mb-2">Top 5 thu nhập cao:</h6>
+                    <h6 className="text-muted mb-2">Top 5 Highest Earners:</h6>
                     <ListGroup variant="flush">
                       {analysis.overview.topEarners.map((earner, index) => (
                         <ListGroup.Item key={index}>
@@ -287,7 +287,7 @@ const PayrollAnalysis = () =>
             <Card className="mb-4 shadow-sm border-warning">
               <Card.Header className="bg-warning text-dark">
                 <FaExclamationTriangle className="me-2" />
-                Bất thường phát hiện ({analysis.anomalies.length})
+                Anomalies Detected ({analysis.anomalies.length})
               </Card.Header>
               <Card.Body>
                 <ListGroup variant="flush">
@@ -311,7 +311,7 @@ const PayrollAnalysis = () =>
                         </div>
                         {anomaly.actualValue && (
                           <div className="text-end ms-3">
-                            <small className="text-muted">Giá trị</small>
+                            <small className="text-muted">Value</small>
                             <div className="fw-bold">
                               {formatCurrency(anomaly.actualValue)}
                             </div>
@@ -330,7 +330,7 @@ const PayrollAnalysis = () =>
             <Card className="mb-4 shadow-sm border-primary">
               <Card.Header className="bg-primary text-white">
                 <FaLightbulb className="me-2" />
-                Gợi ý tối ưu ({analysis.recommendations.length})
+                Optimization Suggestions ({analysis.recommendations.length})
               </Card.Header>
               <Card.Body>
                 {analysis.recommendations.map((rec, index) => (
@@ -346,7 +346,7 @@ const PayrollAnalysis = () =>
                       {rec.actionItems && rec.actionItems.length > 0 && (
                         <div>
                           <small className="text-muted d-block mb-1">
-                            <strong>Hành động:</strong>
+                            <strong>Actions:</strong>
                           </small>
                           <ul className="mb-0">
                             {rec.actionItems.map((item, i) => (
@@ -358,7 +358,7 @@ const PayrollAnalysis = () =>
                       {rec.estimatedImpact && parseFloat(rec.estimatedImpact) > 0 && (
                         <div className="mt-2">
                           <Badge bg="success">
-                            Tiết kiệm ước tính: {formatCurrency(rec.estimatedImpact)}
+                            Estimated Savings: {formatCurrency(rec.estimatedImpact)}
                           </Badge>
                         </div>
                       )}
@@ -374,7 +374,7 @@ const PayrollAnalysis = () =>
             <Card className="mb-4 shadow-sm">
               <Card.Header className="bg-secondary text-white">
                 <FaChartLine className="me-2" />
-                So sánh với tháng trước
+                Comparison with Previous Month
               </Card.Header>
               <Card.Body>
                 <Alert variant={

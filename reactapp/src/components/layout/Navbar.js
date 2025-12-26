@@ -65,6 +65,7 @@ const getNavLinks = (roleName) =>
                         { title: 'Tax Bracket', path: '/payroll/tax-bracket' },
                         { title: 'Production', path: '/payroll/production' },
                         { title: 'Employee Production', path: '/payroll/employee-production' },
+                        { title: 'Reconcile Tool', path: '/payroll/reconcile' },
                     ],
                 },
 
@@ -80,12 +81,25 @@ const getNavLinks = (roleName) =>
         case 'FDirector':
             links = [
                 { title: 'Dashboard', path: '/dashboard' },
-                { title: 'Payroll', path: '/payroll' },
-                { title: 'Create', path: '/payroll/create' },
+                {
+                    title: 'Pay Management',
+                    path: '/payroll',
+                    children: [
+                        { title: 'Create', path: '/payroll/create' },
+                        { title: 'Payroll Dasshboard', path: '/payroll' },
+                        { title: 'Allowances', path: '/payroll/allowances/recurring' },
+                        { title: 'Holidays', path: '/payroll/holidays' },
+                        { title: 'Deduction', path: '/payroll/tax-deduction' },
+                        { title: 'Tax Bracket', path: '/payroll/tax-bracket' },
+                        { title: 'Production', path: '/payroll/production' },
+                        { title: 'Employee Production', path: '/payroll/employee-production' },
+                        { title: 'Reconcile Tool', path: '/payroll/reconcile' },
+                    ],
+                },
                 { title: 'Overtime Requests', path: '/overtime-request' },
                 { title: 'Proposal', path: '/factory-director/proposals' },
-                { title: 'Overview', path: '/overview' },
                 { title: 'Leave Request', path: '/leave-request' },
+                { title: 'Reconcile Tool', path: '/payroll/reconcile' },
                 { title: 'Reports', path: '/payroll/report' },
             ];
             break;
@@ -93,9 +107,23 @@ const getNavLinks = (roleName) =>
         case 'Accounting':
             links = [
                 { title: 'Dashboard', path: '/dashboard' },
-                { title: 'Payroll', path: '/payroll' },
-                { title: 'Create', path: '/payroll/create' },
+                {
+                    title: 'Pay Management',
+                    path: '/payroll',
+                    children: [
+                        { title: 'Create', path: '/payroll/create' },
+                        { title: 'Payroll Dasshboard', path: '/payroll' },
+                        { title: 'Allowances', path: '/payroll/allowances/recurring' },
+                        { title: 'Holidays', path: '/payroll/holidays' },
+                        { title: 'Deduction', path: '/payroll/tax-deduction' },
+                        { title: 'Tax Bracket', path: '/payroll/tax-bracket' },
+                        { title: 'Production', path: '/payroll/production' },
+                        { title: 'Employee Production', path: '/payroll/employee-production' },
+                        { title: 'Reconcile Tool', path: '/payroll/reconcile' },
+                    ],
+                },
                 { title: 'Reports', path: '/payroll/report' },
+                { title: 'Reconcile Tool', path: '/payroll/reconcile' },
             ];
             break;
 

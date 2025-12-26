@@ -1,17 +1,8 @@
 package fpt.aptech.springbootapp.api.ModuleC;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.math.*;
+import java.time.*;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,48 +11,19 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import fpt.aptech.springbootapp.dtos.ModuleC.AllowanceRequestDTO;
-import fpt.aptech.springbootapp.dtos.ModuleC.EmpRecurAllowReqDTO;
-import fpt.aptech.springbootapp.dtos.ModuleC.EmployeeTaxProfileDTO;
-import fpt.aptech.springbootapp.dtos.ModuleC.PayrollAnalysisRequest;
-import fpt.aptech.springbootapp.dtos.ModuleC.PayrollAnalysisResponse;
-import fpt.aptech.springbootapp.dtos.ModuleC.PayrollCalculationDTO;
-import fpt.aptech.springbootapp.dtos.ModuleC.PayrollDetailDTO;
-import fpt.aptech.springbootapp.dtos.ModuleC.PayrollResponseDTO;
-import fpt.aptech.springbootapp.dtos.ModuleC.TaxCalculationDTO;
-import fpt.aptech.springbootapp.dtos.ModuleC.TimeBaseAllocationRequest;
-import fpt.aptech.springbootapp.dtos.ModuleC.TimeBaseAllocationResult;
-import fpt.aptech.springbootapp.entities.Core.TbDepartment;
-import fpt.aptech.springbootapp.entities.Core.TbUser;
-import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeePayroll;
-import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeeWorkTime;
-import fpt.aptech.springbootapp.entities.ModuleC.TbPayroll;
+import fpt.aptech.springbootapp.dtos.ModuleC.*;
+import fpt.aptech.springbootapp.entities.Core.*;
+import fpt.aptech.springbootapp.entities.ModuleC.*;
 import fpt.aptech.springbootapp.entities.ModuleC.TbPayrollAllowance;
 import fpt.aptech.springbootapp.entities.ModuleC.TbPayrollAllowance.AllowanceScope;
 import fpt.aptech.springbootapp.repositories.DepartmentRepository;
 import fpt.aptech.springbootapp.repositories.ModuleA_Time_Attendance.AttendanceRepository;
-import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.EmployeePayrollRepo;
-import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.PayrollAllowanceRepo;
-import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.PayrollRepo;
+import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.*;
 import fpt.aptech.springbootapp.repositories.UserRepository;
-import fpt.aptech.springbootapp.services.ModuleC_Payroll.EmployeeTaxProfileService;
-import fpt.aptech.springbootapp.services.ModuleC_Payroll.PayrollAnalysisService;
-import fpt.aptech.springbootapp.services.ModuleC_Payroll.PayrollCalculationService;
-import fpt.aptech.springbootapp.services.ModuleC_Payroll.PayrollService;
-import fpt.aptech.springbootapp.services.ModuleC_Payroll.PersonalIncomeTaxCalService;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import fpt.aptech.springbootapp.services.ModuleC_Payroll.*;
+import lombok.*;
 
 @RestController
 @RequestMapping("/api/payroll")
@@ -942,7 +904,7 @@ public class PayrollController {
                 return ResponseEntity.badRequest().body(body);
             }
 
-            // ✅ Resolve current user from SecurityContext (JWT)
+            //Resolve current user from SecurityContext (JWT)
             TbUser createdBy = resolveCurrentUser();
 
             // Tạo payroll
@@ -1257,6 +1219,7 @@ public class PayrollController {
                     .orElseThrow(() -> new RuntimeException("Employee payroll not found"));
 
             PayrollDetailDTO breakdown = new PayrollDetailDTO();
+
             breakdown.setEmployeePayrollId(ep.getId());
             breakdown.setPayrollId(ep.getPayroll().getId());
             breakdown.setPayrollMonth(ep.getPayroll().getMonth());
@@ -1278,8 +1241,11 @@ public class PayrollController {
                 breakdown.setUnpaidLeaveDays(ep.getUnpaidLeaveDays());
                 breakdown.setLateCount(ep.getLateCount());
                 breakdown.setLatePenalty(ep.getLatePenalty());
+
+                BigDecimal stdDays = ep.getStandardWorkingDays() != null ? ep.getStandardWorkingDays() : new BigDecimal("26");
+
                 breakdown.setTimeSalary(ep.getBaseSalary()
-                        .divide(new java.math.BigDecimal("26"), 2, java.math.RoundingMode.HALF_UP)
+                        .divide(stdDays, 2, java.math.RoundingMode.HALF_UP)
                         .multiply(ep.getActualWorkingDays()));
             } else {
                 // Dữ liệu ProductBased
@@ -1431,7 +1397,6 @@ public class PayrollController {
     }
 
     private static final BigDecimal STANDARD_WORKING_DAYS = new BigDecimal("26");
-    private static final BigDecimal HOURS_PER_MONTH = new BigDecimal("176"); // 26*8
     private static final int SCALE = 2;
 
     @PostMapping("/employee-payroll/preview")
@@ -1614,7 +1579,14 @@ public class PayrollController {
         boolean otOverridden = request.getOverrideOtWeekdayHours() != null || request.getOverrideOtHolidayHours() != null;
         if (otOverridden) {
             BigDecimal baseSalary = user.getBaseSalary() != null ? user.getBaseSalary() : BigDecimal.ZERO;
-            BigDecimal hourlyRate = baseSalary.divide(HOURS_PER_MONTH, SCALE, RoundingMode.HALF_UP);
+
+            BigDecimal stdDays = calc.getStandardWorkingDays() != null ? calc.getStandardWorkingDays() : STANDARD_WORKING_DAYS;
+            BigDecimal hoursPerMonthDynamic = stdDays.multiply(new BigDecimal("8"));
+
+            BigDecimal hourlyRate = hoursPerMonthDynamic.compareTo(BigDecimal.ZERO) > 0
+                    ? baseSalary.divide(hoursPerMonthDynamic, SCALE, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+
             overtimePay = otWeekday.multiply(new BigDecimal("1.5"))
                     .add(otHoliday.multiply(new BigDecimal("2.0")))
                     .multiply(hourlyRate)
@@ -1661,7 +1633,11 @@ public class PayrollController {
             // A = productCount * unitPrice
             BigDecimal A = qty.multiply(price);
 
-            // C = 176 + totalOT (giờ)
+            // standardHours = standardWorkingDays * 8 (động theo tháng, trừ Sunday/holiday/nghỉ bù)
+            BigDecimal stdDays = calc.getStandardWorkingDays() != null ? calc.getStandardWorkingDays() : STANDARD_WORKING_DAYS;
+            BigDecimal standardHours = stdDays.multiply(new BigDecimal("8"));
+
+            // C = standardHours + totalOT (giờ)
             BigDecimal totalOtHours = BigDecimal.ZERO;
             if (otWeekday != null) {
                 totalOtHours = totalOtHours.add(otWeekday);
@@ -1670,10 +1646,10 @@ public class PayrollController {
                 totalOtHours = totalOtHours.add(otHoliday);
             }
 
-            BigDecimal C = HOURS_PER_MONTH.add(totalOtHours);
+            BigDecimal C = standardHours.add(totalOtHours);
             if (C.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal productSalaryPerHour = A.divide(C, SCALE, RoundingMode.HALF_UP);
-                productBonus = productSalaryPerHour.multiply(HOURS_PER_MONTH).setScale(SCALE, RoundingMode.HALF_UP);
+                productBonus = productSalaryPerHour.multiply(standardHours).setScale(SCALE, RoundingMode.HALF_UP);
             } else {
                 productBonus = BigDecimal.ZERO;
             }
@@ -1955,6 +1931,170 @@ public class PayrollController {
         String email = authentication.getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found: " + email));
+    }
+
+    //công cụ đối sooát Payroll
+    private static BigDecimal normalizeRateToFraction(BigDecimal raw) {
+        if (raw == null) return BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+
+        BigDecimal r = raw.abs();
+
+        if (r.compareTo(BigDecimal.ONE) <= 0) {
+            return raw.setScale(4, RoundingMode.HALF_UP);
+        }
+
+        // percent bình thường (vd 10.5 => 10.5%)
+        if (r.compareTo(new BigDecimal("1000")) <= 0) {
+            return raw.divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
+        }
+
+        // percent * 100 (vd 500 = 5%)
+        return raw.divide(new BigDecimal("10000"), 4, RoundingMode.HALF_UP);
+    }
+
+    @PostMapping("/reconcile/compute")
+    public ResponseEntity<?> reconcileCompute(@RequestBody PayrollReconcileRequestDTO req) {
+        try {
+            if (req.getUserId() == null) {
+                return ResponseEntity.badRequest().body(buildErrorResponse("userId is required"));
+            }
+            if (req.getPayrollMonth() == null) {
+                return ResponseEntity.badRequest().body(buildErrorResponse("payrollMonth is required"));
+            }
+
+            TbUser user = userRepository.findById(req.getUserId())
+                    .orElseThrow(() -> new RuntimeException("User not found: " + req.getUserId()));
+
+            LocalDate month = req.getPayrollMonth().withDayOfMonth(1);
+
+            var taxProfile = taxProfileService.getOrCreateTaxProfile(user);
+            BigDecimal insuranceRateFraction = normalizeRateToFraction(taxProfile != null ? taxProfile.getInsuranceRate() : null);
+
+            TbUser.SalaryType salaryType = user.getSalaryType();
+            if (req.getSalaryType() != null && !req.getSalaryType().isBlank()) {
+                salaryType = TbUser.SalaryType.valueOf(req.getSalaryType());
+            }
+
+            BigDecimal baseSalary = req.getBaseSalary() != null
+                    ? req.getBaseSalary()
+                    : (user.getBaseSalary() != null ? user.getBaseSalary() : BigDecimal.ZERO);
+
+            BigDecimal wageCoefficient = req.getWageCoefficient() != null
+                    ? req.getWageCoefficient()
+                    : (user.getWageCoefficient() != null ? user.getWageCoefficient() : BigDecimal.ONE);
+
+            BigDecimal stdDays = req.getStandardWorkingDays() != null
+                    ? req.getStandardWorkingDays()
+                    : PayrollCalConstants.STANDARD_WORKING_DAYS;
+
+            BigDecimal actualDays = req.getActualWorkingDays() != null ? req.getActualWorkingDays() : BigDecimal.ZERO;
+
+            Integer lateCount = req.getLateCount() != null ? req.getLateCount() : 0;
+            BigDecimal latePenaltyPerTime = req.getLatePenaltyPerTime() != null ? req.getLatePenaltyPerTime() : PayrollCalConstants.LATE_PENALTY;
+
+            BigDecimal ot1 = req.getOt1Hours() != null ? req.getOt1Hours() : BigDecimal.ZERO;
+            BigDecimal ot2 = req.getOt2Hours() != null ? req.getOt2Hours() : BigDecimal.ZERO;
+
+            BigDecimal allowance = req.getAllowance() != null ? req.getAllowance() : BigDecimal.ZERO;
+
+            BigDecimal timeSalary = PayrollCalHelper.calculateTimeSalary(baseSalary, actualDays, stdDays);
+            BigDecimal overtimePay = PayrollCalHelper.calculateOvertimePay(baseSalary, ot1, ot2, stdDays);
+
+            BigDecimal productBonus = BigDecimal.ZERO;
+            Integer productCount = req.getProductCount();
+            BigDecimal unitPrice = req.getUnitPrice();
+            if (salaryType == TbUser.SalaryType.ProductBased) {
+                BigDecimal qty = productCount != null ? new BigDecimal(productCount) : BigDecimal.ZERO;
+                BigDecimal price = unitPrice != null ? unitPrice : BigDecimal.ZERO;
+                productBonus = qty.multiply(price).setScale(PayrollCalConstants.SCALE, RoundingMode.HALF_UP);
+            }
+
+            BigDecimal grossIncomeForTax = (salaryType == TbUser.SalaryType.TimeBased)
+                    ? timeSalary.add(overtimePay)
+                    : baseSalary.add(productBonus).add(overtimePay);
+            grossIncomeForTax = grossIncomeForTax.setScale(PayrollCalConstants.SCALE, RoundingMode.HALF_UP);
+
+            BigDecimal latePenalty = latePenaltyPerTime
+                    .multiply(new BigDecimal(lateCount))
+                    .setScale(PayrollCalConstants.SCALE, RoundingMode.HALF_UP);
+
+            BigDecimal insurance = grossIncomeForTax
+                    .multiply(insuranceRateFraction)
+                    .setScale(PayrollCalConstants.SCALE, RoundingMode.HALF_UP);
+
+            BigDecimal totalDeduction = insurance.add(latePenalty)
+                    .setScale(PayrollCalConstants.SCALE, RoundingMode.HALF_UP);
+
+            BigDecimal incomeAfterDeductions = grossIncomeForTax
+                    .subtract(totalDeduction)
+                    .setScale(PayrollCalConstants.SCALE, RoundingMode.HALF_UP);
+
+            TaxCalculationDTO taxDTO = taxCalculationService.calculatePersonalIncomeTaxWithOverrides(
+                    user,
+                    grossIncomeForTax,
+                    month,
+                    req.getOverridePersonalDeduction(),
+                    req.getOverrideDependentDeduction()
+            );
+
+            BigDecimal pit = (taxDTO != null && taxDTO.getTotalTax() != null) ? taxDTO.getTotalTax() : BigDecimal.ZERO;
+
+            BigDecimal totalPay = incomeAfterDeductions
+                    .subtract(pit)
+                    .add(allowance)
+                    .setScale(PayrollCalConstants.SCALE, RoundingMode.HALF_UP);
+
+            PayrollDetailDTO out = PayrollDetailDTO.builder()
+                    .employeePayrollId(req.getEmployeePayrollId())
+                    .payrollId(null)
+                    .payrollMonth(month)
+                    .departmentName(null)
+                    .userId(user.getId())
+                    .fullName(user.getFullName())
+                    .salaryType(salaryType.toString())
+                    .hireDate(user.getHireDate())
+                    .baseSalary(baseSalary)
+                    .wageCoefficient(wageCoefficient)
+                    .standardWorkingDays(stdDays)
+                    .actualWorkingDays(actualDays)
+                    .lateCount(lateCount)
+                    .latePenalty(latePenaltyPerTime)
+                    .timeSalary(timeSalary)
+                    .productCount(productCount)
+                    .unitPrice(unitPrice)
+                    .productBonus(productBonus)
+                    .ot1Hours(ot1)
+                    .ot2Hours(ot2)
+                    .overtimePay(overtimePay)
+                    .insurance(insurance)
+                    .totalDeduction(totalDeduction)
+                    .grossIncomeForTax(grossIncomeForTax)
+                    .incomeAfterDeductions(incomeAfterDeductions)
+                    .personalIncomeTax(pit)
+                    .taxDeductionTotal(taxDTO != null ? taxDTO.getTotalDeduction() : BigDecimal.ZERO)
+                    .personalDeduction(taxDTO != null ? taxDTO.getPersonalDeduction() : BigDecimal.ZERO)
+                    .dependentDeduction(taxDTO != null ? taxDTO.getDependentDeduction() : BigDecimal.ZERO)
+                    .insuranceDeduction(taxDTO != null ? taxDTO.getInsuranceDeduction() : BigDecimal.ZERO)
+                    .taxableIncome(taxDTO != null ? taxDTO.getTaxableIncome() : BigDecimal.ZERO)
+                    .allowance(allowance)
+                    .totalPay(totalPay)
+                    .note("RECONCILE: gross(" + grossIncomeForTax + ") - cashDeduction(BH+late=" + totalDeduction + ") - PIT(" + pit + ") + allowance(" + allowance + ")")
+                    .createdAt(Instant.now())
+                    .build();
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", true);
+            body.put("message", "Reconcile compute successfully");
+            body.put("data", out);
+            return ResponseEntity.ok(body);
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "error: " + e.getMessage(),
+                    "data", null
+            ));
+        }
     }
 
 }

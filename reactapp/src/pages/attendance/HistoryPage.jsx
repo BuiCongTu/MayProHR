@@ -25,7 +25,7 @@ const HistoryPage = () => {
       const attendances = data.attendances || [];
       setAttendanceData(attendances.map(a => ({...a, workingHours: parseFloat(a.workingHours || 0)})));
     } catch (err) {
-      setError('Không thể tải lịch sử chấm công');
+      setError('Can not fetch attendance data. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -37,8 +37,8 @@ const HistoryPage = () => {
     return `${h}h ${m}m`;
   };
   const getStatusBadge = (status) => {
-    const styles = { SUCCESS:{bg:'#e8f5e9', color:'#4CAF50', text:'✓ Đúng giờ'}, LATE:{bg:'#fff3cd', color:'#ff9800', text:'⚠ Trễ'}, ABSENT:{bg:'#ffebee', color:'#f44336', text:'✗ Vắng'} };
-    const s = styles[status] || {bg:'#e3f2fd', color:'#2196F3', text:'◐ Chưa hoàn tất'};
+    const styles = { SUCCESS:{bg:'#e8f5e9', color:'#4CAF50', text:'✓ On Time'}, LATE:{bg:'#fff3cd', color:'#ff9800', text:'⚠ Late'}, ABSENT:{bg:'#ffebee', color:'#f44336', text:'✗ Absent'} };
+    const s = styles[status] || {bg:'#e3f2fd', color:'#2196F3', text:'◐ Not set'};
     return <span style={{backgroundColor:s.bg,color:s.color,padding:'5px 12px',borderRadius:'15px',fontSize:'14px',fontWeight:'bold'}}>{s.text}</span>;
   };
   const calculateTotalHours = () => attendanceData.reduce((t,r)=>t+(r.workingHours||0),0);
@@ -46,26 +46,26 @@ const HistoryPage = () => {
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h1 style={styles.title}>📊 Lịch Sử Chấm Công</h1>
-        <p style={styles.subtitle}>Xem lịch sử check-in/check-out của bạn</p>
+        <h1 style={styles.title}>📊 Attendance History</h1>
+        <p style={styles.subtitle}>View your check-in/check-out history</p>
       </div>
 
       <div style={styles.controlsBar}>
         <div>
-          <label style={styles.label}>📅 Chọn Ngày:</label>
+          <label style={styles.label}>📅 Select Date:</label>
           <input type="date" value={selectedDate} onChange={handleDateChange} style={styles.dateInput} />
         </div>
       </div>
 
-      {loading && <div style={styles.loadingContainer}><div style={styles.spinner}></div><p>Đang tải dữ liệu...</p></div>}
-      {error && <div style={styles.errorBox}><h3>❌ Lỗi</h3><p>{error}</p><button onClick={()=>fetchAttendance(currentUser.userId, selectedDate)} style={styles.retryButton}>Thử Lại</button></div>}
+      {loading && <div style={styles.loadingContainer}><div style={styles.spinner}></div><p>Loading data...</p></div>}
+      {error && <div style={styles.errorBox}><h3>❌ Error</h3><p>{error}</p><button onClick={()=>fetchAttendance(currentUser.userId, selectedDate)} style={styles.retryButton}>Retry</button></div>}
 
       {!loading && !error && attendanceData.length>0 && (
         <div style={styles.tableContainer}>
           <table style={styles.table}>
             <thead>
               <tr>
-                <th>Ngày</th><th>Giờ Vào</th><th>Giờ Ra</th><th>Tổng Giờ</th><th>Trạng Thái</th>
+                <th>Date</th><th>Time In</th><th>Time Out</th><th>Total Hours</th><th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -86,8 +86,8 @@ const HistoryPage = () => {
       {!loading && !error && attendanceData.length===0 && (
         <div style={styles.emptyState}>
           <div style={styles.emptyIcon}>📭</div>
-          <h3>Không Có Dữ Liệu</h3>
-          <p>Chưa có bản ghi chấm công cho ngày này.</p>
+          <h3>No data</h3>
+          <p>No attendance records for this date.</p>
         </div>
       )}
     </div>

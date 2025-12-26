@@ -6,8 +6,6 @@ public class PayrollCalConstants {
     //tinh chuẩn công
     public static final BigDecimal STANDARD_WORKING_DAYS = new BigDecimal("26");  // Đã trừ chủ nhật
     public static final BigDecimal HOURS_PER_DAY = new BigDecimal("8");
-    public static final BigDecimal HOURS_PER_MONTH = new BigDecimal("176");  // 26 * 8
-
     //hệ số tăng ca
     public static final BigDecimal OT1_MULTIPLIER = new BigDecimal("1.5");
     public static final BigDecimal OT2_MULTIPLIER = new BigDecimal("2.0");  // OT ngày lễ/chủ nhật

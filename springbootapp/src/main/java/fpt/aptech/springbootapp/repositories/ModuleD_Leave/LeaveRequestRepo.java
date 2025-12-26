@@ -15,4 +15,14 @@ public interface LeaveRequestRepo extends JpaRepository<TbLeaveRequest, Integer>
             TbLeaveRequest.LeaveStatus status,
             LocalDate startDate,
             LocalDate endDate);
+
+    // Lấy các leave APPROVED
+    // Điều kiện overlap: startDate <= rangeEnd AND endDate >= rangeStart
+    List<TbLeaveRequest> findByUserAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+            TbUser user,
+            TbLeaveRequest.LeaveStatus status,
+            LocalDate rangeEnd,
+            LocalDate rangeStart
+    );
+
 }

@@ -53,7 +53,7 @@ public class TbProductionLine {
 
     /**
      * Tổng giờ công chính thức + giờ tăng ca của SubLine
-     * C = 26 * 8 + (tổng giờ tăng ca)
+     * C = standardWorkingDays * 8 + (tổng giờ tăng ca)
      */
     @NotNull
     @Column(name = "total_working_hours", nullable = false)

@@ -261,4 +261,33 @@ public interface AttendanceRepository extends JpaRepository<TbAttendance, Long> 
             @Param("lineId") Integer lineId
     );
 
+    @Query("""
+           SELECT COUNT(DISTINCT a.date)
+           FROM TbAttendance a
+           WHERE a.user = :user
+             AND a.date BETWEEN :startDate AND :endDate
+             AND a.status IN :statuses
+           """)
+    long countDistinctAttendanceDaysByUserAndDateBetweenAndStatusIn(
+            @Param("user") TbUser user,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("statuses") List<AttendanceStatus> statuses
+    );
+
+    @Query("""
+           SELECT DISTINCT a.date
+           FROM TbAttendance a
+           WHERE a.user = :user
+             AND a.date BETWEEN :startDate AND :endDate
+             AND a.status IN :statuses
+           """)
+    List<LocalDate> findDistinctAttendanceDatesByUserAndDateBetweenAndStatusIn(
+            @Param("user") TbUser user,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("statuses") List<AttendanceStatus> statuses
+    );
+
+
 }

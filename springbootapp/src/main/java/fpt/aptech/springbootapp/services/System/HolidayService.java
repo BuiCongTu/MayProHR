@@ -19,6 +19,13 @@ public interface HolidayService {
     //Kiểm tra ngày có phải ngày Chủ nhật hoặc lễ
     boolean isSundayOrHoliday(LocalDate date);
 
+    // Ngày nghỉ bù
+    boolean isCompensatoryOff(LocalDate date);
+
+    // Ngày không phải ngày làm việc
+    boolean isNonWorkingDay(LocalDate date);
+
+
     //Tính multiplier lương tăng ca
     BigDecimal getOvertimeMultiplier(LocalDate date);
 }

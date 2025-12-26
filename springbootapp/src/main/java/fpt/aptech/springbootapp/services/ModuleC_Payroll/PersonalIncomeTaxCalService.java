@@ -243,4 +243,95 @@ public class PersonalIncomeTaxCalService {
         // percent * 100 (vd 500 = 5%)
         return raw.divide(new BigDecimal("10000"), RATE_SCALE, RoundingMode.HALF_UP);
     }
+
+    public TaxCalculationDTO calculatePersonalIncomeTaxWithOverrides(
+            TbUser user,
+            BigDecimal grossIncome,
+            LocalDate payrollMonth,
+            BigDecimal overridePersonalDeduction,
+            BigDecimal overrideDependentDeduction
+    ) {
+        BigDecimal safeGross = (grossIncome != null ? grossIncome : BigDecimal.ZERO);
+        safeGross = safeGross.setScale(0, RoundingMode.DOWN);
+
+        TaxCalculationDTO dto = new TaxCalculationDTO();
+
+        TbEmployeeTaxProfile taxProfile = taxProfileService.getOrCreateTaxProfile(user);
+
+        BigDecimal personalDeduction = (overridePersonalDeduction != null)
+                ? overridePersonalDeduction
+                : dbMoneyToVnd(taxDeductionService.getPersonalDeduction(payrollMonth)).setScale(SCALE, RoundingMode.HALF_UP);
+        dto.setPersonalDeduction(personalDeduction.setScale(SCALE, RoundingMode.HALF_UP));
+
+        BigDecimal dependentDeduction = (overrideDependentDeduction != null)
+                ? overrideDependentDeduction
+                : BigDecimal.ZERO;
+
+        if (overrideDependentDeduction == null) {
+            Integer dependents = taxProfile.getNumberOfDependents() != null ? taxProfile.getNumberOfDependents() : 0;
+            if (dependents > 0) {
+                BigDecimal perPerson = dbMoneyToVnd(taxDeductionService.getDependentDeduction(payrollMonth));
+                dependentDeduction = perPerson.multiply(new BigDecimal(dependents));
+            }
+        }
+        dependentDeduction = dependentDeduction.setScale(SCALE, RoundingMode.HALF_UP);
+        dto.setDependentDeduction(dependentDeduction);
+
+        BigDecimal insuranceRateFraction = normalizeRateToFraction(taxProfile.getInsuranceRate());
+        dto.setInsuranceRate(insuranceRateFraction);
+
+        BigDecimal insuranceDeduction = safeGross
+                .multiply(insuranceRateFraction)
+                .setScale(SCALE, RoundingMode.HALF_UP);
+        dto.setInsuranceDeduction(insuranceDeduction);
+
+        BigDecimal totalDeduction = personalDeduction
+                .add(dependentDeduction)
+                .add(insuranceDeduction)
+                .setScale(SCALE, RoundingMode.HALF_UP);
+
+        dto.setTotalDeduction(totalDeduction);
+        dto.setGrossIncome(safeGross);
+
+        BigDecimal taxableIncome = safeGross.subtract(totalDeduction);
+        if (taxableIncome.compareTo(BigDecimal.ZERO) < 0) taxableIncome = BigDecimal.ZERO;
+        taxableIncome = taxableIncome.setScale(SCALE, RoundingMode.HALF_UP);
+        dto.setTaxableIncome(taxableIncome);
+
+        List<TbTaxBracket> brackets = taxBracketRepository.findByIsActiveTrueOrderByBracketNumber();
+        if (brackets == null || brackets.isEmpty()) {
+            throw new IllegalStateException("Không tìm thấy tbTaxBracket.isActive = true. Thuế TNCN không thể tính (totalTax sẽ ra 0).");
+        }
+
+        BigDecimal totalTax = BigDecimal.ZERO;
+
+        for (TbTaxBracket bracket : brackets) {
+            BigDecimal from = dbMoneyToVnd(bracket.getFromIncome());
+            BigDecimal to = dbMoneyToVnd(bracket.getToIncome());
+
+            BigDecimal rateFraction = normalizeRateToFraction(bracket.getTaxRate());
+
+            BigDecimal incomeInBracket = calculateIncomeInBracket(taxableIncome, from, to);
+
+            BigDecimal taxAmount = incomeInBracket
+                    .multiply(rateFraction)
+                    .setScale(SCALE, RoundingMode.HALF_UP);
+
+            totalTax = totalTax.add(taxAmount);
+
+            switch (bracket.getBracketNumber()) {
+                case 1 -> { dto.setBracket1Amount(incomeInBracket); dto.setBracket1Tax(taxAmount); }
+                case 2 -> { dto.setBracket2Amount(incomeInBracket); dto.setBracket2Tax(taxAmount); }
+                case 3 -> { dto.setBracket3Amount(incomeInBracket); dto.setBracket3Tax(taxAmount); }
+                case 4 -> { dto.setBracket4Amount(incomeInBracket); dto.setBracket4Tax(taxAmount); }
+                case 5 -> { dto.setBracket5Amount(incomeInBracket); dto.setBracket5Tax(taxAmount); }
+                default -> { }
+            }
+        }
+
+        dto.setTotalTax(totalTax.setScale(SCALE, RoundingMode.HALF_UP));
+        dto.setNote(generateCalculationNote(dto));
+        return dto;
+    }
+
 }

@@ -1,4 +1,5 @@
-import {
+import
+{
   Badge as BadgeIcon,
   Business as BusinessIcon,
   CalendarToday as CalendarIcon,
@@ -15,7 +16,8 @@ import {
   CheckCircle as StatusIcon,
   Work as WorkIcon
 } from '@mui/icons-material';
-import {
+import
+{
   Alert,
   Avatar,
   Box,
@@ -33,7 +35,8 @@ import Sidebar from '../../components/layout/Sidebar';
 import { getCurrentUser } from '../../services/authService';
 import { getUserProfile, updateUserProfile } from '../../services/userService';
 
-const Profile = () => {
+const Profile = () =>
+{
   const currentUser = getCurrentUser();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -50,12 +53,15 @@ const Profile = () => {
 
   const hasSidebar = currentUser?.roleName === 'Admin' || currentUser?.roleName === 'HR';
 
-  useEffect(() => {
+  useEffect(() =>
+  {
     fetchUserProfile();
   }, []);
 
-  const fetchUserProfile = async () => {
-    try {
+  const fetchUserProfile = async () =>
+  {
+    try
+    {
       setLoading(true);
       const response = await getUserProfile();
       // const data = response.data; // LẤY ĐÚNG USER TRONG API
@@ -67,15 +73,18 @@ const Profile = () => {
         phone: response.phone || ''
       });
 
-    } catch (err) {
-      setError('Không thể tải thông tin người dùng');
+    } catch (err)
+    {
+      setError('Cannot fetch user profile');
       console.error(err);
-    } finally {
+    } finally
+    {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e) =>
+  {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -83,13 +92,15 @@ const Profile = () => {
     }));
   };
 
-  const handleEdit = () => {
+  const handleEdit = () =>
+  {
     setEditMode(true);
     setError('');
     setSuccess('');
   };
 
-  const handleCancel = () => {
+  const handleCancel = () =>
+  {
     setEditMode(false);
     setFormData({
       fullName: user.fullName,
@@ -100,8 +111,10 @@ const Profile = () => {
     setSuccess('');
   };
 
-  const handleSave = async () => {
-    try {
+  const handleSave = async () =>
+  {
+    try
+    {
       setSaving(true);
       setError('');
       setSuccess('');
@@ -110,7 +123,7 @@ const Profile = () => {
       const updatedUser = response.data; // LẤY ĐÚNG USER TRONG API
 
       setUser(updatedUser);
-      setSuccess('Cập nhật thông tin thành công!');
+      setSuccess('Profile updated successfully!');
       setEditMode(false);
 
       // Cập nhật lại localStorage
@@ -122,15 +135,18 @@ const Profile = () => {
         phone: updatedUser.phone
       }));
 
-    } catch (err) {
-      setError('Không thể cập nhật thông tin');
+    } catch (err)
+    {
+      setError('Cannot update profile. Please try again.');
       console.error(err);
-    } finally {
+    } finally
+    {
       setSaving(false);
     }
   };
 
-  const getAvatarImage = () => {
+  const getAvatarImage = () =>
+  {
     const roleName = user?.roleName;
     const gender = user?.gender;
 
@@ -146,7 +162,8 @@ const Profile = () => {
     return null;
   };
 
-  if (loading) {
+  if (loading)
+  {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
         <CircularProgress />
@@ -160,11 +177,11 @@ const Profile = () => {
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
       <Paper elevation={3} sx={{ p: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4">Thông tin cá nhân</Typography>
+          <Typography variant="h4">Personal Information</Typography>
           {!editMode && (
             <Button variant="contained" startIcon={<EditIcon />} sx={{ backgroundColor: '#4b90f9ff' }}
               onClick={handleEdit}>
-              Chỉnh sửa
+              Edit
             </Button>
           )}
         </Box>
@@ -192,7 +209,7 @@ const Profile = () => {
               <PersonIcon sx={{ mr: 2, color: '#4b90f9ff' }} />
               <Box sx={{ flexGrow: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Họ và tên
+                  Full Name
                 </Typography>
                 {editMode ? (
                   <TextField
@@ -245,7 +262,7 @@ const Profile = () => {
               <PhoneIcon sx={{ mr: 2, color: '#4b90f9ff' }} />
               <Box sx={{ flexGrow: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Số điện thoại
+                  Telephone
                 </Typography>
                 {editMode ? (
                   <TextField
@@ -271,7 +288,7 @@ const Profile = () => {
               <BadgeIcon sx={{ mr: 2, color: '#4b90f9ff' }} />
               <Box sx={{ flexGrow: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Vai trò
+                  Role
                 </Typography>
                 <Typography variant="body1">
                   {user?.roleName || 'N/A'}
@@ -286,7 +303,7 @@ const Profile = () => {
               <BusinessIcon sx={{ mr: 2, color: '#4b90f9ff' }} />
               <Box sx={{ flexGrow: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Phòng ban
+                  Department
                 </Typography>
                 <Typography variant="body1">
                   {user?.departmentName || 'N/A'}
@@ -301,7 +318,7 @@ const Profile = () => {
               <LineIcon sx={{ mr: 2, color: '#4b90f9ff' }} />
               <Box sx={{ flexGrow: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Chuyền
+                  Line
                 </Typography>
                 <Typography variant="body1">
                   {user?.lineName || 'N/A'}
@@ -316,7 +333,7 @@ const Profile = () => {
               <SkillIcon sx={{ mr: 2, color: '#4b90f9ff' }} />
               <Box sx={{ flexGrow: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Trình độ kỹ năng
+                  Skill Level
                 </Typography>
                 <Typography variant="body1">
                   {user?.skillLevelName || 'N/A'}
@@ -331,10 +348,10 @@ const Profile = () => {
               <WorkIcon sx={{ mr: 2, color: '#4b90f9ff' }} />
               <Box sx={{ flexGrow: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Loại lương
+                  Salary Type
                 </Typography>
                 <Typography variant="body1">
-                  {user?.salaryType === 'TimeBased' ? 'Theo thời gian' : user?.salaryType === 'ProductBased' ? 'Theo sản phẩm' : user?.salaryType || 'N/A'}
+                  {user?.salaryType === 'TimeBased' ? 'Time Based' : user?.salaryType === 'ProductBased' ? 'Product Based' : user?.salaryType || 'N/A'}
                 </Typography>
               </Box>
             </Box>
@@ -346,7 +363,7 @@ const Profile = () => {
               <MoneyIcon sx={{ mr: 2, color: '#4b90f9ff' }} />
               <Box sx={{ flexGrow: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Lương cơ bản
+                  Base Salary
                 </Typography>
                 <Typography variant="body1">
                   {user?.baseSalary ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(user.baseSalary) : 'N/A'}
@@ -361,7 +378,7 @@ const Profile = () => {
               <CalendarIcon sx={{ mr: 2, color: '#4b90f9ff' }} />
               <Box sx={{ flexGrow: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Ngày vào làm
+                  Hire Date
                 </Typography>
                 <Typography variant="body1">
                   {user?.hireDate ? new Date(user.hireDate).toLocaleDateString('vi-VN') : 'N/A'}
@@ -376,10 +393,10 @@ const Profile = () => {
               <GenderIcon sx={{ mr: 2, color: '#4b90f9ff' }} />
               <Box sx={{ flexGrow: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Giới tính
+                  Gender
                 </Typography>
                 <Typography variant="body1">
-                  {user?.gender === true ? 'Nam' : user?.gender === false ? 'Nữ' : 'N/A'}
+                  {user?.gender === true ? 'Male' : user?.gender === false ? 'Female' : 'N/A'}
                 </Typography>
               </Box>
             </Box>
@@ -391,10 +408,10 @@ const Profile = () => {
               <StatusIcon sx={{ mr: 2, color: user?.status === 'Active' ? '#4caf50' : '#f44336' }} />
               <Box sx={{ flexGrow: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Trạng thái
+                  Status
                 </Typography>
                 <Typography variant="body1" sx={{ color: user?.status === 'Active' ? '#4caf50' : '#f44336' }}>
-                  {user?.status === 'Active' ? 'Đang làm việc' : user?.status === 'Inactive' ? 'Ngưng làm việc' : user?.status || 'N/A'}
+                  {user?.status === 'Active' ? 'Active' : user?.status === 'Inactive' ? 'Inactive' : user?.status || 'N/A'}
                 </Typography>
               </Box>
             </Box>
@@ -410,7 +427,7 @@ const Profile = () => {
               onClick={handleCancel}
               disabled={saving}
             >
-              Hủy
+              Cancel
             </Button>
             <Button
               variant="contained"
