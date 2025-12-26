@@ -1,5 +1,7 @@
+// dart
 import 'package:flutter/material.dart';
 
+import '../../models/leave_balance_model.dart';
 import '../../models/leave_reason_model.dart';
 import '../../services/leave_service.dart';
 
@@ -22,7 +24,10 @@ class _LeaveFormScreenState extends State<LeaveFormScreen> {
   int? _leaveReasonId;
   late Future<List<LeaveReasonModel>> _leaveReasonsFuture;
 
-  // Theo enum backend: ShortTerm, LongTerm, Maternity, Accident, Other
+  // ✅ NEW: leave balance
+  LeaveBalanceModel? _balance;
+  bool _loadingBalance = false;
+
   final List<String> _leaveTypes = const [
     'ShortTerm',
     'LongTerm',
@@ -38,12 +43,27 @@ class _LeaveFormScreenState extends State<LeaveFormScreen> {
   void initState() {
     super.initState();
     _leaveReasonsFuture = _service.getLeaveReasons();
+    _loadBalance(asOf: DateTime.now());
   }
 
   @override
   void dispose() {
     _reasonCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadBalance({required DateTime asOf}) async {
+    setState(() => _loadingBalance = true);
+    try {
+      final b = await _service.getLeaveBalance(userId: widget.userId, asOf: asOf);
+      if (!mounted) return;
+      setState(() => _balance = b);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _balance = null);
+    } finally {
+      if (mounted) setState(() => _loadingBalance = false);
+    }
   }
 
   Future<DateTime?> _pickDate(DateTime? initial) async {
@@ -61,19 +81,19 @@ class _LeaveFormScreenState extends State<LeaveFormScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_start == null || _end == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn ngày bắt đầu/kết thúc')),
+        const SnackBar(content: Text('Please select start and end dates')),
       );
       return;
     }
     if (_start!.isAfter(_end!)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ngày bắt đầu phải <= ngày kết thúc')),
+        const SnackBar(content: Text('Start date must be before end date')),
       );
       return;
     }
     if (_leaveReasonId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn loại nghỉ')),
+        const SnackBar(content: Text('Please select a leave reason')),
       );
       return;
     }
@@ -91,13 +111,14 @@ class _LeaveFormScreenState extends State<LeaveFormScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tạo đơn nghỉ phép thành công (PENDING)')),
+        const SnackBar(content: Text('Leave request created successfully')),
       );
       Navigator.pop(context, true);
     } catch (e) {
+      // ✅ NEW: sẽ show rõ "trùng ngày đã APPROVED ..." từ backend
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Tạo đơn thất bại: $e')),
+        SnackBar(content: Text(e.toString())),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -106,11 +127,11 @@ class _LeaveFormScreenState extends State<LeaveFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final startText = _start == null ? 'Chọn ngày' : _start.toString().substring(0, 10);
-    final endText = _end == null ? 'Chọn ngày' : _end.toString().substring(0, 10);
+    final startText = _start == null ? 'Start day' : _start.toString().substring(0, 10);
+    final endText = _end == null ? 'End Day' : _end.toString().substring(0, 10);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Tạo đơn nghỉ phép')),
+      appBar: AppBar(title: const Text('Leave Request Form')),
       body: AbsorbPointer(
         absorbing: _saving,
         child: SingleChildScrollView(
@@ -119,6 +140,36 @@ class _LeaveFormScreenState extends State<LeaveFormScreen> {
             key: _formKey,
             child: Column(
               children: [
+                // ✅ NEW: Leave balance box
+                Card(
+                  elevation: 1,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Paid leave balance',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        _loadingBalance
+                            ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                            : Text(
+                          _balance == null
+                              ? '-'
+                              : 'Remaining: ${_balance!.remainingPaidLeaveDays} / ${_balance!.entitledDaysToDate} (used ${_balance!.approvedLeaveDaysUsedToDate})',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
                 FutureBuilder<List<LeaveReasonModel>>(
                   future: _leaveReasonsFuture,
                   builder: (context, snap) {
@@ -126,12 +177,12 @@ class _LeaveFormScreenState extends State<LeaveFormScreen> {
                       return const LinearProgressIndicator();
                     }
                     if (snap.hasError) {
-                      return Text('Không tải được loại nghỉ: ${snap.error}');
+                      return Text('Error loading leave reasons: ${snap.error}');
                     }
 
                     final items = snap.data ?? [];
                     if (items.isEmpty) {
-                      return const Text('Danh sách loại nghỉ đang trống.');
+                      return const Text('No leave reasons available.');
                     }
 
                     _leaveReasonId ??= items.first.id;
@@ -146,7 +197,7 @@ class _LeaveFormScreenState extends State<LeaveFormScreen> {
                           .toList(),
                       onChanged: (v) => setState(() => _leaveReasonId = v),
                       decoration: const InputDecoration(
-                        labelText: 'Loại nghỉ',
+                        labelText: 'Leave Reason',
                         border: OutlineInputBorder(),
                       ),
                     );
@@ -158,9 +209,9 @@ class _LeaveFormScreenState extends State<LeaveFormScreen> {
                   value: _selectedType,
                   items: _leaveTypes
                       .map((t) => DropdownMenuItem<String>(
-                            value: t,
-                            child: Text(t),
-                          ))
+                    value: t,
+                    child: Text(t),
+                  ))
                       .toList(),
                   onChanged: (v) => setState(() => _selectedType = v ?? 'ShortTerm'),
                   decoration: const InputDecoration(
@@ -176,9 +227,13 @@ class _LeaveFormScreenState extends State<LeaveFormScreen> {
                       child: OutlinedButton(
                         onPressed: () async {
                           final d = await _pickDate(_start);
-                          if (d != null) setState(() => _start = d);
+                          if (d != null) {
+                            setState(() => _start = d);
+                            // ✅ NEW: cập nhật balance theo tháng xin nghỉ (asOf = startDate)
+                            _loadBalance(asOf: d);
+                          }
                         },
-                        child: Text('Từ: $startText'),
+                        child: Text('From: $startText'),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -188,7 +243,7 @@ class _LeaveFormScreenState extends State<LeaveFormScreen> {
                           final d = await _pickDate(_end);
                           if (d != null) setState(() => _end = d);
                         },
-                        child: Text('Đến: $endText'),
+                        child: Text('To: $endText'),
                       ),
                     ),
                   ],
@@ -199,11 +254,11 @@ class _LeaveFormScreenState extends State<LeaveFormScreen> {
                   controller: _reasonCtrl,
                   maxLines: 4,
                   decoration: const InputDecoration(
-                    labelText: 'Lý do / ghi chú',
+                    labelText: 'Reason',
                     border: OutlineInputBorder(),
                   ),
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Vui lòng nhập lý do';
+                    if (v == null || v.trim().isEmpty) return 'Please enter a reason';
                     return null;
                   },
                 ),
@@ -215,11 +270,11 @@ class _LeaveFormScreenState extends State<LeaveFormScreen> {
                     onPressed: _submit,
                     child: _saving
                         ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Gửi đơn (Pending)'),
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                        : const Text('Submit Leave Request'),
                   ),
                 ),
               ],

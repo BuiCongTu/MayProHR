@@ -11,7 +11,7 @@ class LeaveDetailScreen extends StatelessWidget {
         '${request.startDate.toString().substring(0, 10)} → ${request.endDate.toString().substring(0, 10)}';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Chi tiết đơn nghỉ')),
+      appBar: AppBar(title: const Text('Leave Request Details')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Card(
@@ -20,17 +20,17 @@ class LeaveDetailScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Mã đơn: ${request.id ?? "(chưa có)"}'),
+                Text('Leave Code: ${request.id ?? "(Null)"}'),
                 const SizedBox(height: 8),
-                Text('UserId: ${request.userId}'),
+                Text('Employee code: ${request.userId}'),
                 const SizedBox(height: 8),
-                Text('Thời gian: $dateText'),
+                Text('Start - End Date: $dateText'),
                 const SizedBox(height: 8),
                 Text('LeaveReasonId: ${request.leaveReasonId}'),
                 const SizedBox(height: 8),
-                Text('Lý do: ${request.reason}'),
+                Text('Reson: ${request.type}'),
                 const SizedBox(height: 8),
-                Text('Trạng thái: ${(request.status ?? 'pending').toUpperCase()}'),
+                Text('Status: ${(request.status ?? 'pending').toUpperCase()}'),
               ],
             ),
           ),

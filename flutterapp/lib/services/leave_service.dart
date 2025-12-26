@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../configs/api_config.dart';
+import '../models/leave_balance_model.dart';
 import '../models/leave_reason_model.dart';
 import '../models/leave_request_model.dart';
 import 'storage_service.dart';
@@ -22,7 +23,6 @@ class LeaveService {
     try {
       return jsonDecode(body);
     } catch (_) {
-      // Nếu backend trả text/plain hoặc HTML lỗi
       return null;
     }
   }
@@ -30,20 +30,29 @@ class LeaveService {
   dynamic _extractData(String responseBody) {
     final decoded = _decodeJsonSafe(responseBody);
 
-    // chuẩn backend: { success: true, data: ... }
     if (decoded is Map) {
       final map = Map<String, dynamic>.from(decoded);
       if (map.containsKey('data')) return map['data'];
       return map;
     }
-
     return decoded;
   }
 
   Exception _httpError(http.Response res, {required String hint}) {
-    final base = 'HTTP ${res.statusCode}';
-    final body = res.body.isEmpty ? '' : ' - ${res.body}';
-    return Exception('$hint: $base$body');
+    String msg = hint;
+
+    final decoded = _decodeJsonSafe(res.body);
+    if (decoded is Map) {
+      final m = Map<String, dynamic>.from(decoded);
+      final backendMsg = (m['message'] ?? m['error'])?.toString();
+      if (backendMsg != null && backendMsg.trim().isNotEmpty) {
+        msg = '$hint: $backendMsg';
+      }
+    } else if (res.body.trim().isNotEmpty) {
+      msg = '$hint: ${res.body}';
+    }
+
+    return Exception('HTTP ${res.statusCode} - $msg');
   }
 
   // -------------------------
@@ -54,7 +63,7 @@ class LeaveService {
 
     final res = await http.get(uri, headers: await _headers());
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw _httpError(res, hint: 'Không lấy được danh sách loại nghỉ');
+      throw _httpError(res, hint: 'Cannot fetch leave reasons');
     }
 
     final data = _extractData(res.body);
@@ -67,6 +76,36 @@ class LeaveService {
   }
 
   // -------------------------
+  // LeaveBalance (new)
+  // -------------------------
+  Future<LeaveBalanceModel> getLeaveBalance({
+    required int userId,
+    DateTime? asOf,
+  }) async {
+    final qp = <String, String>{
+      'userId': userId.toString(),
+    };
+    if (asOf != null) {
+      qp['asOf'] = asOf.toIso8601String().substring(0, 10);
+    }
+
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/leave-request/leave-balance')
+        .replace(queryParameters: qp);
+
+    final res = await http.get(uri, headers: await _headers());
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw _httpError(res, hint: 'Cannot fetch leave balance');
+    }
+
+    final data = _extractData(res.body);
+    if (data is Map) {
+      return LeaveBalanceModel.fromJson(Map<String, dynamic>.from(data));
+    }
+
+    throw Exception('Invalid response when fetching leave balance');
+  }
+
+  // -------------------------
   // LeaveRequest - Employee
   // -------------------------
   Future<List<LeaveRequestModel>> getMyLeaveRequests({required int userId}) async {
@@ -75,7 +114,7 @@ class LeaveService {
 
     final res = await http.get(uri, headers: await _headers());
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw _httpError(res, hint: 'Không lấy được danh sách đơn nghỉ');
+      throw _httpError(res, hint: 'Cannot fetch leave requests');
     }
 
     final data = _extractData(res.body);
@@ -96,10 +135,10 @@ class LeaveService {
     required String reason,
   }) async {
     if (startDate.isAfter(endDate)) {
-      throw Exception('Ngày bắt đầu phải <= ngày kết thúc');
+      throw Exception('Start date must be before or equal to end date');
     }
     if (type.trim().isEmpty) {
-      throw Exception('Leave type không được trống');
+      throw Exception('Leave type is required');
     }
 
     final req = LeaveRequestModel(
@@ -119,7 +158,7 @@ class LeaveService {
     );
 
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw _httpError(res, hint: 'Tạo đơn nghỉ thất bại');
+      throw _httpError(res, hint: 'Create leave request failed');
     }
 
     final data = _extractData(res.body);
@@ -129,6 +168,7 @@ class LeaveService {
 
     return req;
   }
+
 
   Future<LeaveRequestModel> updateEmployeeDraft({
     required int requestId,
@@ -141,10 +181,10 @@ class LeaveService {
   }) async {
     final st = (current.status ?? 'pending').toLowerCase();
     if (st != 'pending') {
-      throw Exception('Chỉ được sửa đơn khi trạng thái là PENDING');
+      throw Exception('Only pending requests can be updated');
     }
     if (startDate.isAfter(endDate)) {
-      throw Exception('Ngày bắt đầu phải <= ngày kết thúc');
+      throw Exception('Start date must be before or equal to end date');
     }
 
     final payload = <String, dynamic>{
@@ -163,14 +203,14 @@ class LeaveService {
     );
 
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw _httpError(res, hint: 'Cập nhật đơn nghỉ thất bại');
+      throw _httpError(res, hint: 'Update leave request failed');
     }
 
     final data = _extractData(res.body);
     if (data is Map) {
       return LeaveRequestModel.fromJson(Map<String, dynamic>.from(data));
     }
-    throw Exception('Response không hợp lệ khi cập nhật đơn nghỉ');
+    throw Exception('Invalid response when updating leave request');
   }
 
   Future<void> deleteLeaveRequest(int id) async {
@@ -178,7 +218,7 @@ class LeaveService {
 
     final res = await http.delete(uri, headers: await _headers());
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw _httpError(res, hint: 'Xoá đơn nghỉ thất bại');
+      throw _httpError(res, hint: 'Delete leave request failed');
     }
   }
 }

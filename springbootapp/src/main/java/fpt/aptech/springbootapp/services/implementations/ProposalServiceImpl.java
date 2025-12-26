@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Map;
 
+import fpt.aptech.springbootapp.repositories.LineRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -39,6 +40,8 @@ public class ProposalServiceImpl implements ProposalService {
     private final ObjectMapper objectMapper;
     private final NotificationService notificationService;
     private final WebSocketService webSocketService;
+    private final LineRepository lineRepository;
+
 
     @Autowired
     public ProposalServiceImpl(
@@ -48,8 +51,9 @@ public class ProposalServiceImpl implements ProposalService {
             DepartmentRepository departmentRepository,
             ObjectMapper objectMapper,
             NotificationService notificationService,
-            WebSocketService webSocketService
-    ) {
+            WebSocketService webSocketService,
+            LineRepository lineRepository
+            ) {
         this.proposalRepository = proposalRepository;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -57,6 +61,7 @@ public class ProposalServiceImpl implements ProposalService {
         this.objectMapper = objectMapper;
         this.notificationService = notificationService;
         this.webSocketService = webSocketService;
+        this.lineRepository = lineRepository;
     }
 
     @Override
@@ -268,21 +273,54 @@ public class ProposalServiceImpl implements ProposalService {
                 Object roleIdObj = details.get("new_role_id");
                 Object deptIdObj = details.get("new_department_id");
                 Object newSalaryObj = details.get("new_salary");
+                Object salaryTypeObj = details.get("new_salary_type");
+                Object newLineIdObj = details.get("new_line_id");
+                Object newSubLineIdObj = details.get("new_sub_line_id");
+                Object newWorkUnitIdObj = details.get("new_work_unit_id");
 
                 TbUser target = p.getTargetUser();
+
                 if (roleIdObj != null) {
                     Integer roleId = (roleIdObj instanceof Number) ? ((Number) roleIdObj).intValue() : Integer.parseInt(roleIdObj.toString());
-                    roleRepository.findById(roleId).ifPresent(r -> target.setRole(r));
+                    roleRepository.findById(roleId).ifPresent(target::setRole);
                 }
+
                 if (deptIdObj != null) {
                     Integer deptId = (deptIdObj instanceof Number) ? ((Number) deptIdObj).intValue() : Integer.parseInt(deptIdObj.toString());
-                    departmentRepository.findById(deptId).ifPresent(d -> target.setDepartment(d));
+                    departmentRepository.findById(deptId).ifPresent(target::setDepartment);
                 }
+
                 if (newSalaryObj != null && !"null".equals(newSalaryObj.toString())) {
                     Integer newSalary = (newSalaryObj instanceof Number) ? ((Number) newSalaryObj).intValue() : Integer.parseInt(newSalaryObj.toString());
                     target.setBaseSalary(BigDecimal.valueOf(newSalary));
                 }
+
+                if (salaryTypeObj != null && !"null".equals(String.valueOf(salaryTypeObj))) {
+                    String st = String.valueOf(salaryTypeObj).trim();
+                    if (!st.isEmpty()) {
+                        try {
+                            target.setSalaryType(TbUser.SalaryType.valueOf(st));
+                        } catch (IllegalArgumentException ignored) {
+                            // bỏ qua nếu FE gửi sai enum
+                        }
+                    }
+                }
+
+                Integer chosenLineId = null;
+                if (newWorkUnitIdObj != null && !"null".equals(String.valueOf(newWorkUnitIdObj))) {
+                    chosenLineId = (newWorkUnitIdObj instanceof Number) ? ((Number) newWorkUnitIdObj).intValue() : Integer.parseInt(newWorkUnitIdObj.toString());
+                } else if (newSubLineIdObj != null && !"null".equals(String.valueOf(newSubLineIdObj))) {
+                    chosenLineId = (newSubLineIdObj instanceof Number) ? ((Number) newSubLineIdObj).intValue() : Integer.parseInt(newSubLineIdObj.toString());
+                } else if (newLineIdObj != null && !"null".equals(String.valueOf(newLineIdObj))) {
+                    chosenLineId = (newLineIdObj instanceof Number) ? ((Number) newLineIdObj).intValue() : Integer.parseInt(newLineIdObj.toString());
+                }
+
+                if (chosenLineId != null) {
+                    lineRepository.findById(chosenLineId).ifPresent(target::setLine);
+                }
+
                 userRepository.save(target);
+
             } else if (p.getType() == TbProposal.ProposalType.SkillLevelChange) {
                 Map<String, Object> details = objectMapper.readValue(p.getDetails(), Map.class);
                 int autoIncrease = 200000;

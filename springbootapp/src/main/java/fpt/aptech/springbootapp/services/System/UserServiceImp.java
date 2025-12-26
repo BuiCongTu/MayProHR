@@ -286,7 +286,7 @@ public class UserServiceImp implements UserService {
 
     //Anh Tú có thể dùng UserMapper - ddúng zị, dùng nào cũng đc
     private UserResponseDto buildUserResponseDto(TbUser user) {
-        TbLine userLine = user.getLine();
+        TbLine cur = user.getLine();
 
         Integer lineId = null;
         String lineName = null;
@@ -295,30 +295,64 @@ public class UserServiceImp implements UserService {
         Integer workUnitId = null;
         String workUnitName = null;
 
-        if (userLine != null) {
-            lineId = userLine.getId();
-            lineName = userLine.getName();
+        if (cur != null) {
+            TbLine parent = cur.getParent();
+            TbLine grandParent = (parent != null) ? parent.getParent() : null;
+            Integer lvl = cur.getLevel();
 
-            // Xây dựng chuỗi line từ gốc tới lá để suy ra WorkUnit / SubLine
-            List<TbLine> chain = new ArrayList<>();
-            TbLine current = userLine;
-            while (current != null) {
-                chain.add(current);
-                current = current.getParent();
-            }
-            Collections.reverse(chain);
-
-            if (!chain.isEmpty()) {
-                // node gốc được xem như WorkUnit
-                TbLine root = chain.get(0);
-                workUnitId = root.getId();
-                workUnitName = root.getName();
-
-                // nếu có từ 3 cấp trở lên thì cấp sâu nhất coi như SubLine
-                if (chain.size() >= 3) {
-                    TbLine leaf = chain.get(chain.size() - 1);
-                    subLineId = leaf.getId();
-                    subLineName = leaf.getName();
+            if (lvl != null) {
+                switch (lvl) {
+                    case 5: // Work Unit
+                        workUnitId = cur.getId();
+                        workUnitName = cur.getName();
+                        subLineId = (parent != null) ? parent.getId() : null;
+                        subLineName = (parent != null) ? parent.getName() : null;
+                        lineId = (grandParent != null) ? grandParent.getId() : null;
+                        lineName = (grandParent != null) ? grandParent.getName() : null;
+                        break;
+                    case 4: // Sub Line
+                        workUnitId = null;
+                        workUnitName = null;
+                        subLineId = cur.getId();
+                        subLineName = cur.getName();
+                        lineId = (parent != null) ? parent.getId() : null;
+                        lineName = (parent != null) ? parent.getName() : null;
+                        break;
+                    case 3: // Line
+                        workUnitId = null;
+                        workUnitName = null;
+                        subLineId = null;
+                        subLineName = null;
+                        lineId = cur.getId();
+                        lineName = cur.getName();
+                        break;
+                    default:
+                        // fallback: coi cur như line
+                        workUnitId = null;
+                        workUnitName = null;
+                        subLineId = null;
+                        subLineName = null;
+                        lineId = cur.getId();
+                        lineName = cur.getName();
+                        break;
+                }
+            } else {
+                // fallback khi thiếu level: suy theo độ sâu ancestry
+                if (parent == null) {
+                    lineId = cur.getId();
+                    lineName = cur.getName();
+                } else if (grandParent == null) {
+                    subLineId = cur.getId();
+                    subLineName = cur.getName();
+                    lineId = parent.getId();
+                    lineName = parent.getName();
+                } else {
+                    workUnitId = cur.getId();
+                    workUnitName = cur.getName();
+                    subLineId = parent.getId();
+                    subLineName = parent.getName();
+                    lineId = grandParent.getId();
+                    lineName = grandParent.getName();
                 }
             }
         }
@@ -625,4 +659,17 @@ public class UserServiceImp implements UserService {
         user.setDeviceToken(token);
         userRepo.save(user);
     }
+
+    @Override
+    public UserResponseDto getUserById(Integer id) {
+        if (id == null) {
+            throw new IllegalArgumentException("User id must not be null");
+        }
+
+        TbUser user = userRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+
+        return buildUserResponseDto(user);
+    }
+
 }
