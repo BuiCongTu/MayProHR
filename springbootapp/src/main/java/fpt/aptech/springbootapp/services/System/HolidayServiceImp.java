@@ -58,6 +58,7 @@ public class HolidayServiceImp implements HolidayService {
         return isSundayOrHoliday(date) || isCompensatoryOff(date);
     }
 
+    @Override
     public BigDecimal getOvertimeMultiplier(LocalDate date) {
         if (isNonWorkingDay(date)) {
             return new BigDecimal("2.0");  // 2x lương
