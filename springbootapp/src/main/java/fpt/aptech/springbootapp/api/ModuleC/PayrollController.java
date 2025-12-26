@@ -1597,15 +1597,22 @@ public class PayrollController {
         BigDecimal timeSalary = calc.getTimeSalary() != null ? calc.getTimeSalary() : BigDecimal.ZERO;
         if (user.getSalaryType() == TbUser.SalaryType.TimeBased && request.getOverrideActualWorkingDays() != null) {
             BigDecimal baseSalary = user.getBaseSalary() != null ? user.getBaseSalary() : BigDecimal.ZERO;
-            BigDecimal dailySalary = baseSalary.divide(STANDARD_WORKING_DAYS, SCALE, RoundingMode.HALF_UP);
 
-            BigDecimal latePenalty = calc.getLatePenalty() != null ? calc.getLatePenalty() : BigDecimal.ZERO;
+            // FIX: dùng standardWorkingDays thực tế của tháng (đã tính trong calc)
+            BigDecimal stdDays = calc.getStandardWorkingDays() != null ? calc.getStandardWorkingDays() : STANDARD_WORKING_DAYS;
+            BigDecimal dailySalary = stdDays.compareTo(BigDecimal.ZERO) > 0
+                    ? baseSalary.divide(stdDays, SCALE, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+
+            BigDecimal latePenaltyPerTime = calc.getLatePenalty() != null ? calc.getLatePenalty() : BigDecimal.ZERO;
             int lateCount = calc.getLateCount() != null ? calc.getLateCount() : 0;
 
             timeSalary = dailySalary.multiply(actualWorkingDays)
-                    .subtract(latePenalty.multiply(new BigDecimal(lateCount)))
+                    .subtract(latePenaltyPerTime.multiply(new BigDecimal(lateCount)))
                     .setScale(SCALE, RoundingMode.HALF_UP);
         }
+
+
 
         // Deductions cộng các khoản trừ
         BigDecimal totalDeduction = calc.getTotalDeduction() != null ? calc.getTotalDeduction() : BigDecimal.ZERO;
@@ -1659,7 +1666,8 @@ public class PayrollController {
         if (user.getSalaryType() == TbUser.SalaryType.TimeBased) {
             grossIncomeForTax = timeSalary.add(overtimePay);
         } else {
-            grossIncomeForTax = baseSalary.add(productBonus).add(overtimePay);
+            // FIX: ProductBased = timeSalary + productBonus + overtimePay
+            grossIncomeForTax = timeSalary.add(productBonus).add(overtimePay);
         }
         grossIncomeForTax = grossIncomeForTax.setScale(SCALE, RoundingMode.HALF_UP);
 
@@ -2009,9 +2017,10 @@ public class PayrollController {
                 productBonus = qty.multiply(price).setScale(PayrollCalConstants.SCALE, RoundingMode.HALF_UP);
             }
 
+            // FIX: ProductBased grossIncomeForTax = timeSalary + productBonus + overtimePay
             BigDecimal grossIncomeForTax = (salaryType == TbUser.SalaryType.TimeBased)
                     ? timeSalary.add(overtimePay)
-                    : baseSalary.add(productBonus).add(overtimePay);
+                    : timeSalary.add(productBonus).add(overtimePay);
             grossIncomeForTax = grossIncomeForTax.setScale(PayrollCalConstants.SCALE, RoundingMode.HALF_UP);
 
             BigDecimal latePenalty = latePenaltyPerTime

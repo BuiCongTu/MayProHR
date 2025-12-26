@@ -196,26 +196,29 @@ const PayrollDetail = () =>
     }
   };
 
-  const handleRowClick = (emp) =>
-  {
-    setSelectedEmployee(emp);
-    setCalcTab('input');
-    setPreview(null);
+    const handleRowClick = (emp) =>
+    {
+        setSelectedEmployee(emp);
+        setCalcTab('input');
+        setPreview(null);
 
-    setCalcForm({
-      allowance: emp?.allowance ?? 0,
-      note: emp?.note || '',
-      overrideActualWorkingDays: emp?.actualWorkingDays ?? '',
-      overrideOtWeekdayHours: emp?.ot1Hours ?? emp?.otWeekdayHours ?? '',
-      overrideOtHolidayHours: emp?.ot2Hours ?? emp?.otHolidayHours ?? '',
-      overrideProductCount: '',
-      overrideUnitPrice: ''
-    });
+        setCalcForm({
+            allowance: emp?.allowance ?? 0,
+            note: emp?.note || '',
 
-    setShowModal(true);
-  };
+            overrideActualWorkingDays: '',
 
-  const handleCloseModal = () =>
+            overrideOtWeekdayHours: '',
+            overrideOtHolidayHours: '',
+            overrideProductCount: '',
+            overrideUnitPrice: ''
+        });
+
+        setShowModal(true);
+    };
+
+
+    const handleCloseModal = () =>
   {
     setShowModal(false);
     setSelectedEmployee(null);
@@ -505,76 +508,76 @@ const PayrollDetail = () =>
           ) : paginatedEmployees.length === 0 ? (
             <div className="p-3 text-muted">No employees match your search.</div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <Table hover responsive className="mb-0">
-                <thead className="bg-light">
-                <tr>
-                  <th>ID</th>
-                  <th>Full Name</th>
-                  <th>Status</th>
+              <div style={{ overflowX: 'auto' }}>
+                  <Table hover responsive className="mb-0">
+                      <thead className="bg-light">
+                      <tr>
+                          <th>ID</th>
+                          <th>Full Name</th>
+                          <th>Status</th>
 
-                  <th className="text-end">Actual Days</th>
-                  <th className="text-end">OT1</th>
-                  <th className="text-end">OT2</th>
-                  <th className="text-end">Allowance</th>
+                          <th className="text-end">Actual Days</th>
+                          <th className="text-end">OT1</th>
+                          <th className="text-end">OT2</th>
+                          <th className="text-end">Allowance</th>
 
-                  <th className="text-end">Gross (Tax)</th>
-                  <th className="text-end text-danger">Total Deduction</th>
-                  <th className="text-end text-danger">Personal Income Tax</th>
-                  <th className="text-end text-bg-primary">Net Pay</th>
+                          <th className="text-end">Gross (Tax)</th>
+                          <th className="text-end text-danger">Cash Deduction</th>
+                          <th className="text-end text-danger">Personal Income Tax</th>
+                          <th className="text-end text-bg-primary">Net Pay</th>
 
-                  <th>Action</th>
-                </tr>
-                </thead>
+                          <th>Action</th>
+                      </tr>
+                      </thead>
 
-                <tbody>
-                {paginatedEmployees.map(emp => (
-                  <tr
-                    key={emp.employeePayrollId || emp.employeeCode || emp.userId}
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => handleRowClick(emp)}
-                  >
-                    <td><strong>{emp.employeeCode ?? emp.userId ?? 'N/A'}</strong></td>
-                    <td>{emp.fullName || 'N/A'}</td>
-                    <td>
-                      <Badge bg={getStatusBadge(emp.calculationStatus)}>
-                        {getStatusLabel(emp.calculationStatus)}
-                      </Badge>
-                    </td>
+                      <tbody>
+                      {paginatedEmployees.map(emp => (
+                          <tr
+                              key={emp.employeePayrollId || emp.employeeCode || emp.userId}
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => handleRowClick(emp)}
+                          >
+                              <td><strong>{emp.employeeCode ?? emp.userId ?? 'N/A'}</strong></td>
+                              <td>{emp.fullName || 'N/A'}</td>
+                              <td>
+                                  <Badge bg={getStatusBadge(emp.calculationStatus)}>
+                                      {getStatusLabel(emp.calculationStatus)}
+                                  </Badge>
+                              </td>
 
-                    <td className="text-end">{emp.actualWorkingDays ?? 0}</td>
-                    <td className="text-end">{emp.otWeekdayHours ?? emp.ot1Hours ?? 0}</td>
-                    <td className="text-end">{emp.otHolidayHours ?? emp.ot2Hours ?? 0}</td>
-                    <td className="text-end">{formatCurrency(emp.allowance)}</td>
+                              <td className="text-end">{emp.actualWorkingDays ?? 0}</td>
+                              <td className="text-end">{emp.otWeekdayHours ?? emp.ot1Hours ?? 0}</td>
+                              <td className="text-end">{emp.otHolidayHours ?? emp.ot2Hours ?? 0}</td>
+                              <td className="text-end">{formatCurrency(emp.allowance)}</td>
 
-                    <td className="text-end">{formatCurrency(emp.grossIncomeForTax)}</td>
-                    <td className="text-end text-danger">{formatCurrency(emp.deduction)}</td>
-                    <td className="text-end text-danger">{formatCurrency(emp.personalIncomeTax)}</td>
-                    <td className="text-end text-bg-primary">
-                      <strong>{formatCurrency(emp.totalPay)}</strong>
-                    </td>
+                              <td className="text-end">{formatCurrency(emp.grossIncomeForTax)}</td>
+                              <td className="text-end text-danger">{formatCurrency(emp.deduction)}</td>
+                              <td className="text-end text-danger">{formatCurrency(emp.personalIncomeTax)}</td>
+                              <td className="text-end text-bg-primary">
+                                  <strong>{formatCurrency(emp.totalPay)}</strong>
+                              </td>
 
-                    <td onClick={(e) => e.stopPropagation()} className="d-flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        onClick={() =>
-                          navigate(`/payroll/${payrollId}/calculate`, {
-                            state: { userId: emp.userId, month: payroll.month }
-                          })
-                        }
-                      >
-                        Calc
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-                </tbody>
-              </Table>
-            </div>
+                              <td onClick={(e) => e.stopPropagation()} className="d-flex flex-wrap gap-2">
+                                  <Button
+                                      size="sm"
+                                      variant="primary"
+                                      onClick={() =>
+                                          navigate(`/payroll/${payrollId}/calculate`, {
+                                              state: { userId: emp.userId, month: payroll.month }
+                                          })
+                                      }
+                                  >
+                                      Calc
+                                  </Button>
+                              </td>
+                          </tr>
+                      ))}
+                      </tbody>
+                  </Table>
+              </div>
           )}
 
-          {sortedEmployees.length > 0 && (
+            {sortedEmployees.length > 0 && (
             <div className="d-flex justify-content-between align-items-center px-3 py-2 border-top">
               <div className="text-muted small">
                 Showing {(empPage - 1) * empPageSize + 1}–
@@ -766,86 +769,156 @@ const PayrollDetail = () =>
                               </Alert>
                           ) : (
                               <>
+                                  <Card className="shadow-sm">
+                                      <Card.Header className="bg-light fw-bold">
+                                          Payroll Breakdown
+                                      </Card.Header>
+                                      <Card.Body>
+                                          {(() => {
+                                              const lateCount = Number(preview?.lateCount ?? 0);
+                                              const latePenaltyPerTime = Number(preview?.latePenalty ?? 0);
+                                              const latePenaltyTotal = lateCount * latePenaltyPerTime;
 
-                              <Card className="shadow-sm">
-                          <Card.Header className="bg-light fw-bold">
-                            Payroll Breakdown
-                          </Card.Header>
-                          <Card.Body>
-                            <Table bordered responsive size="sm" className="mb-0">
-                              <tbody>
-                              <tr>
-                                <td>Base Salary</td>
-                                <td className="text-end">{formatCurrency(preview.baseSalary)}</td>
-                              </tr>
-                              <tr>
-                                <td>Time Salary / Product Bonus</td>
-                                <td className="text-end">{formatCurrency(preview.timeSalary ?? preview.productBonus)}</td>
-                              </tr>
-                              <tr>
-                                <td>Overtime Pay</td>
-                                <td className="text-end">{formatCurrency(preview.overtimePay)}</td>
-                              </tr>
-                              <tr>
-                                <td>Allowance (Total)</td>
-                                <td className="text-end">{formatCurrency(preview.allowance)}</td>
-                              </tr>
+                                              const insurance = Number(preview?.insurance ?? 0);
+                                              const cashDeductionTotal = latePenaltyTotal + insurance;
 
-                              <tr>
-                                <td>Late Penalty</td>
-                                <td className="text-end text-danger">-{formatCurrency(preview.latePenalty)}</td>
-                              </tr>
-                              <tr>
-                                <td>Insurance</td>
-                                <td className="text-end text-danger">-{formatCurrency(preview.insurance)}</td>
-                              </tr>
+                                              const gross = Number(preview?.grossIncomeForTax ?? 0);
+                                              const incomeAfterCash = gross - cashDeductionTotal;
 
-                              <tr>
-                                <td>Personal Deduction</td>
-                                <td className="text-end text-danger">-{formatCurrency(preview.personalDeduction)}</td>
-                              </tr>
-                              <tr>
-                                <td>Dependent Deduction</td>
-                                <td className="text-end text-danger">-{formatCurrency(preview.dependentDeduction)}</td>
-                              </tr>
+                                              return (
+                                                  <Table bordered responsive size="sm" className="mb-0">
+                                                      <tbody>
+                                                      <tr>
+                                                          <td>Base Salary</td>
+                                                          <td className="text-end">{formatCurrency(preview.baseSalary)}</td>
+                                                      </tr>
 
-                              <tr>
-                                <td><strong>Total Deduction</strong></td>
-                                <td className="text-end text-danger">
-                                  <strong>-{formatCurrency(preview.taxDeductionTotal ?? preview.totalDeduction)}</strong>
-                                </td>
-                              </tr>
+                                                      <tr>
+                                                          <td>Time Salary</td>
+                                                          <td className="text-end">{formatCurrency(preview.timeSalary)}</td>
+                                                      </tr>
 
-                              <tr>
-                                <td><strong>Taxable Income</strong></td>
-                                <td className="text-end">
-                                  <strong>{formatCurrency(preview.taxableIncome ?? preview.incomeForTax ?? preview.grossIncomeForTax)}</strong>
-                                </td>
-                              </tr>
+                                                      <tr>
+                                                          <td>Product Bonus</td>
+                                                          <td className="text-end">{formatCurrency(preview.productBonus)}</td>
+                                                      </tr>
 
-                              <tr>
-                                <td>Personal Income Tax (PIT)</td>
-                                <td className="text-end text-danger">-{formatCurrency(preview.personalIncomeTax)}</td>
-                              </tr>
+                                                      <tr>
+                                                          <td>Overtime Pay</td>
+                                                          <td className="text-end">{formatCurrency(preview.overtimePay)}</td>
+                                                      </tr>
 
-                              <tr className="table-success">
-                                <td><strong>Total Pay (NET)</strong></td>
-                                <td className="text-end">
-                                  <strong>{formatCurrency(preview.totalPay)}</strong>
-                                </td>
-                              </tr>
-                              </tbody>
-                            </Table>
+                                                      <tr>
+                                                          <td><strong>Gross income for tax (A+B+C)</strong></td>
+                                                          <td className="text-end">
+                                                              <strong>{formatCurrency(preview.grossIncomeForTax)}</strong>
+                                                          </td>
+                                                      </tr>
 
-                            {preview?.taxCalculation?.note ? (
-                              <Alert variant="secondary" className="mt-3 mb-0" style={{ whiteSpace: 'pre-wrap' }}>
-                                <strong>Tax calculation details:</strong>
-                                {'\n\n'}
-                                {preview.taxCalculation.note}
-                              </Alert>
-                            ) : null}
-                          </Card.Body>
-                        </Card>
+                                                      <tr>
+                                                          <td><strong>Cash deductions</strong></td>
+                                                          <td></td>
+                                                      </tr>
+
+                                                      <tr>
+                                                          <td>Late Count</td>
+                                                          <td className="text-end">{lateCount}</td>
+                                                      </tr>
+
+                                                      <tr>
+                                                          <td>Late Penalty / time</td>
+                                                          <td className="text-end text-danger">-{formatCurrency(preview.latePenalty)}</td>
+                                                      </tr>
+
+                                                      <tr>
+                                                          <td>Late Penalty Total (lateCount × latePenalty)</td>
+                                                          <td className="text-end text-danger">-{formatCurrency(latePenaltyTotal)}</td>
+                                                      </tr>
+
+                                                      <tr>
+                                                          <td>Insurance</td>
+                                                          <td className="text-end text-danger">-{formatCurrency(preview.insurance)}</td>
+                                                      </tr>
+
+                                                      <tr>
+                                                          <td><strong>Cash Deduction Total</strong></td>
+                                                          <td className="text-end text-danger">
+                                                              <strong>-{formatCurrency(cashDeductionTotal)}</strong>
+                                                          </td>
+                                                      </tr>
+
+                                                      <tr>
+                                                          <td><strong>Income after cash deductions</strong></td>
+                                                          <td className="text-end">
+                                                              <strong>{formatCurrency(incomeAfterCash)}</strong>
+                                                          </td>
+                                                      </tr>
+
+                                                      <tr>
+                                                          <td><strong>Tax deductions (from tax engine)</strong></td>
+                                                          <td></td>
+                                                      </tr>
+
+                                                      <tr>
+                                                          <td>Personal Deduction</td>
+                                                          <td className="text-end text-danger">-{formatCurrency(preview.personalDeduction)}</td>
+                                                      </tr>
+
+                                                      <tr>
+                                                          <td>Dependent Deduction</td>
+                                                          <td className="text-end text-danger">-{formatCurrency(preview.dependentDeduction)}</td>
+                                                      </tr>
+
+                                                      <tr>
+                                                          <td>Insurance Deduction (for tax)</td>
+                                                          <td className="text-end text-danger">-{formatCurrency(preview.insuranceDeduction)}</td>
+                                                      </tr>
+
+                                                      <tr>
+                                                          <td><strong>Total Tax Deduction</strong></td>
+                                                          <td className="text-end text-danger">
+                                                              <strong>-{formatCurrency(preview.taxDeductionTotal)}</strong>
+                                                          </td>
+                                                      </tr>
+
+                                                      <tr>
+                                                          <td><strong>Taxable Income (from tax engine)</strong></td>
+                                                          <td className="text-end">
+                                                              <strong>{formatCurrency(preview.taxableIncome)}</strong>
+                                                          </td>
+                                                      </tr>
+
+                                                      <tr>
+                                                          <td>Personal Income Tax (PIT)</td>
+                                                          <td className="text-end text-danger">-{formatCurrency(preview.personalIncomeTax)}</td>
+                                                      </tr>
+
+                                                      <tr>
+                                                          <td>Allowance (Total)</td>
+                                                          <td className="text-end">{formatCurrency(preview.allowance)}</td>
+                                                      </tr>
+
+                                                      <tr className="table-success">
+                                                          <td><strong>Total Pay (NET)</strong></td>
+                                                          <td className="text-end">
+                                                              <strong>{formatCurrency(preview.totalPay)}</strong>
+                                                          </td>
+                                                      </tr>
+                                                      </tbody>
+                                                  </Table>
+                                              );
+                                          })()}
+
+                                          {preview?.taxCalculation?.note ? (
+                                              <Alert variant="secondary" className="mt-3 mb-0" style={{ whiteSpace: 'pre-wrap' }}>
+                                                  <strong>Tax calculation details:</strong>
+                                                  {'\n\n'}
+                                                  {preview.taxCalculation.note}
+                                              </Alert>
+                                          ) : null}
+                                      </Card.Body>
+                                  </Card>
+
 
                                   <div className="d-flex justify-content-end mt-3 gap-2">
                                       <Button variant="secondary" onClick={() => setCalcTab('input')} disabled={saving}>

@@ -452,69 +452,104 @@ const PayrollEmployeeCalculator = () => {
                                 {/* === RESULTS (read-only) === */}
                                 <h6 className="mb-2"><strong>2. Results</strong></h6>
                                 <Table bordered size="sm" className="mb-3">
-                                  <tbody>
+                                    <tbody>
                                     <tr>
-                                      <td style={{ width: '40%' }}>Time Salary (A)</td>
-                                      <td>{formatCurrency(preview.timeSalary)}</td>
+                                        <td style={{ width: '40%' }}>Time Salary (A)</td>
+                                        <td>{formatCurrency(preview.timeSalary)}</td>
                                     </tr>
                                     <tr>
-                                      <td>Product Bonus (B)</td>
-                                      <td>{formatCurrency(preview.productBonus)}</td>
+                                        <td>Product Bonus (B)</td>
+                                        <td>{formatCurrency(preview.productBonus)}</td>
                                     </tr>
                                     <tr>
-                                      <td>Overtime Pay (C)</td>
-                                      <td>{formatCurrency(preview.overtimePay)}</td>
+                                        <td>Overtime Pay (C)</td>
+                                        <td>{formatCurrency(preview.overtimePay)}</td>
                                     </tr>
 
                                     <tr>
-                                        <td>Taxable income (D = A + B + C)</td>
+                                        <td>Gross income for tax (D = A + B + C)</td>
                                         <td>{formatCurrency(preview.grossIncomeForTax)}</td>
                                     </tr>
 
                                     <tr>
-                                        <td>Deduction:</td>
-                                    </tr>
-                                    <tr>
-                                      <td>Late Penalty (E)</td>
-                                      <td className="text-danger">-{formatCurrency(preview.latePenalty)}</td>
-                                    </tr>
-                                    <tr>
-                                      <td>Insurance(BHXH 8%, BHYT 1.5%, BHTN 1%) (F)</td>
-                                      <td className="text-danger">-{formatCurrency(preview.insurance)}</td>
-                                    </tr>
-
-                                    {/*//giảm trừ gia cảnh*/}
-                                    <tr>
-                                      <td>Personal Deduction(G)</td>
-                                      <td className="text-danger">-{formatCurrency(preview.personalDeduction)}</td>
-                                    </tr>
-                                    <tr>
-                                      <td>Dependent Deduction (H)</td>
-                                      <td className="text-danger">-{formatCurrency(preview.dependentDeduction)}</td>
+                                        <td><strong>Cash deductions</strong></td>
+                                        <td></td>
                                     </tr>
 
                                     <tr>
-                                        <td><strong>Total Deduction (I = E + F + G + H)</strong></td>
-                                        <td className="text-danger"><strong>-{formatCurrency(preview.taxDeductionTotal)}</strong></td>
+                                        <td>Late Penalty / time</td>
+                                        <td className="text-danger">-{formatCurrency(preview.latePenalty)}</td>
                                     </tr>
-                                    {/* thu nhập tính thuế = thu nhập chịu thuế + OT + product base - total deduction*/}
+                                    <tr>
+                                        <td>Late Penalty Total (E = lateCount × latePenalty)</td>
+                                        <td className="text-danger">
+                                            -{formatCurrency((preview.lateCount ?? 0) * (preview.latePenalty ?? 0))}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Insurance (F)</td>
+                                        <td className="text-danger">-{formatCurrency(preview.insurance)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Cash Deduction Total (E + F)</strong></td>
+                                        <td className="text-danger">
+                                            <strong>
+                                                -{formatCurrency(((preview.lateCount ?? 0) * (preview.latePenalty ?? 0)) + (preview.insurance ?? 0))}
+                                            </strong>
+                                        </td>
+                                    </tr>
 
                                     <tr>
-                                        <td><strong>Income for tax calculation (J = A - I)</strong></td>
+                                        <td><strong>Income after cash deductions (D - (E+F))</strong></td>
+                                        <td>
+                                            <strong>
+                                                {formatCurrency((preview.grossIncomeForTax ?? 0) - (((preview.lateCount ?? 0) * (preview.latePenalty ?? 0)) + (preview.insurance ?? 0)))}
+                                            </strong>
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td><strong>Tax deductions (from tax engine)</strong></td>
+                                        <td></td>
+                                    </tr>
+
+                                    <tr>
+                                        <td>Personal Deduction (G)</td>
+                                        <td className="text-danger">-{formatCurrency(preview.personalDeduction)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Dependent Deduction (H)</td>
+                                        <td className="text-danger">-{formatCurrency(preview.dependentDeduction)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Insurance Deduction (for tax)</td>
+                                        <td className="text-danger">-{formatCurrency(preview.insuranceDeduction)}</td>
+                                    </tr>
+
+                                    <tr>
+                                        <td><strong>Total Tax Deduction</strong></td>
+                                        <td className="text-danger">
+                                            <strong>-{formatCurrency(preview.taxDeductionTotal)}</strong>
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td><strong>Taxable Income (from tax engine)</strong></td>
                                         <td><strong>{formatCurrency(preview.taxableIncome)}</strong></td>
                                     </tr>
 
                                     <tr>
-                                      <td>Personal Income Tax/ TNCN (K = J * tax_rate)</td>
-                                      <td className="text-danger">-{formatCurrency(preview.personalIncomeTax)}</td>
+                                        <td>Personal Income Tax / PIT</td>
+                                        <td className="text-danger">-{formatCurrency(preview.personalIncomeTax)}</td>
                                     </tr>
 
                                     <tr className="table-success">
-                                      <td><strong>Total Pay (NET = J - K)</strong></td>
-                                      <td><strong>{formatCurrency(preview.totalPay)}</strong></td>
+                                        <td><strong>Total Pay (NET)</strong></td>
+                                        <td><strong>{formatCurrency(preview.totalPay)}</strong></td>
                                     </tr>
-                                  </tbody>
+                                    </tbody>
                                 </Table>
+
 
                                 {preview?.taxCalculation?.note ? (
                                     <Alert variant="secondary" className="mt-3" style={{ whiteSpace: 'pre-wrap' }}>

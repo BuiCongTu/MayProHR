@@ -147,7 +147,7 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
             payDto.setTotalPay(totalPay.setScale(SCALE, RoundingMode.HALF_UP));
 
         } else { // ProductBased
-            BigDecimal incomeBeforeTax = user.getBaseSalary()
+            BigDecimal incomeBeforeTax = timeSalary
                     .add(productBonus)
                     .add(overtimePay);
             payDto.setGrossIncomeForTax(incomeBeforeTax);
@@ -164,8 +164,8 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
 
             payDto.setCalculationNote(
                     String.format(
-                            "ProductBased: baseSalary(%.0f) + productBonus(%.0f) + overtimePay(%.0f) - deduction(%.0f) - tax(%.0f) + allowance(%.0f) = %.0f",
-                            user.getBaseSalary(), productBonus, overtimePay,
+                            "ProductBased: timeSalary(%.0f) + productBonus(%.0f) + overtimePay(%.0f) - deduction(%.0f) - tax(%.0f) + allowance(%.0f) = %.0f",
+                            timeSalary, productBonus, overtimePay,
                             deductions, taxDTO.getTotalTax(), allowanceValue, totalPay
                     )
             );
@@ -175,6 +175,34 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
 
         return payDto;
     }
+//            BigDecimal incomeBeforeTax = user.getBaseSalary()
+//                    .add(productBonus)
+//                    .add(overtimePay);
+//            payDto.setGrossIncomeForTax(incomeBeforeTax);
+//
+//            BigDecimal incomeAfterDeductions = incomeBeforeTax.subtract(deductions);
+//            payDto.setIncomeAfterDeductions(incomeAfterDeductions);
+//
+//            TaxCalculationDTO taxDTO = calPersonalIncomeTax(user, incomeBeforeTax, payrollMonth);
+//            payDto.setTaxCalculation(taxDTO);
+//
+//            BigDecimal netBeforeAllowance = incomeAfterDeductions.subtract(taxDTO.getTotalTax());
+//
+//            BigDecimal totalPay = netBeforeAllowance.add(allowanceValue);
+//
+//            payDto.setCalculationNote(
+//                    String.format(
+//                            "ProductBased: baseSalary(%.0f) + productBonus(%.0f) + overtimePay(%.0f) - deduction(%.0f) - tax(%.0f) + allowance(%.0f) = %.0f",
+//                            user.getBaseSalary(), productBonus, overtimePay,
+//                            deductions, taxDTO.getTotalTax(), allowanceValue, totalPay
+//                    )
+//            );
+//
+//            payDto.setTotalPay(totalPay.setScale(SCALE, RoundingMode.HALF_UP));
+//        }
+//
+//        return payDto;
+//    }
 
     //tinh luong TimeBase với xử lý phép tích lũy
     @Override
@@ -275,7 +303,9 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
 
         payDto.setApprovedLeaveDays(approvedLeaveDaysInMonth);
         payDto.setPaidLeaveDays(paidLeaveDays);
-        payDto.setLatePenalty(LATE_PENALTY);
+
+        BigDecimal totalLatePenalty = LATE_PENALTY.multiply(new BigDecimal(lateCount));
+        payDto.setLatePenalty(totalLatePenalty);
 
 
         // === 4) ATTENDANCE DAYS (distinct dates) và phân loại working-day / non-working-day ===

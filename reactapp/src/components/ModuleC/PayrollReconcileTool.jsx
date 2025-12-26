@@ -244,24 +244,44 @@ export default function PayrollReconcileTool() {
             ['timeSalary', 'Time Salary'],
             ['productBonus', 'Product Bonus'],
             ['overtimePay', 'Overtime Pay'],
-            ['grossIncomeForTax', 'Gross Income (Tax)'],
+            ['grossIncomeForTax', 'Gross Income (for tax)'],
+
+            ['latePenalty', 'Late Penalty / time'],
+            ['latePenaltyTotal', 'Late Penalty Total (lateCount × latePenalty)'],
+
             ['insurance', 'Insurance (cash)'],
-            ['totalDeduction', 'Total Deduction (cash)'],
-            ['personalDeduction', 'Personal Deduction (override/actual)'],
-            ['dependentDeduction', 'Dependent Deduction (override/actual)'],
+            ['totalDeduction', 'Cash Deduction Total (Insurance + Late)'],
+
+            ['personalDeduction', 'Personal Deduction (from tax engine)'],
+            ['dependentDeduction', 'Dependent Deduction (from tax engine)'],
             ['taxDeductionTotal', 'Tax Deduction Total (from tax engine)'],
+            ['taxableIncome', 'Taxable Income (from tax engine)'],
+
             ['personalIncomeTax', 'PIT'],
             ['allowance', 'Allowance (after tax)'],
             ['totalPay', 'Total Pay (NET)']
         ];
 
+        const getValue = (obj, key) => {
+            if (!obj) return null;
+
+            if (key === 'latePenaltyTotal') {
+                const lateCount = Number(obj.lateCount ?? 0);
+                const latePenaltyPerTime = Number(obj.latePenalty ?? 0);
+                return lateCount * latePenaltyPerTime;
+            }
+
+            return obj[key];
+        };
+
         return fields.map(([key, label]) => {
-            const dbVal = dbBreakdown ? dbBreakdown[key] : null;
-            const exVal = expected ? expected[key] : null;
+            const dbVal = getValue(dbBreakdown, key);
+            const exVal = getValue(expected, key);
             const diff = (dbVal != null && exVal != null) ? Number(exVal) - Number(dbVal) : null;
             return { key, label, dbVal, exVal, diff };
         });
     }, [dbBreakdown, expected]);
+
 
     const exportJson = () => {
         downloadJson(
@@ -283,7 +303,10 @@ export default function PayrollReconcileTool() {
             <h3>Payroll Reconcile Tool</h3>
             <div className="text-muted mb-3">
                 Allowance  · Insurance(cash) = grossIncomeForTax × insuranceRate(from Tax Profile) · attendance empty = 0
+                Quy ước: Late Penalty là "phạt / lần" · Late Penalty Total = lateCount × latePenalty ·
+                Cash Deduction Total = Insurance(cash) + Late Penalty Total · Tax Deduction Total lấy từ tax engine
             </div>
+
 
             {error ? <Alert variant="danger">{error}</Alert> : null}
 

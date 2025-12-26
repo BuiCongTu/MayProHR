@@ -8,7 +8,7 @@ import {
 
 function ProposalList({ title, proposalType, filterByProposerId, defaultStatus }) {
     const [data, setData] = useState([]);
-    const [statusFilter, setStatusFilter] = useState(defaultStatus || "");
+    const [statusFilter, setStatusFilter] = useState(defaultStatus || "All");
 
     useEffect(() => {
         const fetchData = async () => {
@@ -44,7 +44,11 @@ function ProposalList({ title, proposalType, filterByProposerId, defaultStatus }
             <Typography variant="h6" mb={2}>{title}</Typography>
 
             <Box mb={2}>
-                <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                <Select
+                    value={statusFilter}
+                    onChange={e => setStatusFilter(e.target.value)}
+                    sx={{ width: 240 }}
+                >
                     <MenuItem value="">All</MenuItem>
                     <MenuItem value="pending">Pending</MenuItem>
                     <MenuItem value="approved">Approved</MenuItem>
