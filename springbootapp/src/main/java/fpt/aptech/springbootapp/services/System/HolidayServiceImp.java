@@ -43,8 +43,23 @@ public class HolidayServiceImp implements HolidayService {
         return date.getDayOfWeek() == DayOfWeek.SUNDAY || isHoliday(date);
     }
 
+    @Override
+    public boolean isCompensatoryOff(LocalDate date) {
+        //Sunday = Holiday => hôm nay thứ 2 nghỉ bù
+        if (date == null) return false;
+        if (date.getDayOfWeek() != DayOfWeek.MONDAY) return false;
+
+        LocalDate prev = date.minusDays(1);
+        return prev.getDayOfWeek() == DayOfWeek.SUNDAY && isHoliday(prev);
+    }
+
+    @Override
+    public boolean isNonWorkingDay(LocalDate date) {
+        return isSundayOrHoliday(date) || isCompensatoryOff(date);
+    }
+
     public BigDecimal getOvertimeMultiplier(LocalDate date) {
-        if (isSundayOrHoliday(date)) {
+        if (isNonWorkingDay(date)) {
             return new BigDecimal("2.0");  // 2x lương
         }
         return new BigDecimal("1.5");      // 1.5x lương

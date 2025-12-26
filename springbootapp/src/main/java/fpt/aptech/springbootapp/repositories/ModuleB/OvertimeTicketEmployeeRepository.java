@@ -53,4 +53,24 @@ public interface OvertimeTicketEmployeeRepository extends JpaRepository<TbOverti
             "AND te.employee.id = :employeeId " +
             "AND te.status = 'rejected'")
     boolean hasRejected(@Param("requestId") Integer requestId, @Param("employeeId") Integer employeeId);
+
+    //anh Tu them
+    @Query("""
+        SELECT te
+        FROM TbOvertimeTicketEmployee te
+        JOIN te.overtimeTicket t
+        JOIN t.overtimeRequest r
+        WHERE te.employee = :user
+          AND te.status = :employeeStatus
+          AND t.status = :ticketStatus
+          AND r.overtimeDate BETWEEN :startDate AND :endDate
+        """)
+    List<TbOvertimeTicketEmployee> findByEmployeeAndEmployeeStatusAndTicketStatusAndOvertimeDateBetween(
+            @Param("user") TbUser user,
+            @Param("employeeStatus") TbOvertimeTicketEmployee.EmployeeOvertimeStatus employeeStatus,
+            @Param("ticketStatus") fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeTicket.OvertimeTicketStatus ticketStatus,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
+
 }
