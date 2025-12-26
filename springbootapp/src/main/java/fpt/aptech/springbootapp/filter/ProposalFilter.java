@@ -18,4 +18,7 @@ public class ProposalFilter {
     private Integer approvedById;
     private Instant createdAfter;
     private Instant createdBefore;
+
+    private Integer year;
+    private Integer month;
 }

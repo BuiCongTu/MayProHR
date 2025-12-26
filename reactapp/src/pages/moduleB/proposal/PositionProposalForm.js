@@ -131,6 +131,8 @@ function PositionProposalForm()
             {
                 const details = await getUserById(targetId);
                 setSelectedUserDetails(details || null);
+                console.log('details from getUserById:', details);
+
             } catch (err)
             {
                 console.error('Failed to load user details:', err);
@@ -144,6 +146,7 @@ function PositionProposalForm()
         setSalaryTypeTouched(false);
 
         loadDetails();
+
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData.targetUser?.id]);
 
@@ -423,7 +426,8 @@ function PositionProposalForm()
                         }}
                     >
                         <Grid container spacing={3}>
-                            {/* Khối 1: Chọn nhân viên */}
+
+{/* Khối 1: Chọn nhân viên */}
                             <Grid item xs={12}>
                                 <Paper
                                     variant="outlined"
@@ -477,42 +481,10 @@ function PositionProposalForm()
                                                         required
                                                         fullWidth
                                                         size="small"
+                                                        sx={{ minWidth: { xs: 200, md: 300 } }}
                                                     />
                                                 )}
                                             />
-                                        </Grid>
-
-                                        <Grid item xs={12} md={6}>
-                                            {formData.targetUser && (
-                                                <Paper
-                                                    variant="outlined"
-                                                    sx={{
-                                                        p: 2,
-                                                        borderRadius: 2,
-                                                        bgcolor: 'grey.50'
-                                                    }}
-                                                >
-                                                    <Typography variant="subtitle2" fontWeight="bold">
-                                                        Selected Employee
-                                                    </Typography>
-                                                    <Typography variant="body2">
-                                                        <strong>ID:</strong> {formData.targetUser.id}
-                                                    </Typography>
-                                                    <Typography variant="body2">
-                                                        <strong>Full name:</strong> {formData.targetUser.fullName}
-                                                    </Typography>
-                                                    <Typography variant="body2">
-                                                        <strong>Department:</strong>{' '}
-                                                        {getCurrentDepartmentName(formData.targetUser)}
-                                                    </Typography>
-                                                    <Typography variant="body2">
-                                                        <strong>Base Salary:</strong>{' '}
-                                                        {selectedUserDetails?.baseSalary ?? formData.targetUser?.baseSalary ?? '-'}
-                                                    </Typography>
-                                                </Paper>
-
-                                            )}
-
                                         </Grid>
 
                                         {selectedUserDetails && (
@@ -520,12 +492,14 @@ function PositionProposalForm()
                                                 <Paper
                                                     variant="outlined"
                                                     sx={{
-                                                        mt: 0.5,
+                                                        mt: 1,
                                                         p: 2,
                                                         borderRadius: 2,
                                                         borderStyle: 'dashed',
                                                         borderColor: 'grey.300',
                                                         bgcolor: 'common.white',
+                                                        fullWidth: true,
+                                                        minWidth: { xs: 300, md: 500 }
                                                     }}
                                                 >
                                                     <Typography
@@ -553,8 +527,7 @@ function PositionProposalForm()
                                                                 {selectedUserDetails.role?.name ||
                                                                     '-'}
                                                             </Typography>
-                                                        </Grid>
-                                                        <Grid item xs={12} sm={6}>
+
                                                             <Typography variant="body2">
                                                                 <strong>Line:</strong>{' '}
                                                                 {currentLineName}
@@ -581,7 +554,7 @@ function PositionProposalForm()
                                 </Paper>
                             </Grid>
 
-                            {/* Khối 2: Vị trí mới */}
+{/* Khối 2: Vị trí mới */}
                             <Grid item xs={12}>
                                 <Paper
                                     variant="outlined"
@@ -639,7 +612,7 @@ function PositionProposalForm()
                                                         required
                                                         fullWidth
                                                         size="medium"
-                                                        sx={{ minWidth: 200 }}
+                                                        sx={{ minWidth: { xs: 300, md: 450 } }}
                                                     />
                                                 )}
                                             />
@@ -656,7 +629,7 @@ function PositionProposalForm()
                                                 }
                                                 value={formData.newDepartment}
                                                 fullWidth
-                                                sx={{ minWidth: 200 }}
+                                                sx={{ minWidth: { xs: 300, md: 450 } }}
                                                 onChange={(_e, value) =>
                                                     setFormData((prev) => ({
                                                         ...prev,
@@ -745,7 +718,7 @@ function PositionProposalForm()
                                 </Paper>
                             </Grid>
 
-                            {/* Khối 3: Chi tiết đề xuất */}
+{/* Khối 3: Chi tiết đề xuất */}
                             <Grid item xs={12}>
                                 <Paper
                                     variant="outlined"
@@ -818,7 +791,7 @@ function PositionProposalForm()
                                 </Paper>
                             </Grid>
 
-                            {/* submit */}
+{/* submit */}
                             <Grid item xs={12}>
                                 <Box
                                     sx={{
@@ -842,64 +815,111 @@ function PositionProposalForm()
                         </Grid>
                     </Box>
                 )}
-
+{/* Khoois 4: Review Summary*/}
                 {formData.targetUser && (
-                    <Box sx={{ mt: 3 }}>
-                        <Divider textAlign="left">Review Summary</Divider>
-                        <Grid container spacing={2} sx={{ mt: 1 }}>
+                    <Box sx={{ mt: 4 }}>
+                        <Divider textAlign="left">
+                            <Typography variant="h6" fontWeight="bold" color="primary">
+                                Review Summary
+                            </Typography>
+                        </Divider>
+
+                        <Grid container spacing={4} sx={{ mt: 3 }}>
+                            {/* Current Block */}
                             <Grid item xs={12} md={6}>
-                                <Paper variant="outlined" sx={{ p: 2 }}>
-                                    <Typography variant="subtitle1" fontWeight="bold">
-                                        Current
+                                <Paper
+                                    variant="outlined"
+                                    sx={{
+                                        p: { xs: 2.5, md: 3 },        // Tăng padding, responsive
+                                        height: '100%',
+                                        minHeight: 280,               // Đảm bảo chiều cao tối thiểu
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        bgcolor: 'grey.50',
+                                        borderRadius: 2,
+                                        boxShadow: 1,
+                                    }}
+                                >
+                                    <Typography variant="h6" fontWeight="bold" color="primary" gutterBottom>
+                                        Current Position
                                     </Typography>
-
-                                    <Typography variant="body2">
-                                        Employee: {currentUserData.fullName || currentUserData.name || '-'}
-                                    </Typography>
-
-                                    <Typography variant="body2">
-                                        Role: {currentUserData.role?.name || currentUserData.roleName || '-'}
-                                    </Typography>
-
-                                    <Typography variant="body2">
-                                        Department: {getCurrentDepartmentName(currentUserData)}
-                                    </Typography>
-
-                                    <Typography variant="body2">
-                                        Line: {selectedUserDetails ? currentLineName : '-'}
-                                    </Typography>
-
-                                    <Typography variant="body2">
-                                        Sub Line: {selectedUserDetails ? currentSubLineName : '-'}
-                                    </Typography>
-
-                                    <Typography variant="body2">
-                                        Work Unit: {selectedUserDetails ? currentWorkUnitName : '-'}
-                                    </Typography>
-
-                                    <Typography variant="body2">
-                                        Salary Type: {currentUserData.salaryType || '-'}
-                                    </Typography>
-
-                                    <Typography variant="body2">
-                                        Base Salary: {currentUserData.baseSalary ?? '-'}
-                                    </Typography>
+                                    <Box sx={{ flexGrow: 1, mt: 1 }}>
+                                        <Typography variant="body1" sx={{ mb: 1.5 }}>
+                                            <strong>Employee:</strong> {currentUserData.fullName || currentUserData.name || '-'}
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ mb: 1.5 }}>
+                                            <strong>Role:</strong> {currentUserData.role?.name || currentUserData.roleName || '-'}
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ mb: 1.5 }}>
+                                            <strong>Department:</strong> {getCurrentDepartmentName(currentUserData)}
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ mb: 1.5 }}>
+                                            <strong>Line:</strong> {selectedUserDetails ? currentLineName : '-'}
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ mb: 1.5 }}>
+                                            <strong>Sub Line:</strong> {selectedUserDetails ? currentSubLineName : '-'}
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ mb: 1.5 }}>
+                                            <strong>Work Unit:</strong> {selectedUserDetails ? currentWorkUnitName : '-'}
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ mb: 1.5 }}>
+                                            <strong>Salary Type:</strong> {currentUserData.salaryType || '-'}
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ mb: 1.5 }}>
+                                            <strong>Base Salary:</strong> {currentUserData.baseSalary ?? '-'} VND
+                                        </Typography>
+                                    </Box>
                                 </Paper>
                             </Grid>
 
+                            {/* Proposed Block */}
                             <Grid item xs={12} md={6}>
-                                <Paper variant="outlined" sx={{ p: 2 }}>
-                                    <Typography variant="subtitle1" fontWeight="bold">Proposed</Typography>
-                                    <Typography variant="body2">Employee: {formData.targetUser?.fullName || formData.targetUser?.name || '-'}</Typography>
-                                    <Typography variant="body2">Role: {newRoleName}</Typography>
-                                    <Typography variant="body2">Department: {newDepartmentName}</Typography>
-                                    <Typography variant="body2">Line: {newLineName || '-'}</Typography>
-                                    <Typography variant="body2">Sub Line: {newSubLineName || '-'}</Typography>
-                                    <Typography variant="body2">Work Unit: {newWorkUnitName || '-'}</Typography>
-                                    <Typography variant="body2">
-                                        Salary Type: {formData.salaryType || '-'}
+                                <Paper
+                                    variant="outlined"
+                                    sx={{
+                                        p: { xs: 2.5, md: 3 },
+                                        height: '100%',
+                                        minHeight: 280,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        bgcolor: 'grey.50',
+                                        borderRadius: 2,
+                                        boxShadow: 1,
+                                        borderColor: 'primary.light',
+                                    }}
+                                >
+                                    <Typography variant="h6" fontWeight="bold" color="primary" gutterBottom>
+                                        Proposed Position
                                     </Typography>
-                                    <Typography variant="body2">Base Salary: {formData.newSalary || (selectedUserDetails ? (selectedUserDetails.baseSalary ?? '-') : '-')}</Typography>
+                                    <Box sx={{ flexGrow: 1, mt: 1 }}>
+                                        <Typography variant="body1" sx={{ mb: 1.5 }}>
+                                            <strong>Employee:</strong> {formData.targetUser?.fullName || formData.targetUser?.name || '-'}
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ mb: 1.5, color: formData.newRole ? 'success.main' : 'text.secondary' }}>
+                                            <strong>Role:</strong> {newRoleName}
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ mb: 1.5, color: formData.newDepartment ? 'success.main' : 'text.secondary' }}>
+                                            <strong>Department:</strong> {newDepartmentName}
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ mb: 1.5 }}>
+                                            <strong>Line:</strong> {newLineName || '-'}
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ mb: 1.5 }}>
+                                            <strong>Sub Line:</strong> {newSubLineName || '-'}
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ mb: 1.5 }}>
+                                            <strong>Work Unit:</strong> {newWorkUnitName || '-'}
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ mb: 1.5 }}>
+                                            <strong>Salary Type:</strong> {formData.salaryType || '-'}
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ mb: 1.5, color: formData.newSalary ? 'success.main' : 'text.secondary' }}>
+                                            <strong>Base Salary:</strong>{' '}
+                                            {formData.newSalary
+                                                ? `${formData.newSalary} VND`
+                                                : (selectedUserDetails ? `${selectedUserDetails.baseSalary ?? '-'} VND (unchanged)` : '-')}
+                                        </Typography>
+                                    </Box>
                                 </Paper>
                             </Grid>
                         </Grid>

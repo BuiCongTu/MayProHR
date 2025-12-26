@@ -1,12 +1,14 @@
 package fpt.aptech.springbootapp.api.ModuleA;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -166,44 +168,87 @@ public class LeaveRequestController {
             TbUser user = userRepository.findById(request.getUser().getId())
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
+            //chặn trùng ngày với các đơn đã APPROVED
+            List<TbLeaveRequest> approvedOverlap = leaveRequestRepo.findApprovedOverlappingByUserAndRange(
+                    user.getId(),
+                    request.getStartDate(),
+                    request.getEndDate()
+            );
+
+            if (approvedOverlap != null && !approvedOverlap.isEmpty()) {
+                TbLeaveRequest conflict = approvedOverlap.get(0);
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", String.format(
+                                "Requested leave dates overlap with an already APPROVED request (#%d: %s → %s).",
+                                conflict.getId(),
+                                conflict.getStartDate(),
+                                conflict.getEndDate()
+                        )
+                ));
+            }
+
             request.setUser(user);
-            request.setStatus(TbLeaveRequest.LeaveStatus.pending);
+
+            final String roleName = user.getRole() != null ? user.getRole().getName() : null;
+            final boolean isFactoryManager = roleName != null && "Factory Manager".equalsIgnoreCase(roleName);
+
+            if (isFactoryManager) {
+                request.setStatus(TbLeaveRequest.LeaveStatus.confirmed);
+                request.setConfirmedBy(user);
+            } else {
+                request.setStatus(TbLeaveRequest.LeaveStatus.pending);
+            }
 
             TbLeaveRequest saved = leaveRequestRepo.save(request);
 
             TbDepartment dept = user.getDepartment();
             if (dept == null || dept.getId() == null) {
-                log.warn("[LeaveRequest] Created #{} but userId={} has NO department -> cannot notify FM",
+                log.warn("[LeaveRequest] Created #{} but userId={} has NO department -> cannot notify approvers",
                         saved.getId(), user.getId());
             } else {
-                TbUser fm = dept.getManager();
-
-                if (fm == null) {
-                    List<TbUser> fms = userRepository.findByDepartmentIdAndRoleName(dept.getId(), "Factory Manager");
-                    fm = fms.isEmpty() ? null : fms.get(0);
-                    log.warn("[LeaveRequest] DeptId={} has NO manager_id -> fallback find FM by role, found={}",
-                            dept.getId(), fm != null);
-                }
-
-                if (fm == null) {
-                    log.warn("[LeaveRequest] Created #{} but cannot find Factory Manager for deptId={}",
-                            saved.getId(), dept.getId());
-                } else if (fm.getRole() == null || fm.getRole().getName() == null) {
-                    log.warn("[LeaveRequest] DeptId={} manager userId={} has NO role -> cannot notify",
-                            dept.getId(), fm.getId());
-                } else if (!"Factory Manager".equalsIgnoreCase(fm.getRole().getName())) {
-                    log.warn("[LeaveRequest] DeptId={} manager userId={} role='{}' (expected Factory Manager) -> skip notify",
-                            dept.getId(), fm.getId(), fm.getRole().getName());
+                if (isFactoryManager) {
+                    TbUser fd = userRepository.findByRoleName("Factory Director").stream().findFirst().orElse(null);
+                    if (fd != null) {
+                        String msg = String.format(
+                                "Leave Request #%d was created by the Factory Manager (%s) and auto\\-CONFIRMED; your APPROVAL is required.",
+                                saved.getId(),
+                                user.getFullName()
+                        );
+                        notificationService.sendNotification(fd, msg, TbNotification.NotificationType.other);
+                    } else {
+                        log.warn("[LeaveRequest] Created #{} by FM but cannot find Factory Director to notify", saved.getId());
+                    }
                 } else {
-                    String msg = String.format(
-                            "Leave Request #%d từ %s (%s → %s) cần bạn CONFIRM.",
-                            saved.getId(),
-                            user.getFullName(),
-                            saved.getStartDate(),
-                            saved.getEndDate()
-                    );
-                    notificationService.sendNotification(fm, msg, TbNotification.NotificationType.other);
-                    log.info("[LeaveRequest] Notified FM userId={} email={}", fm.getId(), fm.getEmail());
+                    TbUser fm = dept.getManager();
+
+                    if (fm == null) {
+                        List<TbUser> fms = userRepository.findByDepartmentIdAndRoleName(dept.getId(), "Factory Manager");
+                        fm = fms.isEmpty() ? null : fms.get(0);
+                        log.warn("[LeaveRequest] DeptId={} has NO manager_id -> fallback find FM by role, found={}",
+                                dept.getId(), fm != null);
+                    }
+
+                    if (fm == null) {
+                        log.warn("[LeaveRequest] Created #{} but cannot find Factory Manager for deptId={}",
+                                saved.getId(), dept.getId());
+                    } else if (fm.getRole() == null || fm.getRole().getName() == null) {
+                        log.warn("[LeaveRequest] DeptId={} manager userId={} has NO role -> cannot notify",
+                                dept.getId(), fm.getId());
+                    } else if (!"Factory Manager".equalsIgnoreCase(fm.getRole().getName())) {
+                        log.warn("[LeaveRequest] DeptId={} manager userId={} role='{}' (expected Factory Manager) -> skip notify",
+                                dept.getId(), fm.getId(), fm.getRole().getName());
+                    } else {
+                        String msg = String.format(
+                                "Leave Request #%d từ %s (%s → %s) need your CONFIRM.",
+                                saved.getId(),
+                                user.getFullName(),
+                                saved.getStartDate(),
+                                saved.getEndDate()
+                        );
+                        notificationService.sendNotification(fm, msg, TbNotification.NotificationType.other);
+                        log.info("[LeaveRequest] Notified FM userId={} email={}", fm.getId(), fm.getEmail());
+                    }
                 }
             }
 
@@ -538,4 +583,71 @@ public class LeaveRequestController {
             ));
         }
     }
+
+    @GetMapping("/leave-balance")
+    public ResponseEntity<Map<String, Object>> getLeaveBalance(
+            @RequestParam Integer userId,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf
+    ) {
+        try {
+            if (userId == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "userId is required"
+                ));
+            }
+
+            // validate user exists
+            userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            LocalDate date = (asOf != null) ? asOf : LocalDate.now();
+
+            // pro-rate: mỗi tháng được 1 ngày phép, tối đa 12
+            int entitled = Math.min(date.getMonthValue(), 12);
+
+            LocalDate yearStart = LocalDate.of(date.getYear(), 1, 1);
+            LocalDate yearEndAsOf = date;
+
+            List<TbLeaveRequest> approved = leaveRequestRepo
+                    .findApprovedOverlappingByUserAndRange(userId, yearStart, yearEndAsOf);
+
+            long usedDays = 0;
+            for (TbLeaveRequest lr : approved) {
+                if (lr.getStartDate() == null || lr.getEndDate() == null) continue;
+
+                LocalDate overlapStart = lr.getStartDate().isAfter(yearStart) ? lr.getStartDate() : yearStart;
+                LocalDate overlapEnd = lr.getEndDate().isBefore(yearEndAsOf) ? lr.getEndDate() : yearEndAsOf;
+
+                if (overlapStart.isAfter(overlapEnd)) continue;
+
+                long days = ChronoUnit.DAYS.between(overlapStart, overlapEnd) + 1;
+                usedDays += days;
+            }
+
+            long remaining = entitled - usedDays;
+            if (remaining < 0) remaining = 0;
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("userId", userId);
+            data.put("asOf", date);
+            data.put("year", date.getYear());
+            data.put("entitledDaysToDate", entitled);
+            data.put("approvedLeaveDaysUsedToDate", usedDays);
+            data.put("remainingPaidLeaveDays", remaining);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "OK",
+                    "data", data
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Error: " + e.getMessage()
+            ));
+        }
+    }
+
 }

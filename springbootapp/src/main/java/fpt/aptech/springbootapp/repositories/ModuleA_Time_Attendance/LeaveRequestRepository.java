@@ -13,14 +13,8 @@ import fpt.aptech.springbootapp.entities.ModuleA.TbLeaveRequest;
 @Repository
 public interface LeaveRequestRepository extends JpaRepository<TbLeaveRequest, Integer> {
 
-    // ==============================
-    // BASIC
-    // ==============================
     Optional<TbLeaveRequest> findById(Integer id);
 
-    // ==============================
-    // ALL WITH DETAILS
-    // ==============================
     @Query("""
         SELECT lr FROM TbLeaveRequest lr
         JOIN FETCH lr.user u
@@ -30,9 +24,6 @@ public interface LeaveRequestRepository extends JpaRepository<TbLeaveRequest, In
     """)
     List<TbLeaveRequest> findAllWithDetails();
 
-    // ==============================
-    // BY USER
-    // ==============================
     @Query("""
         SELECT lr FROM TbLeaveRequest lr
         JOIN FETCH lr.user u
@@ -43,7 +34,6 @@ public interface LeaveRequestRepository extends JpaRepository<TbLeaveRequest, In
     """)
     List<TbLeaveRequest> findByUserIdWithDetails(Integer userId);
 
-    // ❌ OLD LOGIC (KEEP FOR OTHER FEATURES)
     @Query("""
         SELECT lr FROM TbLeaveRequest lr
         JOIN FETCH lr.user u
@@ -60,7 +50,6 @@ public interface LeaveRequestRepository extends JpaRepository<TbLeaveRequest, In
             LocalDate toDate
     );
 
-    // ❌ OLD LOGIC (KEEP)
     @Query("""
         SELECT lr FROM TbLeaveRequest lr
         JOIN FETCH lr.user u
@@ -75,7 +64,6 @@ public interface LeaveRequestRepository extends JpaRepository<TbLeaveRequest, In
             LocalDate toDate
     );
 
-    // ❌ OLD LOGIC (KEEP)
     @Query("""
         SELECT lr FROM TbLeaveRequest lr
         JOIN FETCH lr.user u
@@ -92,9 +80,6 @@ public interface LeaveRequestRepository extends JpaRepository<TbLeaveRequest, In
             Integer departmentId
     );
 
-    // ==============================
-    // ✅ NEW – CORRECT MONTH OVERLAP LOGIC
-    // ==============================
     @Query("""
         SELECT lr FROM TbLeaveRequest lr
         JOIN FETCH lr.user u
@@ -127,4 +112,18 @@ public interface LeaveRequestRepository extends JpaRepository<TbLeaveRequest, In
             LocalDate startDate,
             LocalDate endDate
     );
+    @Query("""
+        SELECT lr FROM TbLeaveRequest lr
+        WHERE lr.user.id = :userId
+        AND lr.status = fpt.aptech.springbootapp.entities.ModuleA.TbLeaveRequest.LeaveStatus.approved
+        AND lr.startDate <= :endDate
+        AND lr.endDate >= :startDate
+        ORDER BY lr.createdAt DESC
+    """)
+    List<TbLeaveRequest> findApprovedOverlappingByUserAndRange(
+            Integer userId,
+            LocalDate startDate,
+            LocalDate endDate
+    );
+
 }

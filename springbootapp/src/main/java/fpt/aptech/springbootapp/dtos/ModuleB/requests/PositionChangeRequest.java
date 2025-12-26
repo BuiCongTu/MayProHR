@@ -11,6 +11,13 @@ public class PositionChangeRequest {
     private Integer targetUserId;
     private Integer newRoleId;
     private Integer newDepartmentId;
-    private Integer newSalary; // nullable
+
+    private Integer newSalary;
+    private String salaryType;
+
+    private Integer lineId;
+    private Integer subLineId;
+    private Integer workUnitId;
+
     private String reason;
 }

@@ -46,9 +46,8 @@ class PayrollService {
     required String token,
   }) async {
     try {
-      final url = Uri.parse(
-        '$history/$userId?year=$year&month=$month',
-      );
+      // 1) Lấy EP theo tháng để đảm bảo có dữ liệu cơ bản (và UI tháng/năm)
+      final url = Uri.parse('$history/$userId?year=$year&month=$month');
 
       final response = await http.get(
         url,
@@ -58,20 +57,59 @@ class PayrollService {
         },
       );
 
-      if (response.statusCode == 200) {
-        final dynamic decoded = jsonDecode(response.body);
-        if (decoded is Map<String, dynamic>) {
-          // Inject year/month into the JSON so UI can format properly
-          decoded['year'] = year;
-          decoded['month'] = month;
-          return PayrollModel.fromJson(decoded);
-        } else {
-          throw Exception('Unexpected response format');
-        }
-      } else {
-        throw Exception(
-            'HTTP Error: ${response.statusCode} - ${response.body}');
+      if (response.statusCode != 200) {
+        throw Exception('HTTP Error: ${response.statusCode} - ${response.body}');
       }
+
+      final dynamic decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        throw Exception('Unexpected response format');
+      }
+      decoded['year'] = year;
+      decoded['month'] = month;
+
+      final basic = PayrollModel.fromJson(decoded);
+
+      // 2) Gọi PREVIEW để lấy đúng fields thuế giống React (G/H/I/J)
+      final mm = month.toString().padLeft(2, '0');
+      final isoMonth = '$year-$mm-01';
+
+      final previewUrl = Uri.parse('$baseUrl/api/payroll/employee-payroll/preview');
+      final previewResp = await http.post(
+        previewUrl,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'payrollId': null,
+          'userId': userId,
+          'month': isoMonth,
+          'allowance': 0,
+          'note': null,
+          'overrideActualWorkingDays': null,
+          'overrideOtWeekdayHours': null,
+          'overrideOtHolidayHours': null,
+          'overrideProductCount': null,
+          'overrideUnitPrice': null,
+        }),
+      );
+
+      if (previewResp.statusCode != 200) {
+        return basic; // fallback nếu preview fail
+      }
+
+      final dynamic previewDecoded = jsonDecode(previewResp.body);
+      if (previewDecoded is Map<String, dynamic>) {
+        final data = previewDecoded['data'];
+        if (data is Map<String, dynamic>) {
+          data['year'] = year;
+          data['month'] = month;
+          return PayrollModel.fromJson(data);
+        }
+      }
+
+      return basic;
     } catch (e) {
       throw Exception('Connection error: $e');
     }

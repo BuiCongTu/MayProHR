@@ -66,17 +66,24 @@ public class ProposalMapper {
         p.setType(TbProposal.ProposalType.PositionChange);
         p.setProposer(proposer);
         p.setTargetUser(target);
+
         String details = String.format(
-                "{\"new_role_id\": %d, \"new_department_id\": %d, \"new_salary\": %s}",
+                "{\"new_role_id\": %d, \"new_department_id\": %d, \"new_salary\": %s, \"new_salary_type\": %s, \"new_line_id\": %s, \"new_sub_line_id\": %s, \"new_work_unit_id\": %s}",
                 req.getNewRoleId(),
                 req.getNewDepartmentId(),
-                req.getNewSalary() == null ? "null" : req.getNewSalary().toString()
+                req.getNewSalary() == null ? "null" : req.getNewSalary().toString(),
+                req.getSalaryType() == null ? "null" : ("\"" + req.getSalaryType() + "\""),
+                req.getLineId() == null ? "null" : req.getLineId().toString(),
+                req.getSubLineId() == null ? "null" : req.getSubLineId().toString(),
+                req.getWorkUnitId() == null ? "null" : req.getWorkUnitId().toString()
         );
+
         p.setDetails(details);
         p.setReason(req.getReason());
         p.setStatus(TbProposal.ProposalStatus.pending);
         return p;
     }
+
 
     public static TbProposal fromSkillRequest(SkillLevelChangeRequest req, TbUser proposer, TbUser target) {
         TbProposal p = new TbProposal();

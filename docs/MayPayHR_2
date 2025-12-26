@@ -43,6 +43,9 @@ npm start
 
 #4. Mobile:
 flutter emulators --launch Medium_Phone_2
+flutter run -d emulator-5554
+
+
 flutter devices
 
 #5 flutter:

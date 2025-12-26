@@ -242,10 +242,10 @@ class _AttendanceCalendarScreenState extends State<AttendanceCalendarScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chấm công - $monthLabel'),
+        title: Text('Attendance - $monthLabel'),
         actions: [
           IconButton(
-            tooltip: 'Chọn tháng/năm',
+            tooltip: 'Select Month',
             icon: const Icon(Icons.calendar_month),
             onPressed: _pickMonth,
           ),
@@ -260,10 +260,10 @@ class _AttendanceCalendarScreenState extends State<AttendanceCalendarScreen> {
                 padding: const EdgeInsets.all(12),
                 child: Row(
                   children: [
-                    Expanded(child: Text('Lỗi: $error')),
+                    Expanded(child: Text('Error: $error')),
                     TextButton(
                       onPressed: _loadMonth,
-                      child: const Text('Thử lại'),
+                      child: const Text('Retry'),
                     ),
                   ],
                 ),
@@ -273,7 +273,7 @@ class _AttendanceCalendarScreenState extends State<AttendanceCalendarScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    tooltip: 'Tháng trước',
+                    tooltip: 'Last Month',
                     onPressed: loadingMonth ? null : _goPrevMonth,
                     icon: const Icon(Icons.chevron_left),
                   ),
@@ -286,7 +286,7 @@ class _AttendanceCalendarScreenState extends State<AttendanceCalendarScreen> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Tháng sau',
+                    tooltip: 'Next Month',
                     onPressed: loadingMonth ? null : _goNextMonth,
                     icon: const Icon(Icons.chevron_right),
                   ),
@@ -297,13 +297,13 @@ class _AttendanceCalendarScreenState extends State<AttendanceCalendarScreen> {
               padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
-                  Expanded(child: Center(child: Text('T2'))),
-                  Expanded(child: Center(child: Text('T3'))),
-                  Expanded(child: Center(child: Text('T4'))),
-                  Expanded(child: Center(child: Text('T5'))),
-                  Expanded(child: Center(child: Text('T6'))),
-                  Expanded(child: Center(child: Text('T7'))),
-                  Expanded(child: Center(child: Text('CN'))),
+                  Expanded(child: Center(child: Text('Mo'))),
+                  Expanded(child: Center(child: Text('Tu'))),
+                  Expanded(child: Center(child: Text('We'))),
+                  Expanded(child: Center(child: Text('Th'))),
+                  Expanded(child: Center(child: Text('Fr'))),
+                  Expanded(child: Center(child: Text('Sa'))),
+                  Expanded(child: Center(child: Text('Su'))),
                 ],
               ),
             ),
@@ -394,7 +394,7 @@ class AttendanceDayBottomSheet extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  'Chi tiết ${ymd(date)}',
+                  'Information ${ymd(date)}',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
 
@@ -426,7 +426,7 @@ class AttendanceDayBottomSheet extends StatelessWidget {
                 const SizedBox(height: 12),
                 Expanded(
                   child: records.isEmpty
-                      ? const Center(child: Text('Không có bản ghi chấm công.'))
+                      ? const Center(child: Text('No attendance records for this day.'))
                       : ListView.separated(
                     controller: scrollController,
                     itemCount: records.length,

@@ -136,7 +136,7 @@ class _MyPayrollSelectScreenState extends State<MyPayrollSelectScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Select Payroll'),
+        title: const Text('Payroll Selection'),
         centerTitle: true,
       ),
       body: Padding(

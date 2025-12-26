@@ -62,7 +62,7 @@ class _PayrollListScreenState extends State<PayrollListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bảng Lương Cá Nhân'),
+        title: const Text('Payroll Payments'),
         centerTitle: true,
         elevation: 2,
       ),
@@ -243,10 +243,10 @@ class _PayrollListScreenState extends State<PayrollListScreen> {
               const SizedBox(height: 12),
 
               // Tùy chọn: hiển thị nhanh các income components (để đối soát)
-              _buildInfoRow('Lương Cơ Bản', payroll.baseSalary ?? 0.0),
-              _buildInfoRow('Thưởng Sản Phẩm', payroll.productBonus ?? 0.0),
-              _buildInfoRow('Tăng Ca', payroll.overtimePay ?? 0.0),
-              _buildInfoRow('Phụ Cấp', payroll.allowance ?? 0.0),
+              _buildInfoRow('Base Salary', payroll.baseSalary ?? 0.0),
+              _buildInfoRow('Product Bonus', payroll.productBonus ?? 0.0),
+              _buildInfoRow('OT', payroll.overtimePay ?? 0.0),
+              _buildInfoRow('Allowance', payroll.allowance ?? 0.0),
             ],
           ),
         ),

@@ -1,4 +1,3 @@
-// dart
 import 'package:intl/intl.dart';
 
 class PayrollModel {
@@ -35,6 +34,14 @@ class PayrollModel {
   final double? unitPrice;
 
   final double? timeSalary;
+
+  final double? wageCoefficient;
+
+  final double? taxDeductionTotal;
+  final double? personalDeduction;
+  final double? dependentDeduction;
+  final double? insuranceDeduction;
+  final double? taxableIncome;
 
   final double? _totalIncome;
   final String? note;
@@ -73,6 +80,14 @@ class PayrollModel {
 
     this.timeSalary,
 
+    // --- ADD ---
+    this.wageCoefficient,
+    this.taxDeductionTotal,
+    this.personalDeduction,
+    this.dependentDeduction,
+    this.insuranceDeduction,
+    this.taxableIncome,
+
     double? totalIncome,
     this.note,
   }) : _totalIncome = totalIncome;
@@ -101,7 +116,7 @@ class PayrollModel {
     }
 
     return PayrollModel(
-      id: parseInt(json['id']),
+      id: parseInt(json['id'] ?? json['employeePayrollId']),
       month: parseInt(json['month']),
       year: parseInt(json['year']),
       date: parseDate(json['date'] ?? json['date_time'] ?? json['dateCreated']),
@@ -115,23 +130,15 @@ class PayrollModel {
       totalPay: parseDouble(json['totalPay'] ?? json['total_pay']),
 
       insurance: parseDouble(json['insurance']),
-      totalDeduction: parseDouble(
-          json['totalDeduction'] ?? json['total_deduction']),
-      grossIncomeForTax: parseDouble(
-          json['grossIncomeForTax'] ?? json['gross_income_for_tax']),
-      personalIncomeTax: parseDouble(
-          json['personalIncomeTax'] ?? json['personal_income_tax']),
-      incomeAfterDeductions: parseDouble(
-          json['incomeAfterDeductions'] ?? json['income_after_deductions']),
+      totalDeduction: parseDouble(json['totalDeduction'] ?? json['total_deduction']),
+      grossIncomeForTax: parseDouble(json['grossIncomeForTax'] ?? json['gross_income_for_tax']),
+      personalIncomeTax: parseDouble(json['personalIncomeTax'] ?? json['personal_income_tax']),
+      incomeAfterDeductions: parseDouble(json['incomeAfterDeductions'] ?? json['income_after_deductions']),
 
-      standardWorkingDays: parseDouble(
-          json['standardWorkingDays'] ?? json['standard_working_days']),
-      actualWorkingDays: parseDouble(
-          json['actualWorkingDays'] ?? json['actual_working_days']),
-      paidLeaveDays: parseDouble(
-          json['paidLeaveDays'] ?? json['paid_leave_days']),
-      unpaidLeaveDays: parseDouble(
-          json['unpaidLeaveDays'] ?? json['unpaid_leave_days']),
+      standardWorkingDays: parseDouble(json['standardWorkingDays'] ?? json['standard_working_days']),
+      actualWorkingDays: parseDouble(json['actualWorkingDays'] ?? json['actual_working_days']),
+      paidLeaveDays: parseDouble(json['paidLeaveDays'] ?? json['paid_leave_days']),
+      unpaidLeaveDays: parseDouble(json['unpaidLeaveDays'] ?? json['unpaid_leave_days']),
       lateCount: parseInt(json['lateCount'] ?? json['late_count']),
       latePenalty: parseDouble(json['latePenalty'] ?? json['late_penalty']),
 
@@ -142,6 +149,14 @@ class PayrollModel {
       unitPrice: parseDouble(json['unitPrice'] ?? json['unit_price']),
 
       timeSalary: parseDouble(json['timeSalary'] ?? json['time_salary']),
+
+      // --- ADD ---
+      wageCoefficient: parseDouble(json['wageCoefficient'] ?? json['wage_coefficient']),
+      taxDeductionTotal: parseDouble(json['taxDeductionTotal'] ?? json['tax_deduction_total']),
+      personalDeduction: parseDouble(json['personalDeduction'] ?? json['personal_deduction']),
+      dependentDeduction: parseDouble(json['dependentDeduction'] ?? json['dependent_deduction']),
+      insuranceDeduction: parseDouble(json['insuranceDeduction'] ?? json['insurance_deduction']),
+      taxableIncome: parseDouble(json['taxableIncome'] ?? json['taxable_income']),
 
       totalIncome: parseDouble(json['totalIncome'] ?? json['total_income']),
       note: json['note']?.toString(),
@@ -182,6 +197,14 @@ class PayrollModel {
       'unitPrice': unitPrice,
       'timeSalary': timeSalary,
 
+      // --- ADD ---
+      'wageCoefficient': wageCoefficient,
+      'taxDeductionTotal': taxDeductionTotal,
+      'personalDeduction': personalDeduction,
+      'dependentDeduction': dependentDeduction,
+      'insuranceDeduction': insuranceDeduction,
+      'taxableIncome': taxableIncome,
+
       'totalIncome': _totalIncome,
       'note': note,
     };
@@ -207,8 +230,7 @@ class PayrollModel {
               (allowance ?? 0.0);
 
   String formatCurrency(double amount) {
-    final f = NumberFormat.currency(
-        locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
+    final f = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
     return f.format(amount);
   }
 }
