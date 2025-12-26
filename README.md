@@ -97,11 +97,6 @@ Your configuration may vary depending on `application.properties` and React prox
 - Python Face API: depends on script configuration
 ---
 
-## Firebase Cloud Messaging (FCM) Setup
-
-**Critical Security Note:**
-The backend requires a Firebase Service Account key (`firebase-service-account.json`) to authenticate with the Mobile App's project (`maypayhr-mobile`). This file contains sensitive secrets and is **not** included in this repository.
-
 ## 🔔 Firebase Cloud Messaging (FCM) Setup
 
 **Security Note:**
