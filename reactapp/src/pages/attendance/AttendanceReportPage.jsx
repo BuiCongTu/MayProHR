@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, Col, Form, Row, Spinner, Table, Badge, Pagination } from 'react-bootstrap';
-import attendanceService from '../../services/moduleA/attendanceService';
-import useDepartmentLineFilters from '../../hooks/useDepartmentLineFilters';
+import { Alert, Badge, Button, Card, Col, Form, Pagination, Row, Spinner, Table } from 'react-bootstrap';
 import LineSelector from '../../components/ModuleC/LineSelector';
-import { getUsersByStructure } from '../../services/userService';
+import useDepartmentLineFilters from '../../hooks/useDepartmentLineFilters';
+import attendanceService from '../../services/moduleA/attendanceService';
 import { getHolidays } from '../../services/moduleC/holidayService';
+import { getUsersByStructure } from '../../services/userService';
 
 const AttendanceReportPage = () =>
 {
@@ -180,7 +180,7 @@ const AttendanceReportPage = () =>
 
         if (!deptLineFilters.departmentId)
         {
-            setError('Vui lòng chọn Department');
+            setError('Select Department');
             return;
         }
 
@@ -199,7 +199,7 @@ const AttendanceReportPage = () =>
             if (!data || data.length === 0)
             {
                 const holiday = holidayMap.get(dateStr);
-                setInfo(holiday ? `Ngày ${dateStr} là ngày lễ: ${holiday.holidayName}` : `Không có attendance cho ngày ${dateStr}`);
+                setInfo(holiday ? `Date ${dateStr} is a holiday: ${holiday.holidayName}` : `No attendance for date ${dateStr}`);
             }
         } catch (err)
         {
@@ -297,7 +297,7 @@ const AttendanceReportPage = () =>
     {
         if (!deptLineFilters.departmentId)
         {
-            setError('Vui lòng chọn Department');
+            setError('Select Department');
             return;
         }
 
@@ -331,7 +331,7 @@ const AttendanceReportPage = () =>
             }
 
             setAttendances(Array.isArray(data) ? data : []);
-            if (!data || data.length === 0) setInfo('Không có bản ghi attendance phù hợp.');
+            if (!data || data.length === 0) setInfo('No matching attendance records found.');
         } catch (err)
         {
             const msg = err?.response?.data?.message || err?.message || 'Failed to load attendance';

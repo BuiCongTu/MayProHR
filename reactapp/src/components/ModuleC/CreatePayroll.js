@@ -11,7 +11,7 @@ const CreatePayroll = () =>
     const navigate = useNavigate();
     const user = getCurrentUser();
 
-    // Factory Director và Accounting được quyền tạo Payroll
+    // Only Factory Director and Accounting can create Payroll
     const canCreatePayroll = useMemo(() =>
     {
         const role = user?.roleName;
@@ -63,7 +63,7 @@ const CreatePayroll = () =>
         loadDepartments();
     }, []);
 
-    // Hiển thị “ngày cuối tháng” như gợi ý lịch auto
+    // Show “last day of the month” as a suggested auto payroll schedule
     useEffect(() =>
     {
         const yyyyMm = selectedYearMonth;
@@ -85,9 +85,8 @@ const CreatePayroll = () =>
         const lastDay = new Date(y, m, 0);
         const dd = String(lastDay.getDate()).padStart(2, '0');
         const mm = String(m).padStart(2, '0');
-
         setAutoPayrollHint(
-            `Gợi ý lịch tự động: ngày cuối tháng ${dd}/${mm}/${y}.`
+            `Auto schedule suggestion: last day of the month ${dd}/${mm}/${y}.`
         );
     }, [selectedYearMonth]);
 
@@ -163,7 +162,7 @@ const CreatePayroll = () =>
         {
             setSubmitting(true);
 
-            // API backend đúng là: POST /api/payroll/generate
+            // The correct backend API is: POST /api/payroll/generate
             const data = await generatePayroll(
                 Number(form.departmentId),
                 monthIso,
@@ -172,7 +171,7 @@ const CreatePayroll = () =>
 
             setInfo(
                 form.createDefaultPending
-                    ? 'Đã tạo bảng lương mặc định (Pending).'
+                    ? 'Default (Pending) payroll has been created.'
                     : 'Payroll created successfully.'
             );
 
@@ -200,7 +199,7 @@ const CreatePayroll = () =>
 
     return (
         <div className="payroll-list-container p-4">
-            <h2>Tạo Bảng Lương (Factory Director / Accounting)</h2>
+            <h2>Create Payroll (Factory Director / Accounting)</h2>
 
             {(error || info || autoPayrollHint) && (
                 <div className="mb-3">
@@ -278,7 +277,7 @@ const CreatePayroll = () =>
                                     </Row>
 
                                     <Form.Text className="text-muted">
-                                        Tháng/Năm đã chọn: <strong>{selectedYearMonth}</strong> (gửi backend dạng: {toIsoDateFirstDayFromYearMonth(form.year, form.month)})
+                                        Selected Month/Year: <strong>{selectedYearMonth}</strong> (sent to backend as: {toIsoDateFirstDayFromYearMonth(form.year, form.month)})
                                     </Form.Text>
                                 </Form.Group>
                             </Col>
@@ -292,7 +291,7 @@ const CreatePayroll = () =>
                                         name="createDefaultPending"
                                         checked={!!form.createDefaultPending}
                                         onChange={handleChange}
-                                        label="Tạo bảng lương mặc định cho employee theo Department + Tháng (Pending)"
+                                        label="Create default payroll for employees by Department + Month (Pending)"
                                     />
                                 </Form.Group>
 

@@ -103,11 +103,9 @@ public class SecurityConfig {
                 // Public APIs
                 .requestMatchers(
                         "/api/auth/**",
-
                         "/socket/**",
                         "/api/overtime/**",
                         "/api/proposal/**",
-
                         "/api/department/**",
                         "/api/face/config",
                         "/api/cccd/scan",

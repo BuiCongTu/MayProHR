@@ -1,29 +1,21 @@
-
 package fpt.aptech.springbootapp.services.ModuleC_Payroll;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.YearMonth;
+import java.math.*;
+import java.time.*;
+import java.util.*;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 
 import fpt.aptech.springbootapp.dtos.ModuleC.PayrollDetailDTO;
-import fpt.aptech.springbootapp.entities.ModuleA.AttendanceStatus;
 import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.EmployeePayrollRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
-import fpt.aptech.springbootapp.dtos.ModuleC.PayrollCalculationDTO;
-import fpt.aptech.springbootapp.dtos.ModuleC.TaxCalculationDTO;
-import fpt.aptech.springbootapp.entities.Core.TbUser;
-import fpt.aptech.springbootapp.entities.ModuleA.TbAttendance;
-import fpt.aptech.springbootapp.entities.ModuleA.TbLeaveRequest;
-import fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeRequest;
-import fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeTicketEmployee;
-import fpt.aptech.springbootapp.entities.ModuleC.TbProductionLine;
+import fpt.aptech.springbootapp.dtos.ModuleC.*;
+import fpt.aptech.springbootapp.entities.Core.*;
+import fpt.aptech.springbootapp.entities.ModuleA.*;
+import fpt.aptech.springbootapp.entities.ModuleB.*;
+import fpt.aptech.springbootapp.entities.ModuleC.*;
 import fpt.aptech.springbootapp.repositories.ModuleA_Time_Attendance.AttendanceRepository;
 import fpt.aptech.springbootapp.repositories.ModuleB.OvertimeTicketEmployeeRepository;
 import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.ProductionLineRepo;
@@ -195,11 +187,52 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
         BigDecimal standardWorkingDaysInMonth = countWorkingDaysInMonth(yearMonth);
         payDto.setStandardWorkingDays(standardWorkingDaysInMonth);
 
-        // Đếm ngày muộn
+        // Load OT tickets (accepted + approved) trong tháng để phục vụ miễn phạt +/- 30 phút
+        List<TbOvertimeTicketEmployee> approvedOtEmployeesInMonth = otTERepo
+                .findByEmployeeAndEmployeeStatusAndTicketStatusAndOvertimeDateBetween(
+                        user,
+                        TbOvertimeTicketEmployee.EmployeeOvertimeStatus.accepted,
+                        fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeTicket.OvertimeTicketStatus.approved,
+                        startDate,
+                        endDate
+                );
+
+        Map<LocalDate, List<TbOvertimeRequest>> approvedOtRequestsByDate = new HashMap<>();
+        for (TbOvertimeTicketEmployee ote : approvedOtEmployeesInMonth) {
+            if (ote == null || ote.getOvertimeTicket() == null) continue;
+            TbOvertimeRequest r = ote.getOvertimeTicket().getOvertimeRequest();
+            if (r == null || r.getOvertimeDate() == null) continue;
+
+            approvedOtRequestsByDate
+                    .computeIfAbsent(r.getOvertimeDate(), k -> new ArrayList<>())
+                    .add(r);
+        }
+
+        // Đếm ngày muộn (có xét miễn phạt nếu có OT approved trong cửa sổ 30 phút)
         List<TbAttendance> lateAttendances = attendsRepo
                 .findByUserAndDateBetweenAndStatus(user, startDate, endDate, AttendanceStatus.LATE);
-        int lateCount = lateAttendances.size();
+
+        int lateCount = 0;
+        for (TbAttendance att : lateAttendances) {
+            if (att == null) continue;
+
+            LocalDate d = att.getDate();
+            LocalTime timeIn = att.getTimeIn();
+
+            // thiếu dữ liệu giờ vào thì không thể xét miễn, cứ tính phạt
+            if (d == null || timeIn == null) {
+                lateCount++;
+                continue;
+            }
+
+            if (isExemptLateByApprovedOvertimeTicket(d, timeIn, approvedOtRequestsByDate)) {
+                continue; // miễn phạt
+            }
+
+            lateCount++;
+        }
         payDto.setLateCount(lateCount);
+
 
         // === 1) QUOTA PHÉP: 12 ngày/năm, lũy kế đến tháng hiện tại ===
         int monthValue = yearMonth.getMonthValue();
@@ -292,6 +325,36 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
 
         return timeSalary.setScale(SCALE, RoundingMode.HALF_UP);
     }
+
+    private boolean isExemptLateByApprovedOvertimeTicket(
+            LocalDate attendanceDate,
+            LocalTime checkInTime,
+            Map<LocalDate, List<TbOvertimeRequest>> approvedOtRequestsByDate
+    ) {
+        if (attendanceDate == null || checkInTime == null || approvedOtRequestsByDate == null) {
+            return false;
+        }
+
+        List<TbOvertimeRequest> reqs = approvedOtRequestsByDate.get(attendanceDate);
+        if (reqs == null || reqs.isEmpty()) {
+            return false;
+        }
+
+        for (TbOvertimeRequest r : reqs) {
+            if (r == null || r.getStartTime() == null) continue;
+
+            LocalTime start = r.getStartTime();
+            LocalTime startPlus30 = start.plusMinutes(30);
+
+            // Rule bạn yêu cầu:
+            // startTime ≤ checkInTime ≤ startTime + 30 phút  => miễn phạt LATE
+            boolean ok = !checkInTime.isBefore(start) && !checkInTime.isAfter(startPlus30);
+            if (ok) return true;
+        }
+
+        return false;
+    }
+
 
     private BigDecimal countOverlappedDays(List<TbLeaveRequest> leaves, LocalDate rangeStart, LocalDate rangeEnd) {
         if (leaves == null || leaves.isEmpty()) return BigDecimal.ZERO;

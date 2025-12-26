@@ -18,6 +18,7 @@ import TaxDeductionManagement from "../../components/ModuleC/TaxDeductionManagem
 import PayrollAnalysis from './PayrollAnalysis';
 import PayrollDashboard from './PayrollDashboard';
 import ProductionLineManagement from "../../components/ModuleC/ProductionLineManagement";
+import PayrollReconcileTool from "../../components/ModuleC/PayrollReconcileTool";
 
 const PayrollRouter = () =>
 {
@@ -37,7 +38,7 @@ const PayrollRouter = () =>
             <Route path="/employee-production" element={<EmployeeProductionInput />} /> //sản lượng của từng Emp theo tháng test ok
             <Route path="/attendance" element={<AttendanceManagement />} /> // bảng chấm công test ok
             <Route path="/leave-request" element={<LeaveRequestManagement />} /> // xin nghỉ phép test oko
-
+            <Route path="/reconcile" element={<PayrollReconcileTool />} />
             <Route path="/production-line" element={<ProductionLineManagement />} />
             <Route path="/:payrollId/calculate" element={<PayrollEmployeeCalculator />} />
             <Route path="/:payrollId/approve" element={<PayrollApproval />} />

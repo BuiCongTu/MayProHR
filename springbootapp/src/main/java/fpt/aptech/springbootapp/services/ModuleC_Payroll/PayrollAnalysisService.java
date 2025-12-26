@@ -56,29 +56,29 @@ public class PayrollAnalysisService {
             throw new IllegalArgumentException("Invalid month");
         }
 
-        // Lấy dữ liệu payroll
+        // Fetch payroll data
         List<TbEmployeePayroll> payrolls = fetchPayrollData(request);
 
         if (payrolls.isEmpty()) {
             throw new IllegalArgumentException("No payroll data found for " + request.getMonth() + "/" + request.getYear());
         }
 
-        // Tính toán insights cơ bản
+        // Calculate basic insights
         PayrollAnalysisResponse.OverviewInsights overview = calculateOverview(payrolls, request);
 
-        // Phát hiện bất thường
+        // Detect anomalies
         List<PayrollAnalysisResponse.AnomalyDetection> anomalies = detectAnomalies(payrolls, request);
 
-        // Gợi ý
+        // Generate recommendations
         List<PayrollAnalysisResponse.Recommendation> recommendations = generateRecommendations(payrolls, anomalies);
 
-        // So sánh với tháng trước
+        // Compare with previous month
         PayrollAnalysisResponse.ComparisonInsights comparison = null;
         if (Boolean.TRUE.equals(request.getCompareWithPrevious())) {
             comparison = compareWithPreviousMonth(payrolls, request);
         }
 
-        // Gọi Gemini AI để tạo summary
+        // Call Gemini AI to generate summary
         String aiSummary = generateAISummary(request, overview, anomalies, recommendations, comparison);
 
         // Build response
@@ -96,20 +96,20 @@ public class PayrollAnalysisService {
     }
 
     /**
-     * Lấy dữ liệu payroll theo request
+     * Fetch payroll data based on request
      */
     private List<TbEmployeePayroll> fetchPayrollData(PayrollAnalysisRequest request) {
         List<TbEmployeePayroll> payrolls;
 
         if (request.getUserIds() != null && !request.getUserIds().isEmpty()) {
-            // Lấy theo user IDs
+            // Fetch by user IDs
             payrolls = request.getUserIds().stream()
                     .map(userId -> employeePayrollRepo.findByUserIdAndYearAndMonth(userId, request.getYear(), request.getMonth()))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .collect(Collectors.toList());
         } else if (request.getDepartmentId() != null) {
-            // Lấy theo department
+            // Fetch by department
             List<TbUser> users = userRepository.findByDepartmentId(request.getDepartmentId());
             payrolls = users.stream()
                     .map(user -> employeePayrollRepo.findByUserIdAndYearAndMonth(user.getId(), request.getYear(), request.getMonth()))
@@ -117,7 +117,7 @@ public class PayrollAnalysisService {
                     .map(Optional::get)
                     .collect(Collectors.toList());
         } else {
-            // Lấy tất cả
+            // Fetch all
             payrolls = employeePayrollRepo.findByYearAndMonth(request.getYear(), request.getMonth());
         }
 
@@ -125,7 +125,7 @@ public class PayrollAnalysisService {
     }
 
     /**
-     * Tính toán overview insights
+     * Calculate overview insights
      */
     private PayrollAnalysisResponse.OverviewInsights calculateOverview(
             List<TbEmployeePayroll> payrolls, PayrollAnalysisRequest request) {
@@ -217,14 +217,14 @@ public class PayrollAnalysisService {
     }
 
     /**
-     * Phát hiện bất thường
+     * Detect anomalies
      */
     private List<PayrollAnalysisResponse.AnomalyDetection> detectAnomalies(
             List<TbEmployeePayroll> payrolls, PayrollAnalysisRequest request) {
 
         List<PayrollAnalysisResponse.AnomalyDetection> anomalies = new ArrayList<>();
 
-        // Tính average salary để làm baseline
+        // Calculate average salary as baseline
         BigDecimal avgSalary = payrolls.stream()
                 .map(TbEmployeePayroll::getTotalPay)
                 .filter(Objects::nonNull)
@@ -236,7 +236,7 @@ public class PayrollAnalysisService {
             String userName = user != null ? user.getFullName() : "Unknown";
             Integer userId = user != null ? user.getId() : null;
 
-            // 1. Overtime quá cao (>40h/tháng)
+            // 1) Excessive overtime (> 40 hours/month)
             BigDecimal ot1 = payroll.getOt1Hours() != null ? payroll.getOt1Hours() : BigDecimal.ZERO;
             BigDecimal ot2 = payroll.getOt2Hours() != null ? payroll.getOt2Hours() : BigDecimal.ZERO;
             BigDecimal overtimeHours = ot1.add(ot2);
@@ -246,14 +246,14 @@ public class PayrollAnalysisService {
                         .severity("warning")
                         .userId(userId)
                         .userName(userName)
-                        .description("Số giờ OT vượt ngưỡng 40h/tháng")
+                        .description("Overtime hours exceed the 40h/month threshold")
                         .actualValue(overtimeHours)
                         .expectedValue(BigDecimal.valueOf(40))
-                        .recommendation("Cân nhắc tuyển thêm nhân sự hoặc tối ưu lại lịch làm việc")
+                        .recommendation("Consider hiring additional staff or optimizing work schedules")
                         .build());
             }
 
-            // 2. Lương thấp bất thường (< 50% avg)
+            // 2) Abnormally low salary (< 50% of average)
             BigDecimal totalPay = payroll.getTotalPay();
             if (totalPay != null && avgSalary.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal threshold = avgSalary.multiply(BigDecimal.valueOf(0.5));
@@ -263,15 +263,15 @@ public class PayrollAnalysisService {
                             .severity("warning")
                             .userId(userId)
                             .userName(userName)
-                            .description("Lương thấp hơn 50% mức trung bình")
+                            .description("Salary is below 50% of the average")
                             .actualValue(totalPay)
                             .expectedValue(avgSalary)
-                            .recommendation("Xem xét điều chỉnh lương hoặc kiểm tra ngày công")
+                            .recommendation("Review salary policy or verify attendance/working days")
                             .build());
                 }
             }
 
-            // 3. Phạt đi trễ cao (>5 lần/tháng)
+            // 3) Excessive late arrivals (> 5 times/month)
             Integer lateCount = payroll.getLateCount();
             if (lateCount != null && lateCount > 5) {
                 anomalies.add(PayrollAnalysisResponse.AnomalyDetection.builder()
@@ -279,14 +279,14 @@ public class PayrollAnalysisService {
                         .severity("warning")
                         .userId(userId)
                         .userName(userName)
-                        .description("Số lần đi trễ vượt ngưỡng cho phép (>5 lần)")
+                        .description("Late arrivals exceed the allowed threshold (> 5 times)")
                         .actualValue(BigDecimal.valueOf(lateCount))
                         .expectedValue(BigDecimal.valueOf(5))
-                        .recommendation("Nhắc nhở nhân viên về kỷ luật hoặc kiểm tra vấn đề cá nhân")
+                        .recommendation("Remind the employee about discipline or check for personal issues")
                         .build());
             }
 
-            // 4. Ngày nghỉ không phép cao
+            // 4) High unpaid leave days (> 3 days)
             BigDecimal unpaidLeaveDays = payroll.getUnpaidLeaveDays();
             if (unpaidLeaveDays != null && unpaidLeaveDays.compareTo(BigDecimal.valueOf(3)) > 0) {
                 anomalies.add(PayrollAnalysisResponse.AnomalyDetection.builder()
@@ -294,10 +294,10 @@ public class PayrollAnalysisService {
                         .severity("critical")
                         .userId(userId)
                         .userName(userName)
-                        .description("Số ngày nghỉ không phép vượt ngưỡng (>3 ngày)")
+                        .description("Unpaid leave days exceed the threshold (> 3 days)")
                         .actualValue(unpaidLeaveDays)
                         .expectedValue(BigDecimal.valueOf(3))
-                        .recommendation("Kiểm tra tình trạng sức khỏe hoặc mức độ cam kết của nhân viên")
+                        .recommendation("Check employee health status or commitment level")
                         .build());
             }
         }
@@ -306,7 +306,7 @@ public class PayrollAnalysisService {
     }
 
     /**
-     * Tạo recommendations
+     * Generate recommendations
      */
     private List<PayrollAnalysisResponse.Recommendation> generateRecommendations(
             List<TbEmployeePayroll> payrolls,
@@ -314,7 +314,7 @@ public class PayrollAnalysisService {
 
         List<PayrollAnalysisResponse.Recommendation> recommendations = new ArrayList<>();
 
-        // 1. Tối ưu chi phí OT
+        // 1) Optimize overtime costs
         long highOvertimeCount = anomalies.stream()
                 .filter(a -> "high_overtime".equals(a.getType()))
                 .count();
@@ -328,19 +328,19 @@ public class PayrollAnalysisService {
             recommendations.add(PayrollAnalysisResponse.Recommendation.builder()
                     .category("cost_optimization")
                     .priority("high")
-                    .title("Tối ưu chi phí tăng ca")
-                    .description("Có " + highOvertimeCount + " nhân viên làm OT vượt ngưỡng. "
-                            + "Chi phí OT hiện tại: " + formatCurrency(totalOvertimePay))
-                    .estimatedImpact(totalOvertimePay.multiply(BigDecimal.valueOf(0.3))) // Giảm 30%
+                    .title("Optimize overtime costs")
+                    .description("There are " + highOvertimeCount + " employees exceeding the overtime threshold. "
+                            + "Current overtime cost: " + formatCurrency(totalOvertimePay))
+                    .estimatedImpact(totalOvertimePay.multiply(BigDecimal.valueOf(0.3))) // Reduce by 30%
                     .actionItems(Arrays.asList(
-                            "Phân bổ lại công việc giữa các nhân viên",
-                            "Tuyển thêm nhân sự part-time",
-                            "Áp dụng quy trình làm việc hiệu quả hơn"
+                            "Rebalance workload among employees",
+                            "Hire part-time staff",
+                            "Improve process efficiency"
                     ))
                     .build());
         }
 
-        // 2. Cải thiện kỷ luật
+        // 2) Improve discipline
         long highLateCount = anomalies.stream()
                 .filter(a -> "high_late_count".equals(a.getType()))
                 .count();
@@ -349,18 +349,18 @@ public class PayrollAnalysisService {
             recommendations.add(PayrollAnalysisResponse.Recommendation.builder()
                     .category("employee_retention")
                     .priority("medium")
-                    .title("Cải thiện kỷ luật nhân viên")
-                    .description("Có " + highLateCount + " nhân viên đi trễ thường xuyên")
+                    .title("Improve employee discipline")
+                    .description("There are " + highLateCount + " employees with frequent late arrivals")
                     .estimatedImpact(BigDecimal.ZERO)
                     .actionItems(Arrays.asList(
-                            "Tổ chức buổi nói chuyện cá nhân với nhân viên",
-                            "Xem xét chính sách giờ giấc linh hoạt",
-                            "Tăng cường theo dõi chấm công"
+                            "Have one-on-one discussions with employees",
+                            "Consider flexible working hours policy",
+                            "Strengthen attendance monitoring"
                     ))
                     .build());
         }
 
-        // 3. Review lương thấp
+        // 3) Review low salary cases
         long lowSalaryCount = anomalies.stream()
                 .filter(a -> "low_salary".equals(a.getType()))
                 .count();
@@ -369,14 +369,14 @@ public class PayrollAnalysisService {
             recommendations.add(PayrollAnalysisResponse.Recommendation.builder()
                     .category("employee_retention")
                     .priority("high")
-                    .title("Xem xét tăng lương cho nhân viên có mức lương thấp")
-                    .description("Có " + lowSalaryCount + " nhân viên có lương thấp hơn 50% mức trung bình. "
-                            + "Rủi ro mất nhân viên cao.")
+                    .title("Review compensation for low salary employees")
+                    .description("There are " + lowSalaryCount + " employees earning less than 50% of the average. "
+                            + "Risk of attrition may be high.")
                     .estimatedImpact(BigDecimal.ZERO)
                     .actionItems(Arrays.asList(
-                            "Review lại mức lương theo thị trường",
-                            "Cân nhắc tăng lương hoặc phụ cấp",
-                            "Đánh giá lại performance để điều chỉnh"
+                            "Review salary levels against market benchmarks",
+                            "Consider salary increases or allowances",
+                            "Re-evaluate performance for adjustment"
                     ))
                     .build());
         }
@@ -385,7 +385,7 @@ public class PayrollAnalysisService {
     }
 
     /**
-     * So sánh với tháng trước
+     * Compare with the previous month
      */
     private PayrollAnalysisResponse.ComparisonInsights compareWithPreviousMonth(
             List<TbEmployeePayroll> currentPayrolls, PayrollAnalysisRequest request) {
@@ -398,24 +398,22 @@ public class PayrollAnalysisService {
             previousYear--;
         }
 
-        // Lấy dữ liệu tháng trước
+        // Fetch previous month data
         List<TbEmployeePayroll> previousPayrolls = employeePayrollRepo.findByYearAndMonth(previousYear, previousMonth);
 
         if (previousPayrolls.isEmpty()) {
             return PayrollAnalysisResponse.ComparisonInsights.builder()
                     .previousMonth(previousMonth)
                     .previousYear(previousYear)
-                    .summary("Không có dữ liệu tháng trước để so sánh")
+                    .summary("No previous month data available for comparison.")
                     .build();
         }
 
-        // Tính tổng chi phí hiện tại
         BigDecimal currentCost = currentPayrolls.stream()
                 .map(TbEmployeePayroll::getTotalPay)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Tính tổng chi phí tháng trước
         BigDecimal previousCost = previousPayrolls.stream()
                 .map(TbEmployeePayroll::getTotalPay)
                 .filter(Objects::nonNull)
@@ -433,14 +431,22 @@ public class PayrollAnalysisService {
                 : costChange.compareTo(BigDecimal.ZERO) < 0 ? "decreasing"
                 : "stable";
 
+        String costVerb = trend.equals("increasing") ? "increased"
+                : trend.equals("decreasing") ? "decreased"
+                : "remained stable";
+
+        String headcountVerb = employeeCountChange > 0 ? "increased"
+                : employeeCountChange < 0 ? "decreased"
+                : "remained unchanged";
+
         String summary = String.format(
-                "Tháng %d/%d so với %d/%d: Chi phí %s %s (%s%%), số nhân viên %s %d người",
+                "Month %d/%d vs %d/%d: Payroll cost %s by %s (%.2f%%), and employee count %s by %d.",
                 request.getMonth(), request.getYear(),
                 previousMonth, previousYear,
-                trend.equals("increasing") ? "tăng" : trend.equals("decreasing") ? "giảm" : "ổn định",
+                costVerb,
                 formatCurrency(costChange.abs()),
                 costChangePercent.abs().setScale(2, RoundingMode.HALF_UP),
-                employeeCountChange > 0 ? "tăng" : employeeCountChange < 0 ? "giảm" : "không đổi",
+                headcountVerb,
                 Math.abs(employeeCountChange)
         );
 
@@ -456,7 +462,7 @@ public class PayrollAnalysisService {
     }
 
     /**
-     * Gọi Gemini AI để tạo summary bằng tiếng Việt tự nhiên
+     * Call Gemini AI to generate a natural-language summary (English)
      */
     private String generateAISummary(
             PayrollAnalysisRequest request,
@@ -466,10 +472,10 @@ public class PayrollAnalysisService {
             PayrollAnalysisResponse.ComparisonInsights comparison) throws Exception {
 
         try {
-            // Tạo prompt cho Gemini
+            // Build prompt for Gemini
             String prompt = buildPromptForGemini(request, overview, anomalies, recommendations, comparison);
 
-            // Gọi Gemini API
+            // Call Gemini API
             RestTemplate restTemplate = new RestTemplate();
 
             HttpHeaders headers = new HttpHeaders();
@@ -498,7 +504,6 @@ public class PayrollAnalysisService {
                 throw new RuntimeException("Gemini API returned null response");
             }
 
-            // Parse response
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> candidates = (List<Map<String, Object>>) responseBody.get("candidates");
 
@@ -522,13 +527,13 @@ public class PayrollAnalysisService {
             System.err.println("[PAYROLL_ANALYSIS] Gemini AI error: " + e.getMessage());
             e.printStackTrace();
 
-            // Fallback: Tạo summary đơn giản không dùng AI
+            // Fallback: simple summary without AI
             return generateFallbackSummary(overview, anomalies, recommendations, comparison);
         }
     }
 
     /**
-     * Tạo prompt cho Gemini
+     * Build prompt for Gemini (English)
      */
     private String buildPromptForGemini(
             PayrollAnalysisRequest request,
@@ -539,39 +544,42 @@ public class PayrollAnalysisService {
 
         StringBuilder prompt = new StringBuilder();
 
-        prompt.append("Bạn là chuyên gia phân tích bảng lương (Payroll Analytics Expert). ");
-        prompt.append("Hãy tạo một bản tóm tắt phân tích bảng lương tháng ").append(request.getMonth())
-                .append("/").append(request.getYear()).append(" bằng tiếng Việt chuyên nghiệp và dễ hiểu.\n\n");
+        prompt.append("You are a Payroll Analytics Expert. ");
+        prompt.append("Write a professional and clear payroll analysis summary for ")
+                .append(request.getMonth()).append("/").append(request.getYear())
+                .append(" in English.\n\n");
 
-        prompt.append("## DỮ LIỆU PHÂN TÍCH:\n\n");
+        prompt.append("## ANALYSIS DATA:\n\n");
 
-        // Overview
-        prompt.append("### TỔNG QUAN:\n");
-        prompt.append("- Tổng số nhân viên: ").append(overview.getTotalEmployees()).append("\n");
-        prompt.append("- Tổng chi phí lương: ").append(formatCurrency(overview.getTotalPayrollCost())).append("\n");
-        prompt.append("- Lương trung bình: ").append(formatCurrency(overview.getAverageSalary())).append("\n");
-        prompt.append("- Tổng tiền OT: ").append(formatCurrency(overview.getTotalOvertimePay())).append("\n");
-        prompt.append("- Tổng thuế TNCN: ").append(formatCurrency(overview.getTotalTax())).append("\n");
-        prompt.append("- Tổng bảo hiểm: ").append(formatCurrency(overview.getTotalInsurance())).append("\n");
-        prompt.append("- Tổng phạt đi trễ: ").append(formatCurrency(overview.getTotalLatePenalty())).append("\n");
+        prompt.append("### OVERVIEW:\n");
+        prompt.append("- Total employees: ").append(overview.getTotalEmployees()).append("\n");
+        prompt.append("- Total payroll cost: ").append(formatCurrency(overview.getTotalPayrollCost())).append("\n");
+        prompt.append("- Average salary: ").append(formatCurrency(overview.getAverageSalary())).append("\n");
+        prompt.append("- Total overtime pay: ").append(formatCurrency(overview.getTotalOvertimePay())).append("\n");
+        prompt.append("- Total personal income tax: ").append(formatCurrency(overview.getTotalTax())).append("\n");
+        prompt.append("- Total insurance: ").append(formatCurrency(overview.getTotalInsurance())).append("\n");
+        prompt.append("- Total late penalties: ").append(formatCurrency(overview.getTotalLatePenalty())).append("\n");
 
         if (overview.getSalaryTypeDistribution() != null && !overview.getSalaryTypeDistribution().isEmpty()) {
-            prompt.append("- Phân bổ loại lương: ");
+            prompt.append("- Salary type distribution: ");
             overview.getSalaryTypeDistribution().forEach((type, count)
-                    -> prompt.append(type).append(" (").append(count).append(" người), ")
+                    -> prompt.append(type).append(" (").append(count).append(" employees), ")
             );
             prompt.append("\n");
         }
 
         if (overview.getTopEarners() != null && !overview.getTopEarners().isEmpty()) {
-            prompt.append("- Top 5 thu nhập cao: ").append(String.join(", ", overview.getTopEarners())).append("\n");
+            prompt.append("- Top 5 earners: ").append(String.join(", ", overview.getTopEarners())).append("\n");
+        }
+
+        if (overview.getTopOvertimeEmployees() != null && !overview.getTopOvertimeEmployees().isEmpty()) {
+            prompt.append("- Top overtime employees: ").append(String.join(", ", overview.getTopOvertimeEmployees())).append("\n");
         }
 
         prompt.append("\n");
 
-        // Anomalies
         if (anomalies != null && !anomalies.isEmpty()) {
-            prompt.append("### BẤT THƯỜNG PHÁT HIỆN:\n");
+            prompt.append("### ANOMALIES DETECTED:\n");
             for (int i = 0; i < Math.min(anomalies.size(), 10); i++) {
                 PayrollAnalysisResponse.AnomalyDetection anomaly = anomalies.get(i);
                 prompt.append((i + 1)).append(". [").append(anomaly.getSeverity().toUpperCase()).append("] ");
@@ -580,9 +588,8 @@ public class PayrollAnalysisService {
             prompt.append("\n");
         }
 
-        // Recommendations
         if (recommendations != null && !recommendations.isEmpty()) {
-            prompt.append("### GỢI Ý TỐI ƯU:\n");
+            prompt.append("### RECOMMENDATIONS:\n");
             for (int i = 0; i < recommendations.size(); i++) {
                 PayrollAnalysisResponse.Recommendation rec = recommendations.get(i);
                 prompt.append((i + 1)).append(". [").append(rec.getPriority().toUpperCase()).append("] ");
@@ -591,25 +598,24 @@ public class PayrollAnalysisService {
             prompt.append("\n");
         }
 
-        // Comparison
         if (comparison != null && comparison.getSummary() != null) {
-            prompt.append("### SO SÁNH VỚI THÁNG TRƯỚC:\n");
+            prompt.append("### COMPARISON WITH PREVIOUS MONTH:\n");
             prompt.append(comparison.getSummary()).append("\n\n");
         }
 
-        prompt.append("\n## YÊU CẦU:\n");
-        prompt.append("Hãy viết một bản tóm tắt phân tích 200-300 từ bằng tiếng Việt, bao gồm:\n");
-        prompt.append("1. Đánh giá tổng quan tình hình lương tháng này\n");
-        prompt.append("2. Nhận xét về các điểm đáng chú ý (tích cực và tiêu cực)\n");
-        prompt.append("3. Đề xuất hành động ưu tiên cần thực hiện\n");
-        prompt.append("4. Xu hướng và dự báo (nếu có so sánh)\n\n");
-        prompt.append("Viết theo phong cách chuyên nghiệp, ngắn gọn, dễ hiểu, sử dụng bullet points khi cần.");
+        prompt.append("## REQUIREMENTS:\n");
+        prompt.append("Write a 200–300 word summary in English that includes:\n");
+        prompt.append("1. Overall assessment of this month's payroll\n");
+        prompt.append("2. Notable points (positive and negative)\n");
+        prompt.append("3. Priority actions to take\n");
+        prompt.append("4. Trend and outlook (if comparison exists)\n\n");
+        prompt.append("Use a professional tone. Be concise and structured. Use bullet points where helpful.");
 
         return prompt.toString();
     }
 
     /**
-     * Fallback summary khi Gemini lỗi
+     * Fallback summary when Gemini fails (English)
      */
     private String generateFallbackSummary(
             PayrollAnalysisResponse.OverviewInsights overview,
@@ -619,24 +625,24 @@ public class PayrollAnalysisService {
 
         StringBuilder summary = new StringBuilder();
 
-        summary.append("📊 TÓM TẮT PHÂN TÍCH BẢNG LƯƠNG\n\n");
+        summary.append("📊 PAYROLL ANALYSIS SUMMARY\n\n");
 
-        summary.append("TỔNG QUAN:\n");
-        summary.append("- Tổng ").append(overview.getTotalEmployees()).append(" nhân viên\n");
-        summary.append("- Chi phí: ").append(formatCurrency(overview.getTotalPayrollCost())).append("\n");
-        summary.append("- Trung bình: ").append(formatCurrency(overview.getAverageSalary())).append("/người\n");
-        summary.append("- Tổng OT: ").append(formatCurrency(overview.getTotalOvertimePay())).append("\n\n");
+        summary.append("OVERVIEW:\n");
+        summary.append("- Total employees: ").append(overview.getTotalEmployees()).append("\n");
+        summary.append("- Total cost: ").append(formatCurrency(overview.getTotalPayrollCost())).append("\n");
+        summary.append("- Average: ").append(formatCurrency(overview.getAverageSalary())).append(" per employee\n");
+        summary.append("- Total overtime pay: ").append(formatCurrency(overview.getTotalOvertimePay())).append("\n\n");
 
         if (anomalies != null && !anomalies.isEmpty()) {
-            summary.append("⚠️ CẢNH BÁO: Phát hiện ").append(anomalies.size()).append(" bất thường cần xử lý\n\n");
+            summary.append("⚠️ ALERT: Detected ").append(anomalies.size()).append(" anomalies that may require attention.\n\n");
         }
 
         if (recommendations != null && !recommendations.isEmpty()) {
-            summary.append("💡 GỢI Ý: Có ").append(recommendations.size()).append(" đề xuất tối ưu\n\n");
+            summary.append("💡 RECOMMENDATIONS: ").append(recommendations.size()).append(" optimization suggestions available.\n\n");
         }
 
         if (comparison != null && comparison.getSummary() != null) {
-            summary.append("📈 XU HƯỚNG:\n").append(comparison.getSummary()).append("\n");
+            summary.append("📈 TREND:\n").append(comparison.getSummary()).append("\n");
         }
 
         return summary.toString();

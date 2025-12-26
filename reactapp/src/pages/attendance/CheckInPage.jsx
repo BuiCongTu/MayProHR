@@ -22,13 +22,13 @@ const CheckInPage = () => {
                 setResult(response.data);
                 showNotification(
                     'success',
-                    `Chào ${response.data.fullName}! Check-in thành công lúc ${response.data.timeIn}`
+                    `Hi ${response.data.fullName}! Check-in susscessfuly at ${response.data.timeIn}`
                 );
             } else {
                 setError(response.data.message);
             }
         } catch (err) {
-            const errorMessage = err.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.';
+            const errorMessage = err.response?.data?.message || 'An error occurred. Please try again.';
             setError(errorMessage);
             showNotification('error', errorMessage);
         } finally {
@@ -59,11 +59,11 @@ const CheckInPage = () => {
 
     const getStatusText = (status) => {
         switch (status) {
-            case 'SUCCESS': return '✓ Đúng giờ';
-            case 'LATE': return '⚠ Trễ';
-            case 'ERROR': return '❌ Lỗi';
-            case 'UNSCHEDULED': return '⚠ Ngoài giờ';
-            case 'EARLY_LEAVE': return '⚠ Về sớm';
+            case 'SUCCESS': return '✓ On Time';
+            case 'LATE': return '⚠ Late';
+            case 'ERROR': return '❌ Error';
+            case 'UNSCHEDULED': return '⚠ Unscheduled';
+            case 'EARLY_LEAVE': return '⚠ Early Leave';
             case 'OVERTIME': return '⏱ OT';
             default: return status;
         }
@@ -73,7 +73,7 @@ const CheckInPage = () => {
         <div style={styles.container}>
             <div style={styles.header}>
                 <h1 style={styles.title}>Check-In</h1>
-                <p style={styles.subtitle}>Nhìn vào camera để chấm công</p>
+                <p style={styles.subtitle}>Look into the camera to check in</p>
             </div>
 
             {!result ? (
@@ -83,16 +83,16 @@ const CheckInPage = () => {
                     {loading && (
                         <div style={styles.loadingOverlay}>
                             <div style={styles.spinner}></div>
-                            <p>Đang nhận diện khuôn mặt...</p>
+                            <p>Recognizing face...</p>
                         </div>
                     )}
 
                     {error && (
                         <div style={styles.errorBox}>
-                            <h3>Thất Bại</h3>
+                            <h3>Failed</h3>
                             <p>{error}</p>
                             <button onClick={reset} style={styles.retryButton}>
-                                Thử Lại
+                                Retry
                             </button>
                         </div>
                     )}
@@ -100,26 +100,26 @@ const CheckInPage = () => {
             ) : (
                 <div style={styles.successBox}>
                     <div style={styles.successIcon}></div>
-                    <h2>Chấm Công Thành Công!</h2>
+                    <h2>Check-In Successful!</h2>
 
                     <div style={styles.infoGrid}>
                         <div style={styles.infoItem}>
-                            <span style={styles.infoLabel}>Nhân viên:</span>
+                            <span style={styles.infoLabel}>Employee:</span>
                             <span style={styles.infoValue}>{result.fullName}</span>
                         </div>
 
                         <div style={styles.infoItem}>
-                            <span style={styles.infoLabel}>Thời gian:</span>
+                            <span style={styles.infoLabel}>Time:</span>
                             <span style={styles.infoValue}>{result.timeIn}</span>
                         </div>
 
                         <div style={styles.infoItem}>
-                            <span style={styles.infoLabel}>Ngày:</span>
+                            <span style={styles.infoLabel}>Date:</span>
                             <span style={styles.infoValue}>{result.date}</span>
                         </div>
 
                         <div style={styles.infoItem}>
-                            <span style={styles.infoLabel}>Trạng thái:</span>
+                            <span style={styles.infoLabel}>Status:</span>
                             <span style={{ ...styles.infoValue, color: getStatusColor(result.status) }}>
                 {getStatusText(result.status)}
               </span>
@@ -128,10 +128,10 @@ const CheckInPage = () => {
 
                     <div style={styles.actions}>
                         <button onClick={reset} style={styles.doneButton}>
-                            Hoàn Tất
+                            Done
                         </button>
                         <a href="/attendance/history" style={styles.historyLink}>
-                            Xem Lịch Sử
+                            View History
                         </a>
                     </div>
                 </div>

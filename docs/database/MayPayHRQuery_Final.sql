@@ -1593,18 +1593,25 @@ CHECK ([status] IN (
 -- DELETE FROM d WHERE rn > 1;
 
 
-Select * from tbEmployeePayroll
-select * from tbTaxBracket
+-- Select * from tbEmployeePayroll
+-- select * from tbTaxBracket
 
-SELECT DISTINCT [status]
-FROM dbo.tbAttendance
-ORDER BY [status];
+-- SELECT DISTINCT [status]
+-- FROM dbo.tbAttendance
+-- ORDER BY [status];
 
 
-SELECT
-  cc.name AS constraint_name,
-  cc.definition
-FROM sys.check_constraints cc
-JOIN sys.tables t ON cc.parent_object_id = t.object_id
-WHERE t.name = 'tbAttendance';
+-- SELECT
+--   cc.name AS constraint_name,
+--   cc.definition
+-- FROM sys.check_constraints cc
+-- JOIN sys.tables t ON cc.parent_object_id = t.object_id
+-- WHERE t.name = 'tbAttendance';
 
+DELETE FROM tbOvertimeTicket;
+
+-- 2. Xoá chi tiết yêu cầu (Bảng này tham chiếu đến Request)
+DELETE FROM tbOvertimeRequestDetail;
+
+-- 3. Xoá yêu cầu tăng ca (Bảng cha)
+DELETE FROM tbOvertimeRequest;

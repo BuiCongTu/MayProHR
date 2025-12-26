@@ -16,13 +16,13 @@ const CheckOutPage = () => {
             const response = await attendanceService.checkOutByFace(imageBase64);
             if (response.success) {
                 setResult(response);
-                showNotification('success', `Tạm biệt ${response.fullName}! Check-out thành công lúc ${response.timeOut}`);
+                showNotification('success', `Good Bye ${response.fullName}! Check-out successful at ${response.timeOut}`);
             } else {
                 setError(response.message);
                 showNotification('error', response.message);
             }
         } catch (err) {
-            const msg = err.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.';
+            const msg = err.response?.data?.message || 'An error occurred. Please try again.';
             setError(msg);
             showNotification('error', msg);
         } finally {
@@ -44,7 +44,7 @@ const CheckOutPage = () => {
         <div style={styles.container}>
             <div style={styles.header}>
                 <h1 style={styles.title}>🚪 Check-Out</h1>
-                <p style={styles.subtitle}>Nhìn vào camera để chấm công ra ca</p>
+                <p style={styles.subtitle}>Look into the camera to check out</p>
             </div>
 
             {!result ? (
@@ -53,48 +53,48 @@ const CheckOutPage = () => {
                     {loading && (
                         <div style={styles.loadingOverlay}>
                             <div style={styles.spinner}></div>
-                            <p>Đang nhận diện khuôn mặt...</p>
+                            <p>Recognizing face...</p>
                         </div>
                     )}
                     {error && (
                         <div style={styles.errorBox}>
-                            <h3>❌ Thất Bại</h3>
+                            <h3>❌ Failed</h3>
                             <p>{error}</p>
-                            <button onClick={reset} style={styles.retryButton}>Thử Lại</button>
+                            <button onClick={reset} style={styles.retryButton}>Retry</button>
                         </div>
                     )}
                 </>
             ) : (
                 <div style={styles.successBox}>
                     <div style={styles.successIcon}>👋</div>
-                    <h2>Chấm Công Ra Ca Thành Công!</h2>
+                    <h2>Check-Out Successful!</h2>
                     <div style={styles.infoGrid}>
                         <div style={styles.infoItem}>
-                            <span style={styles.infoLabel}>Nhân viên:</span>
+                            <span style={styles.infoLabel}>Employee:</span>
                             <span style={styles.infoValue}>{result.fullName}</span>
                         </div>
                         <div style={styles.infoItem}>
-                            <span style={styles.infoLabel}>Ngày:</span>
+                            <span style={styles.infoLabel}>Date:</span>
                             <span style={styles.infoValue}>{result.date}</span>
                         </div>
                         <div style={styles.infoItem}>
-                            <span style={styles.infoLabel}>Giờ vào:</span>
+                            <span style={styles.infoLabel}>Time In:</span>
                             <span style={styles.infoValue}>{result.timeIn}</span>
                         </div>
                         <div style={styles.infoItem}>
-                            <span style={styles.infoLabel}>Giờ ra:</span>
+                            <span style={styles.infoLabel}>Time Out:</span>
                             <span style={styles.infoValue}>{result.timeOut}</span>
                         </div>
                         <div style={styles.infoItem}>
-                            <span style={styles.infoLabel}>Tổng giờ làm việc:</span>
+                            <span style={styles.infoLabel}>Total Working Hours:</span>
                             <span style={{...styles.infoValue, fontSize: '24px', color: '#4CAF50'}}>
                 {formatWorkingHours(result.workingHours)}
               </span>
                         </div>
                     </div>
                     <div style={styles.actions}>
-                        <button onClick={reset} style={styles.doneButton}>Hoàn Tất</button>
-                        <a href="/attendance/history" style={styles.historyLink}>Xem Lịch Sử</a>
+                        <button onClick={reset} style={styles.doneButton}>Done</button>
+                        <a href="/attendance/history" style={styles.historyLink}>View History</a>
                     </div>
                 </div>
             )}

@@ -42,6 +42,7 @@ cd reactapp
 npm start
 
 #4. Mobile:
+cd flutterapp
 flutter emulators --launch Medium_Phone_2
 flutter run -d emulator-5554
 
