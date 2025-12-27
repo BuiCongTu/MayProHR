@@ -14,11 +14,17 @@ import java.util.List;
 public class ProposalSpecification {
     public static Specification<TbProposal> build(ProposalFilter filter) {
         return (root, query, cb) -> {
-            // fetch associations to avoid N+1
-            root.fetch("proposer", JoinType.LEFT);
-            root.fetch("targetUser", JoinType.LEFT);
-            root.fetch("approvedBy", JoinType.LEFT);
-            query.distinct(true);
+
+            // fetch associations to avoid N+1 (ONLY for data query, NOT count query)
+            Class<?> resultType = query.getResultType();
+            boolean isCountQuery = (resultType == Long.class || resultType == long.class);
+
+            if (!isCountQuery) {
+                root.fetch("proposer", JoinType.LEFT);
+                root.fetch("targetUser", JoinType.LEFT);
+                root.fetch("approvedBy", JoinType.LEFT);
+                query.distinct(true);
+            }
 
             List<Predicate> predicates = new ArrayList<>();
             if (filter.getId() != null) predicates.add(cb.equal(root.get("id"), filter.getId()));

@@ -29,6 +29,8 @@ public class PersonalIncomeTaxCalService {
 
     private static final int SCALE = 2;
     private static final int RATE_SCALE = 4;
+    private static final BigDecimal DEPENDENT_DEDUCTION_PER_PERSON_VND = new BigDecimal("6200000");
+
 
     @Autowired
     public PersonalIncomeTaxCalService(
@@ -82,8 +84,7 @@ public class PersonalIncomeTaxCalService {
         BigDecimal dependentDeduction = BigDecimal.ZERO;
         Integer dependents = taxProfile.getNumberOfDependents() != null ? taxProfile.getNumberOfDependents() : 0;
         if (dependents > 0) {
-            BigDecimal perPerson = dbMoneyToVnd(taxDeductionService.getDependentDeduction(payrollMonth));
-            dependentDeduction = perPerson.multiply(new BigDecimal(dependents));
+            dependentDeduction = DEPENDENT_DEDUCTION_PER_PERSON_VND.multiply(new BigDecimal(dependents));
         }
         System.out.println("4. giam tru phu thuoc: " + dependentDeduction);
         dependentDeduction = dependentDeduction.setScale(SCALE, RoundingMode.HALF_UP);
@@ -92,17 +93,22 @@ public class PersonalIncomeTaxCalService {
         BigDecimal insuranceRateFraction = normalizeRateToFraction(taxProfile.getInsuranceRate());
         dto.setInsuranceRate(insuranceRateFraction);
 
-        BigDecimal insuranceDeduction = safeGross
+        BigDecimal baseSalaryForInsurance = (user != null && user.getBaseSalary() != null)
+                ? user.getBaseSalary()
+                : BigDecimal.ZERO;
+
+        BigDecimal insuranceDeduction = baseSalaryForInsurance
                 .multiply(insuranceRateFraction)
                 .setScale(SCALE, RoundingMode.HALF_UP);
         dto.setInsuranceDeduction(insuranceDeduction);
-        System.out.println("5. bao hiem: " + insuranceDeduction);
+        System.out.println("5. bao hiem (BaseSalary): " + insuranceDeduction);
 
         BigDecimal totalDeduction = personalDeduction
                 .add(dependentDeduction)
                 .add(insuranceDeduction)
                 .setScale(SCALE, RoundingMode.HALF_UP);
         System.out.println("6. tong khau tru (totalDeduction): " + totalDeduction);
+
 
         dto.setTotalDeduction(totalDeduction);
         dto.setGrossIncome(safeGross);
@@ -270,8 +276,7 @@ public class PersonalIncomeTaxCalService {
         if (overrideDependentDeduction == null) {
             Integer dependents = taxProfile.getNumberOfDependents() != null ? taxProfile.getNumberOfDependents() : 0;
             if (dependents > 0) {
-                BigDecimal perPerson = dbMoneyToVnd(taxDeductionService.getDependentDeduction(payrollMonth));
-                dependentDeduction = perPerson.multiply(new BigDecimal(dependents));
+                dependentDeduction = DEPENDENT_DEDUCTION_PER_PERSON_VND.multiply(new BigDecimal(dependents));
             }
         }
         dependentDeduction = dependentDeduction.setScale(SCALE, RoundingMode.HALF_UP);
@@ -280,7 +285,11 @@ public class PersonalIncomeTaxCalService {
         BigDecimal insuranceRateFraction = normalizeRateToFraction(taxProfile.getInsuranceRate());
         dto.setInsuranceRate(insuranceRateFraction);
 
-        BigDecimal insuranceDeduction = safeGross
+        BigDecimal baseSalaryForInsurance = (user != null && user.getBaseSalary() != null)
+                ? user.getBaseSalary()
+                : BigDecimal.ZERO;
+
+        BigDecimal insuranceDeduction = baseSalaryForInsurance
                 .multiply(insuranceRateFraction)
                 .setScale(SCALE, RoundingMode.HALF_UP);
         dto.setInsuranceDeduction(insuranceDeduction);

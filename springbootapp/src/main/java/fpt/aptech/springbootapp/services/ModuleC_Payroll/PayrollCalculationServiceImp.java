@@ -1,23 +1,33 @@
 package fpt.aptech.springbootapp.services.ModuleC_Payroll;
 
-import java.math.*;
-import java.time.*;
-import java.util.*;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import fpt.aptech.springbootapp.dtos.ModuleC.PayrollDetailDTO;
-import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.EmployeePayrollRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
-import fpt.aptech.springbootapp.dtos.ModuleC.*;
-import fpt.aptech.springbootapp.entities.Core.*;
-import fpt.aptech.springbootapp.entities.ModuleA.*;
-import fpt.aptech.springbootapp.entities.ModuleB.*;
-import fpt.aptech.springbootapp.entities.ModuleC.*;
+import fpt.aptech.springbootapp.dtos.ModuleC.PayrollCalculationDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.PayrollDetailDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.TaxCalculationDTO;
+import fpt.aptech.springbootapp.entities.Core.TbUser;
+import fpt.aptech.springbootapp.entities.ModuleA.AttendanceStatus;
+import fpt.aptech.springbootapp.entities.ModuleA.TbAttendance;
+import fpt.aptech.springbootapp.entities.ModuleA.TbLeaveRequest;
+import fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeRequest;
+import fpt.aptech.springbootapp.entities.ModuleB.TbOvertimeTicketEmployee;
+import fpt.aptech.springbootapp.entities.ModuleC.TbProductionLine;
 import fpt.aptech.springbootapp.repositories.ModuleA_Time_Attendance.AttendanceRepository;
 import fpt.aptech.springbootapp.repositories.ModuleB.OvertimeTicketEmployeeRepository;
+import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.EmployeePayrollRepo;
 import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.ProductionLineRepo;
 import fpt.aptech.springbootapp.repositories.ModuleD_Leave.LeaveRequestRepo;
 import fpt.aptech.springbootapp.services.System.HolidayService;
@@ -227,9 +237,13 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
 
         Map<LocalDate, List<TbOvertimeRequest>> approvedOtRequestsByDate = new HashMap<>();
         for (TbOvertimeTicketEmployee ote : approvedOtEmployeesInMonth) {
-            if (ote == null || ote.getOvertimeTicket() == null) continue;
+            if (ote == null || ote.getOvertimeTicket() == null) {
+                continue;
+            }
             TbOvertimeRequest r = ote.getOvertimeTicket().getOvertimeRequest();
-            if (r == null || r.getOvertimeDate() == null) continue;
+            if (r == null || r.getOvertimeDate() == null) {
+                continue;
+            }
 
             approvedOtRequestsByDate
                     .computeIfAbsent(r.getOvertimeDate(), k -> new ArrayList<>())
@@ -242,7 +256,9 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
 
         int lateCount = 0;
         for (TbAttendance att : lateAttendances) {
-            if (att == null) continue;
+            if (att == null) {
+                continue;
+            }
 
             LocalDate d = att.getDate();
             LocalTime timeIn = att.getTimeIn();
@@ -260,7 +276,6 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
             lateCount++;
         }
         payDto.setLateCount(lateCount);
-
 
         // === 1) QUOTA PHÉP: 12 ngày/năm, lũy kế đến tháng hiện tại ===
         int monthValue = yearMonth.getMonthValue();
@@ -307,7 +322,6 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
         BigDecimal totalLatePenalty = LATE_PENALTY.multiply(new BigDecimal(lateCount));
         payDto.setLatePenalty(totalLatePenalty);
 
-
         // === 4) ATTENDANCE DAYS (distinct dates) và phân loại working-day / non-working-day ===
         List<AttendanceStatus> countedStatuses = List.of(
                 AttendanceStatus.SUCCESS,
@@ -328,12 +342,12 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
         // === 5) TÍNH NGÀY BỊ TRỪ LƯƠNG (absence) CHỈ TRÊN WORKING DAY ===
         // Quy ước: nếu ngày là Sunday/Holiday/Nghỉ bù => không tính là “thiếu công”.
         // absenceDays = working day trong tháng - (attendanceWorkingDays + paidLeaveDays)
-        BigDecimal paidDays = new BigDecimal(attendanceOnWorkingDays).add(paidLeaveDays);
-        if (paidDays.compareTo(standardWorkingDaysInMonth) > 0) {
-            paidDays = standardWorkingDaysInMonth;
+        BigDecimal paidDaysIncludingLeave = new BigDecimal(attendanceOnWorkingDays).add(paidLeaveDays);
+        if (paidDaysIncludingLeave.compareTo(standardWorkingDaysInMonth) > 0) {
+            paidDaysIncludingLeave = standardWorkingDaysInMonth;
         }
 
-        BigDecimal absenceDays = standardWorkingDaysInMonth.subtract(paidDays);
+        BigDecimal absenceDays = standardWorkingDaysInMonth.subtract(paidDaysIncludingLeave);
         if (absenceDays.compareTo(BigDecimal.ZERO) < 0) {
             absenceDays = BigDecimal.ZERO;
         }
@@ -341,7 +355,14 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
         BigDecimal unpaidLeaveDays = excessLeaveDays.add(absenceDays);
         payDto.setUnpaidLeaveDays(unpaidLeaveDays);
 
-        BigDecimal actualWorkingDays = standardWorkingDaysInMonth.subtract(unpaidLeaveDays);
+        // IMPORTANT BUSINESS RULE (per request):
+        // actualWorkingDays must reflect only days the employee actually worked (attendance),
+        // NOT paid leave days. Otherwise employees with approved leave are incorrectly shown/paid
+        // as having worked more days (e.g., Worker 02 shows 9 instead of 2).
+        BigDecimal actualWorkingDays = new BigDecimal(attendanceOnWorkingDays);
+        if (actualWorkingDays.compareTo(standardWorkingDaysInMonth) > 0) {
+            actualWorkingDays = standardWorkingDaysInMonth;
+        }
         if (actualWorkingDays.compareTo(BigDecimal.ZERO) < 0) {
             actualWorkingDays = BigDecimal.ZERO;
         }
@@ -371,7 +392,9 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
         }
 
         for (TbOvertimeRequest r : reqs) {
-            if (r == null || r.getStartTime() == null) continue;
+            if (r == null || r.getStartTime() == null) {
+                continue;
+            }
 
             LocalTime start = r.getStartTime();
             LocalTime startPlus30 = start.plusMinutes(30);
@@ -379,24 +402,31 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
             // Rule bạn yêu cầu:
             // startTime ≤ checkInTime ≤ startTime + 30 phút  => miễn phạt LATE
             boolean ok = !checkInTime.isBefore(start) && !checkInTime.isAfter(startPlus30);
-            if (ok) return true;
+            if (ok) {
+                return true;
+            }
         }
 
         return false;
     }
 
-
     private BigDecimal countOverlappedDays(List<TbLeaveRequest> leaves, LocalDate rangeStart, LocalDate rangeEnd) {
-        if (leaves == null || leaves.isEmpty()) return BigDecimal.ZERO;
+        if (leaves == null || leaves.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
         BigDecimal total = BigDecimal.ZERO;
 
         for (TbLeaveRequest leave : leaves) {
-            if (leave == null || leave.getStartDate() == null || leave.getEndDate() == null) continue;
+            if (leave == null || leave.getStartDate() == null || leave.getEndDate() == null) {
+                continue;
+            }
 
             LocalDate s = leave.getStartDate().isAfter(rangeStart) ? leave.getStartDate() : rangeStart;
             LocalDate e = leave.getEndDate().isBefore(rangeEnd) ? leave.getEndDate() : rangeEnd;
 
-            if (e.isBefore(s)) continue;
+            if (e.isBefore(s)) {
+                continue;
+            }
 
             // CHỈ ĐẾM WORKING DAY (không tính Sunday/Holiday/nghỉ bù)
             LocalDate d = s;
@@ -426,7 +456,6 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
         }
         return new BigDecimal(count);
     }
-
 
     //tinh luong ProductBase
     @Override
@@ -547,7 +576,6 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
         return totalDeduction.setScale(SCALE, RoundingMode.HALF_UP);
     }
 
-
     //tinh thue tncn
     @Override
     public TaxCalculationDTO calPersonalIncomeTax(
@@ -575,7 +603,9 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
         BigDecimal totalHours = BigDecimal.ZERO;
         for (TbOvertimeTicketEmployee ote : overtimeEmployees) {
             TbOvertimeRequest overtimeRequest = ote.getOvertimeTicket().getOvertimeRequest();
-            if (overtimeRequest == null) continue;
+            if (overtimeRequest == null) {
+                continue;
+            }
 
             LocalTime startTime = overtimeRequest.getStartTime();
             LocalTime endTime = overtimeRequest.getEndTime();
@@ -608,7 +638,9 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
 
         for (TbOvertimeTicketEmployee ote : overtimeEmployees) {
             TbOvertimeRequest overtimeRequest = ote.getOvertimeTicket().getOvertimeRequest();
-            if (overtimeRequest == null) continue;
+            if (overtimeRequest == null) {
+                continue;
+            }
 
             LocalTime startTime = overtimeRequest.getStartTime();
             LocalTime endTime = overtimeRequest.getEndTime();
@@ -644,7 +676,6 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
                 .hireDate(user.getHireDate())
                 .baseSalary(ep.getBaseSalary())
                 .wageCoefficient(user.getWageCoefficient())
-
                 // Dữ liệu TimeBased
                 .standardWorkingDays(ep.getStandardWorkingDays())
                 .actualWorkingDays(ep.getActualWorkingDays())
@@ -654,13 +685,11 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
                 .latePenalty(ep.getLatePenalty())
                 .timeSalary(ep.getBaseSalary() != null && ep.getActualWorkingDays() != null
                         ? ep.getBaseSalary()
-                        .divide(STANDARD_WORKING_DAYS, SCALE, RoundingMode.HALF_UP)
-                        .multiply(ep.getActualWorkingDays())
+                                .divide(STANDARD_WORKING_DAYS, SCALE, RoundingMode.HALF_UP)
+                                .multiply(ep.getActualWorkingDays())
                         : BigDecimal.ZERO)
-
                 // Dữ liệu ProductBased
                 .productBonus(ep.getProductBonus())
-
                 // Dữ liệu chung cả 2 loại
                 .ot1Hours(ep.getOt1Hours())
                 .ot2Hours(ep.getOt2Hours())
@@ -675,7 +704,6 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
                 .note(ep.getNote())
                 .createdAt(ep.getCreatedAt())
                 .build();
-
 
         return detail;
     }
@@ -722,7 +750,6 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
         return calEmpSalary(user, payrollMonth, allowance);
     }
 
-
     @Override
     public PayrollCalculationDTO calProductBasedPayroll(TbUser user, LocalDate payrollMonth, BigDecimal allowance) {
         // Kiểm tra loại lương
@@ -744,7 +771,6 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
         return calEmpSalary(user, payrollMonth, allowance);
     }
 
-
     //tách OT thành giờ ngày thường và giờ ngày lễ/chủ nhật
     private HoursSplit splitOvertimeHours(TbUser user, YearMonth yearMonth) {
         LocalDate startDate = yearMonth.atDay(1);
@@ -764,7 +790,9 @@ public class PayrollCalculationServiceImp implements PayrollCalculationService {
 
         for (TbOvertimeTicketEmployee ote : overtimeEmployees) {
             TbOvertimeRequest overtimeRequest = ote.getOvertimeTicket().getOvertimeRequest();
-            if (overtimeRequest == null) continue;
+            if (overtimeRequest == null) {
+                continue;
+            }
 
             LocalTime startTime = overtimeRequest.getStartTime();
             LocalTime endTime = overtimeRequest.getEndTime();

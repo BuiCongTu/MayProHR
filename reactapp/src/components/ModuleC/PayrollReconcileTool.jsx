@@ -37,12 +37,18 @@ export default function PayrollReconcileTool() {
     // --- selection ---
     const [selectedEmployeePayrollId, setSelectedEmployeePayrollId] = useState('');
 
+    const employeeOptions = useMemo(() => {
+        const eps = selectedPayrollDetail?.employeePayrolls || selectedPayrollDetail?.employees || [];
+        return Array.isArray(eps) ? eps : [];
+    }, [selectedPayrollDetail]);
+
     // --- db + expected ---
     const [dbBreakdown, setDbBreakdown] = useState(null);
     const [loadingDb, setLoadingDb] = useState(false);
 
     const [expected, setExpected] = useState(null);
     const [loadingExpected, setLoadingExpected] = useState(false);
+    const DEPENDENT_PER_PERSON = 6200000;
 
     // --- input form ---
     const [form, setForm] = useState({
@@ -69,7 +75,7 @@ export default function PayrollReconcileTool() {
 
         // tax override
         overridePersonalDeduction: '',
-        overrideDependentDeduction: ''
+        dependentCount: '0'
     });
 
     // Load payroll list
@@ -93,43 +99,49 @@ export default function PayrollReconcileTool() {
 
     // Load payroll detail when select payroll
     useEffect(() => {
+        let cancelled = false;
+
         const run = async () => {
-            const pid = num(selectedPayrollId);
+            const payrollId = num(selectedPayrollId);
+
+            // reset dependent selections whenever payroll changes
             setSelectedPayrollDetail(null);
             setSelectedEmployeePayrollId('');
             setDbBreakdown(null);
             setExpected(null);
 
-            if (!pid) return;
+            setForm(prev => ({
+                ...prev,
+                employeePayrollId: ''
+            }));
+
+            if (!payrollId) return;
 
             try {
                 setLoadingPayrollDetail(true);
                 setError('');
-                const res = await axios.get(`/api/payroll/${pid}`);
+                const res = await axios.get(`/api/payroll/${payrollId}`);
                 const body = res?.data;
-                const detail = body?.data ?? body;
-                setSelectedPayrollDetail(detail || null);
-
-                // auto month
-                const m = detail?.month;
-                if (m) {
-                    const ym = String(m).slice(0, 7);
-                    setForm(prev => ({ ...prev, payrollMonth: ym }));
+                const data = body?.data ?? body;
+                if (!cancelled) {
+                    setSelectedPayrollDetail(data || null);
                 }
             } catch (e) {
-                setError(e?.response?.data?.message || e?.message || 'Load payroll detail failed');
+                if (!cancelled) {
+                    setError(e?.response?.data?.message || e?.message || 'Load payroll detail failed');
+                }
             } finally {
-                setLoadingPayrollDetail(false);
+                if (!cancelled) setLoadingPayrollDetail(false);
             }
         };
+
         run();
+        return () => {
+            cancelled = true;
+        };
     }, [selectedPayrollId]);
 
-    const employeeOptions = useMemo(() => {
-        const eps = selectedPayrollDetail?.employeePayrolls || [];
-        return Array.isArray(eps) ? eps : [];
-    }, [selectedPayrollDetail]);
-
+    // Load employee payroll breakdown when select employee
     useEffect(() => {
         const run = async () => {
             const epId = num(selectedEmployeePayrollId);
@@ -154,6 +166,11 @@ export default function PayrollReconcileTool() {
                 const userId = data?.userId;
                 const month = data?.payrollMonth ? String(data.payrollMonth).slice(0, 7) : null;
 
+                const depTotal = data?.dependentDeduction != null ? Number(data.dependentDeduction) : null;
+                const depCount = depTotal != null && DEPENDENT_PER_PERSON > 0
+                    ? String(Math.max(0, Math.round(depTotal / DEPENDENT_PER_PERSON)))
+                    : null;
+
                 setForm(prev => ({
                     ...prev,
                     userId: userId != null ? String(userId) : prev.userId,
@@ -175,8 +192,11 @@ export default function PayrollReconcileTool() {
 
                     allowance: data?.allowance != null ? String(data.allowance) : prev.allowance,
 
+                    // lock personal deduction: still show value from engine
                     overridePersonalDeduction: data?.personalDeduction != null ? String(data.personalDeduction) : prev.overridePersonalDeduction,
-                    overrideDependentDeduction: data?.dependentDeduction != null ? String(data.dependentDeduction) : prev.overrideDependentDeduction
+
+                    // dependent is now "count"
+                    dependentCount: depCount != null ? depCount : prev.dependentCount
                 }));
             } catch (e) {
                 setError(e?.response?.data?.message || e?.message || 'Load DB breakdown failed');
@@ -192,6 +212,12 @@ export default function PayrollReconcileTool() {
         return `${form.payrollMonth}-01`;
     }, [form.payrollMonth]);
 
+    const dependentCountNum = useMemo(() => {
+        const n = Number(form.dependentCount ?? 0);
+        if (Number.isNaN(n) || n < 0) return 0;
+        return Math.floor(n);
+    }, [form.dependentCount]);
+
     const reconcilePayload = useMemo(() => ({
         userId: num(form.userId),
         employeePayrollId: num(form.employeePayrollId),
@@ -206,7 +232,9 @@ export default function PayrollReconcileTool() {
         actualWorkingDays: form.actualWorkingDays === '' ? null : num(form.actualWorkingDays),
 
         lateCount: form.lateCount === '' ? null : num(form.lateCount),
-        latePenaltyPerTime: form.latePenaltyPerTime === '' ? null : num(form.latePenaltyPerTime),
+        latePenaltyPerTime: (Number(form.lateCount ?? 0) > 0)
+            ? (form.latePenaltyPerTime === '' ? null : num(form.latePenaltyPerTime))
+            : null,
 
         ot1Hours: form.ot1Hours === '' ? null : num(form.ot1Hours),
         ot2Hours: form.ot2Hours === '' ? null : num(form.ot2Hours),
@@ -216,10 +244,13 @@ export default function PayrollReconcileTool() {
 
         allowance: form.allowance === '' ? null : num(form.allowance),
 
+        // locked but still can pass through if BE supports it
         overridePersonalDeduction: form.overridePersonalDeduction === '' ? null : num(form.overridePersonalDeduction),
-        overrideDependentDeduction: form.overrideDependentDeduction === '' ? null : num(form.overrideDependentDeduction)
 
-    }), [form, payrollMonthDate]);
+        // computed by dependentCount
+        overrideDependentDeduction: new Number(dependentCountNum * DEPENDENT_PER_PERSON).valueOf()
+
+    }), [form, payrollMonthDate, dependentCountNum]);
 
     const computeExpected = async () => {
         setError('');
@@ -282,7 +313,6 @@ export default function PayrollReconcileTool() {
         });
     }, [dbBreakdown, expected]);
 
-
     const exportJson = () => {
         downloadJson(
             `payroll-reconcile-${form.userId || 'user'}-${form.payrollMonth || 'month'}.json`,
@@ -301,13 +331,6 @@ export default function PayrollReconcileTool() {
     return (
         <div className="p-4">
             <h3>Payroll Reconcile Tool</h3>
-            <div className="text-muted mb-3">
-                Allowance  · Insurance(cash) = grossIncomeForTax × insuranceRate(from Tax Profile) · attendance empty = 0
-                Quy ước: Late Penalty là "phạt / lần" · Late Penalty Total = lateCount × latePenalty ·
-                Cash Deduction Total = Insurance(cash) + Late Penalty Total · Tax Deduction Total lấy từ tax engine
-            </div>
-
-
             {error ? <Alert variant="danger">{error}</Alert> : null}
 
             <Card className="mb-3">
@@ -354,11 +377,6 @@ export default function PayrollReconcileTool() {
                             </Form.Group>
                         </Col>
 
-                        <Col md={12} className="d-flex gap-2 justify-content-end">
-                            <Button variant="success" onClick={exportJson} disabled={!dbBreakdown && !expected}>
-                                Export JSON
-                            </Button>
-                        </Col>
                     </Row>
                 </Card.Body>
             </Card>
@@ -481,16 +499,21 @@ export default function PayrollReconcileTool() {
                                 />
                             </Form.Group>
                         </Col>
-                        <Col md={3}>
-                            <Form.Group>
-                                <Form.Label>Late Penalty / time</Form.Label>
-                                <Form.Control
-                                    type="number"
-                                    value={form.latePenaltyPerTime}
-                                    onChange={(e) => setForm(prev => ({ ...prev, latePenaltyPerTime: e.target.value }))}
-                                />
-                            </Form.Group>
-                        </Col>
+
+                        {Number(form.lateCount ?? 0) > 0 ? (
+                            <Col md={3}>
+                                <Form.Group>
+                                    <Form.Label>Late Penalty / time</Form.Label>
+                                    <Form.Control
+                                        type="number"
+                                        value={form.latePenaltyPerTime}
+                                        onChange={(e) => setForm(prev => ({ ...prev, latePenaltyPerTime: e.target.value }))}
+                                    />
+                                </Form.Group>
+                            </Col>
+                        ) : (
+                            <Col md={3} />
+                        )}
 
                         <Col md={3}>
                             <Form.Group>
@@ -532,20 +555,25 @@ export default function PayrollReconcileTool() {
                                 <Form.Control
                                     type="number"
                                     value={form.overridePersonalDeduction}
-                                    onChange={(e) => setForm(prev => ({ ...prev, overridePersonalDeduction: e.target.value }))}
-                                    placeholder="VD: 15500000"
+                                    disabled
+                                    readOnly
                                 />
                             </Form.Group>
                         </Col>
+
                         <Col md={6}>
                             <Form.Group>
-                                <Form.Label>Dependent Deduction (override total, VND)</Form.Label>
+                                <Form.Label>Dependent Count</Form.Label>
                                 <Form.Control
                                     type="number"
-                                    value={form.overrideDependentDeduction}
-                                    onChange={(e) => setForm(prev => ({ ...prev, overrideDependentDeduction: e.target.value }))}
-                                    placeholder="VD: 6200000"
+                                    min={0}
+                                    step={1}
+                                    value={form.dependentCount}
+                                    onChange={(e) => setForm(prev => ({ ...prev, dependentCount: e.target.value }))}
                                 />
+                                <Form.Text className="text-muted">
+                                    Total {fmt(dependentCountNum * DEPENDENT_PER_PERSON)} (={dependentCountNum} × 6.200.000)
+                                </Form.Text>
                             </Form.Group>
                         </Col>
 
@@ -584,9 +612,7 @@ export default function PayrollReconcileTool() {
                         </Table>
                     </div>
                 </Card.Body>
-            </Card>
-
-            <Row className="g-3">
+                <Row className="g-3">
                 <Col md={6}>
                     <Card>
                         <Card.Header className="bg-light fw-bold">D) DB Breakdown</Card.Header>
@@ -609,6 +635,7 @@ export default function PayrollReconcileTool() {
                     </Card>
                 </Col>
             </Row>
+            </Card>
         </div>
     );
 }
