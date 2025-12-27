@@ -1038,17 +1038,6 @@ ALTER TABLE tbEmployeePayroll ADD
     tax_deduction_total DECIMAL(15,2) DEFAULT 0;
 
 
-
-
-
-
-
-
-
-
-
-
-
 -- Chèn bậc thuế 2026
 INSERT INTO tbTaxBracket VALUES
 (1, 0, 10000000, 5.00, 'Bracket 1: 0-10M @ 5%', 1, GETDATE()),
@@ -1526,87 +1515,6 @@ CHECK ([status] IN (
   'UNSCHEDULED'
 ));
 
--- SELECT TOP 10 * FROM tbAttendance ORDER BY date DESC;
-
--- -- Check for November 2025 + Department 1005
--- SELECT COUNT(*) FROM tbAttendance a
--- JOIN tbUser u ON a.user_id = u.user_id
--- WHERE YEAR(a.date) = 2025 AND MONTH(a.date) = 11 AND u.department_id = 1005;
-
--- -- Check user 1013
--- SELECT * FROM tbLeaveRequest;
-
--- SELECT TOP 5 
---     a.attendance_id,
---     a.user_id,
---     a.date,
---     a.time_in,
---     a.time_out,
---     CONVERT(VARCHAR(12), a.time_in, 108) AS time_in_formatted,
---     CONVERT(VARCHAR(12), a.time_out, 108) AS time_out_formatted
--- FROM tbAttendance a
--- WHERE a.user_id = 1013
--- ORDER BY a.date DESC
-
-
---    SELECT u.user_id, u.full_name, u.department_id, lr.request_id, lr.start_date
---    FROM tbLeaveRequest lr
---    JOIN tbUser u ON lr.user_id = u.user_id;
-
-
--- SELECT * FROM tbEmployeePayroll WHERE id = 1000;
-
--- SELECT ep.*, p.month, u.full_name, u.salary_type 
--- FROM tbEmployeePayroll ep
--- JOIN tbPayroll p ON ep.payroll_id = p.payroll_id
--- JOIN tbUser u ON ep.user_id = u.user_id
--- WHERE ep.id = 1000;
-
--- SELECT payroll_id, user_id, COUNT(*) AS c
--- FROM tbEmployeePayroll
--- GROUP BY payroll_id, user_id
--- HAVING COUNT(*) > 1;
-
-
--- SELECT MIN([date]) AS min_date, MAX([date]) AS max_date, COUNT(*) AS total
--- FROM tbAttendance;
-
--- SELECT TOP 20 attendance_id, user_id, [date], status
--- FROM tbAttendance
--- ORDER BY [date] DESC;
-
-
--- SELECT payroll_id, department_id, [month], total_salary, status
--- FROM tbPayroll
--- WHERE [month] BETWEEN '2025-11-01' AND '2025-11-30'
--- ORDER BY payroll_id;
-
--- -- sql
--- WITH d AS (
---   SELECT
---     id,
---     payroll_id,
---     user_id,
---     ROW_NUMBER() OVER (PARTITION BY payroll_id, user_id ORDER BY id DESC) AS rn
---   FROM tbEmployeePayroll
--- )
--- DELETE FROM d WHERE rn > 1;
-
-
--- Select * from tbEmployeePayroll
--- select * from tbTaxBracket
-
--- SELECT DISTINCT [status]
--- FROM dbo.tbAttendance
--- ORDER BY [status];
-
-
--- SELECT
---   cc.name AS constraint_name,
---   cc.definition
--- FROM sys.check_constraints cc
--- JOIN sys.tables t ON cc.parent_object_id = t.object_id
--- WHERE t.name = 'tbAttendance';
 
 DELETE FROM tbOvertimeTicket;
 

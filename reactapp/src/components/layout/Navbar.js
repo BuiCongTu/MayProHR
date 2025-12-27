@@ -1,4 +1,4 @@
-import { CheckCircle, Error as ErrorIcon, Info, Logout as LogoutIcon, Menu as MenuIcon, Notifications, Person } from '@mui/icons-material';
+import { Assessment, CheckCircle, Error as ErrorIcon, Info, Logout as LogoutIcon, Menu as MenuIcon, Notifications, Person } from '@mui/icons-material';
 import
 {
     AppBar, Avatar, Badge, Box, Button, Divider,
@@ -44,6 +44,7 @@ const getNavLinks = (roleName) =>
                 { title: 'Attendance', path: '/attendance' },
                 { title: 'Overtime Requests', path: '/overtime-request' },
                 { title: 'Overtime Tickets', path: '/overtime-ticket' },
+                { title: 'Attendance Report', path: '/attendance/report', icon: <Assessment /> },
 
             ];
             break;
@@ -59,21 +60,15 @@ const getNavLinks = (roleName) =>
                     path: '/payroll',
                     children: [
                         { title: 'Payroll Dasshboard', path: '/payroll' },
-                        { title: 'Allowances', path: '/payroll/allowances/recurring' },
-                        { title: 'Holidays', path: '/payroll/holidays' },
-                        { title: 'Deduction', path: '/payroll/tax-deduction' },
-                        { title: 'Tax Bracket', path: '/payroll/tax-bracket' },
-                        { title: 'Production', path: '/payroll/production' },
-                        { title: 'Employee Production', path: '/payroll/employee-production' },
                         { title: 'Reconcile Tool', path: '/payroll/reconcile' },
                     ],
                 },
 
                 { title: 'Overtime Requests', path: '/overtime-request' },
                 { title: 'Proposal', path: '/position-change' },
-                { title: 'Attendance', path: '/attendance/register-face' },
+                { title: 'Attendance Report', path: '/attendance/report', icon: <Assessment /> },
                 { title: 'Leave Request', path: '/leave-request' },
-                { title: 'Reports', path: '/payroll/report' },
+                // Payroll calculation + payroll management pages are intentionally hidden for Factory Manager.
             ];
             break;
 
@@ -99,7 +94,7 @@ const getNavLinks = (roleName) =>
                 { title: 'Overtime Requests', path: '/overtime-request' },
                 { title: 'Proposal', path: '/factory-director/proposals' },
                 { title: 'Leave Request', path: '/leave-request' },
-                { title: 'Reconcile Tool', path: '/payroll/reconcile' },
+                { title: 'Attendance Report', path: '/attendance/report', icon: <Assessment /> },
                 { title: 'Reports', path: '/payroll/report' },
             ];
             break;
@@ -123,7 +118,7 @@ const getNavLinks = (roleName) =>
                     ],
                 },
                 { title: 'Reports', path: '/payroll/report' },
-                { title: 'Reconcile Tool', path: '/payroll/reconcile' },
+                { title: 'Attendance Report', path: '/attendance/report', icon: <Assessment /> },
             ];
             break;
 

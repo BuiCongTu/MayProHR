@@ -1,8 +1,17 @@
 package fpt.aptech.springbootapp.api.ModuleC;
 
-import java.math.*;
-import java.time.*;
-import java.util.*;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,19 +20,54 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import fpt.aptech.springbootapp.dtos.ModuleC.*;
-import fpt.aptech.springbootapp.entities.Core.*;
-import fpt.aptech.springbootapp.entities.ModuleC.*;
+import fpt.aptech.springbootapp.dtos.ModuleC.AllowanceRequestDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.EmpRecurAllowReqDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.EmployeeTaxProfileDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.PayrollAnalysisRequest;
+import fpt.aptech.springbootapp.dtos.ModuleC.PayrollAnalysisResponse;
+import fpt.aptech.springbootapp.dtos.ModuleC.PayrollCalculationDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.PayrollDetailDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.PayrollReconcileRequestDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.PayrollResponseDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.TaxCalculationDTO;
+import fpt.aptech.springbootapp.dtos.ModuleC.TimeBaseAllocationRequest;
+import fpt.aptech.springbootapp.dtos.ModuleC.TimeBaseAllocationResult;
+import fpt.aptech.springbootapp.entities.Core.TbDepartment;
+import fpt.aptech.springbootapp.entities.Core.TbUser;
+import fpt.aptech.springbootapp.entities.ModuleA.TbAttendance;
+import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeePayroll;
+import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeeProduction;
+import fpt.aptech.springbootapp.entities.ModuleC.TbEmployeeWorkTime;
+import fpt.aptech.springbootapp.entities.ModuleC.TbPayroll;
 import fpt.aptech.springbootapp.entities.ModuleC.TbPayrollAllowance;
 import fpt.aptech.springbootapp.entities.ModuleC.TbPayrollAllowance.AllowanceScope;
 import fpt.aptech.springbootapp.repositories.DepartmentRepository;
 import fpt.aptech.springbootapp.repositories.ModuleA_Time_Attendance.AttendanceRepository;
-import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.*;
+import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.EmployeePayrollRepo;
+import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.EmployeeProductionRepo;
+import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.PayrollAllowanceRepo;
+import fpt.aptech.springbootapp.repositories.ModuleC_Payroll.PayrollRepo;
 import fpt.aptech.springbootapp.repositories.UserRepository;
-import fpt.aptech.springbootapp.services.ModuleC_Payroll.*;
-import lombok.*;
+import fpt.aptech.springbootapp.services.ModuleC_Payroll.EmployeeTaxProfileService;
+import fpt.aptech.springbootapp.services.ModuleC_Payroll.PayrollAnalysisService;
+import fpt.aptech.springbootapp.services.ModuleC_Payroll.PayrollCalConstants;
+import fpt.aptech.springbootapp.services.ModuleC_Payroll.PayrollCalHelper;
+import fpt.aptech.springbootapp.services.ModuleC_Payroll.PayrollCalculationService;
+import fpt.aptech.springbootapp.services.ModuleC_Payroll.PayrollService;
+import fpt.aptech.springbootapp.services.ModuleC_Payroll.PersonalIncomeTaxCalService;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @RestController
 @RequestMapping("/api/payroll")
@@ -41,6 +85,7 @@ public class PayrollController {
     private final PayrollAllowanceRepo payrollAllowanceRepo;
     private final AttendanceRepository attendanceRepository;
     private final PayrollAnalysisService payrollAnalysisService;
+    private final EmployeeProductionRepo employeeProductionRepo;
 
     @Autowired
     public PayrollController(PayrollService payrollService,
@@ -53,7 +98,8 @@ public class PayrollController {
             DepartmentRepository departmentRepository,
             PayrollAllowanceRepo payrollAllowanceRepo,
             AttendanceRepository attendanceRepository,
-            PayrollAnalysisService payrollAnalysisService) {
+            PayrollAnalysisService payrollAnalysisService,
+            EmployeeProductionRepo employeeProductionRepo) {
         this.payrollService = payrollService;
         this.payrollCalculationService = payrollCalculationService;
         this.taxProfileService = taxProfileService;
@@ -65,6 +111,7 @@ public class PayrollController {
         this.payrollAllowanceRepo = payrollAllowanceRepo;
         this.attendanceRepository = attendanceRepository;
         this.payrollAnalysisService = payrollAnalysisService;
+        this.employeeProductionRepo = employeeProductionRepo;
     }
 
     //
@@ -1233,14 +1280,37 @@ public class PayrollController {
             breakdown.setBaseSalary(ep.getBaseSalary());
             breakdown.setWageCoefficient(ep.getUser().getWageCoefficient());
 
+            // ✅ ALWAYS fill for reconcile tool (both TimeBased & ProductBased)
+            // Prefer calculation engine values for modal overrides (more reliable than persisted ep)
+            LocalDate calcMonth = ep.getPayroll() != null && ep.getPayroll().getMonth() != null
+                    ? ep.getPayroll().getMonth().withDayOfMonth(1)
+                    : null;
+
+            BigDecimal calcAllowance = ep.getAllowance() != null ? ep.getAllowance() : BigDecimal.ZERO;
+            PayrollCalculationDTO calcDto = null;
+            if (calcMonth != null) {
+                try {
+                    calcDto = payrollCalculationService.calEmpSalary(ep.getUser(), calcMonth, calcAllowance);
+                } catch (Exception ignore) {
+                    // Keep breakdown endpoint resilient; fall back to persisted values
+                    calcDto = null;
+                }
+            }
+
+            breakdown.setStandardWorkingDays(calcDto != null && calcDto.getStandardWorkingDays() != null
+                    ? calcDto.getStandardWorkingDays()
+                    : ep.getStandardWorkingDays());
+            breakdown.setActualWorkingDays(calcDto != null && calcDto.getActualWorkingDays() != null
+                    ? calcDto.getActualWorkingDays()
+                    : ep.getActualWorkingDays());
+
+            breakdown.setLateCount(ep.getLateCount());
+            breakdown.setLatePenalty(ep.getLatePenalty());
+
             // Dữ liệu TimeBased
             if (ep.getUser().getSalaryType() == TbUser.SalaryType.TimeBased) {
-                breakdown.setStandardWorkingDays(ep.getStandardWorkingDays());
-                breakdown.setActualWorkingDays(ep.getActualWorkingDays());
                 breakdown.setPaidLeaveDays(ep.getPaidLeaveDays());
                 breakdown.setUnpaidLeaveDays(ep.getUnpaidLeaveDays());
-                breakdown.setLateCount(ep.getLateCount());
-                breakdown.setLatePenalty(ep.getLatePenalty());
 
                 BigDecimal stdDays = ep.getStandardWorkingDays() != null ? ep.getStandardWorkingDays() : new BigDecimal("26");
 
@@ -1249,12 +1319,60 @@ public class PayrollController {
                         .multiply(ep.getActualWorkingDays()));
             } else {
                 // Dữ liệu ProductBased
+                // Prefer calc engine values (used by FE preview/confirm)
+                if (calcDto != null) {
+                    breakdown.setProductCount(calcDto.getProductCount());
+                    breakdown.setUnitPrice(calcDto.getUnitPrice());
+                }
+
+                // Fallback: derive from EmployeeProduction input if calc engine didn't provide
+                if (breakdown.getProductCount() == null || breakdown.getUnitPrice() == null) {
+                    LocalDate monthDate = ep.getPayroll() != null && ep.getPayroll().getMonth() != null
+                            ? ep.getPayroll().getMonth().withDayOfMonth(1)
+                            : null;
+
+                    if (monthDate != null) {
+                        List<TbEmployeeProduction> empProds = employeeProductionRepo
+                                .findByEmployeeAndMonth(ep.getUser().getId(), monthDate);
+
+                        if (empProds != null && !empProds.isEmpty()) {
+                            int totalProductCount = 0;
+                            BigDecimal resolvedUnitPrice = null;
+
+                            for (TbEmployeeProduction prod : empProds) {
+                                if (prod.getProductCount() != null) {
+                                    totalProductCount += prod.getProductCount();
+                                }
+
+                                if (resolvedUnitPrice == null) {
+                                    if (prod.getUnitPrice() != null) {
+                                        resolvedUnitPrice = prod.getUnitPrice();
+                                    } else if (prod.getProduction() != null && prod.getProduction().getUnitPrice() != null) {
+                                        resolvedUnitPrice = prod.getProduction().getUnitPrice();
+                                    }
+                                }
+                            }
+
+                            if (breakdown.getProductCount() == null) {
+                                breakdown.setProductCount(totalProductCount);
+                            }
+                            if (breakdown.getUnitPrice() == null) {
+                                breakdown.setUnitPrice(resolvedUnitPrice);
+                            }
+                        }
+                    }
+                }
+
                 breakdown.setProductBonus(ep.getProductBonus());
             }
 
-            // Dữ liệu chung cả 2 loại
-            breakdown.setOt1Hours(ep.getOt1Hours());
-            breakdown.setOt2Hours(ep.getOt2Hours());
+            // Dữ liệu chung cả 2 loại (FE modal uses: OT1/OT2 override fields)
+            breakdown.setOt1Hours(calcDto != null && calcDto.getOtWeekdayHours() != null
+                    ? calcDto.getOtWeekdayHours()
+                    : ep.getOt1Hours());
+            breakdown.setOt2Hours(calcDto != null && calcDto.getOtHolidayHours() != null
+                    ? calcDto.getOtHolidayHours()
+                    : ep.getOt2Hours());
             breakdown.setOvertimePay(ep.getOvertimePay());
 
             breakdown.setInsurance(ep.getDeduction());
@@ -1262,6 +1380,22 @@ public class PayrollController {
             breakdown.setGrossIncomeForTax(ep.getGrossIncomeForTax());
             breakdown.setPersonalIncomeTax(ep.getPersonalIncomeTax());
             breakdown.setTaxDeductionTotal(ep.getTaxDeductionTotal());
+
+            // === NEW: lấy Personal/Dependent Deduction từ tax engine để FE có data hiển thị ===
+            LocalDate payrollMonth = ep.getPayroll() != null && ep.getPayroll().getMonth() != null
+                    ? ep.getPayroll().getMonth().withDayOfMonth(1)
+                    : null;
+
+            BigDecimal grossForTax = ep.getGrossIncomeForTax() != null ? ep.getGrossIncomeForTax() : BigDecimal.ZERO;
+
+            if (payrollMonth != null) {
+                TaxCalculationDTO taxDTO = taxCalculationService.calculatePersonalIncomeTax(ep.getUser(), grossForTax, payrollMonth);
+
+                breakdown.setPersonalDeduction(taxDTO != null ? taxDTO.getPersonalDeduction() : BigDecimal.ZERO);
+                breakdown.setDependentDeduction(taxDTO != null ? taxDTO.getDependentDeduction() : BigDecimal.ZERO);
+                breakdown.setInsuranceDeduction(taxDTO != null ? taxDTO.getInsuranceDeduction() : BigDecimal.ZERO);
+                breakdown.setTaxableIncome(taxDTO != null ? taxDTO.getTaxableIncome() : BigDecimal.ZERO);
+            }
 
             breakdown.setAllowance(ep.getAllowance());
             breakdown.setTotalPay(ep.getTotalPay());
@@ -1336,9 +1470,19 @@ public class PayrollController {
             ep.setPersonalIncomeTax(calculation.getTaxCalculation().getTotalTax());
             ep.setTaxDeductionTotal(calculation.getTaxCalculation().getTotalDeduction());
 
-            ep.setTotalPay(calculation.getTotalPay());
+            // Auto-calc safety: if timeSalary is ~0 and totalPay <= 0, clamp totalPay to 0
+            // (Avoid negative/invalid net pay caused by penalties/deductions when there is no earned salary)
+            BigDecimal timeSalary = calculation.getTimeSalary() != null ? calculation.getTimeSalary() : BigDecimal.ZERO;
+            BigDecimal totalPay = calculation.getTotalPay() != null ? calculation.getTotalPay() : BigDecimal.ZERO;
+            BigDecimal timeSalaryEpsilon = BigDecimal.ONE; // "safe" threshold
+            if (timeSalary.abs().compareTo(timeSalaryEpsilon) <= 0 && totalPay.compareTo(BigDecimal.ZERO) <= 0) {
+                totalPay = BigDecimal.ZERO;
+            }
+
+            ep.setTotalPay(totalPay);
             ep.setNote(calculation.getCalculationNote());
-            ep.setCalculationStatus(TbEmployeePayroll.CalculationStatus.calculated);
+            // Requirement: Auto Calcu All / Calc should set status = pending
+            ep.setCalculationStatus(TbEmployeePayroll.CalculationStatus.pending);
 
             TbEmployeePayroll updated = employeePayrollRepo.save(ep);
 
@@ -1492,7 +1636,8 @@ public class PayrollController {
             ep.setTotalPay(preview.getTotalPay() != null ? preview.getTotalPay() : BigDecimal.ZERO);
 
             ep.setNote(request.getNote() != null ? request.getNote() : preview.getNote());
-            ep.setCalculationStatus(TbEmployeePayroll.CalculationStatus.confirmed);
+            // Requirement: Auto Calcu All / Calc should set status = pending
+            ep.setCalculationStatus(TbEmployeePayroll.CalculationStatus.pending);
 
             TbEmployeePayroll saved = employeePayrollRepo.save(ep);
 
@@ -1612,8 +1757,6 @@ public class PayrollController {
                     .setScale(SCALE, RoundingMode.HALF_UP);
         }
 
-
-
         // Deductions cộng các khoản trừ
         BigDecimal totalDeduction = calc.getTotalDeduction() != null ? calc.getTotalDeduction() : BigDecimal.ZERO;
 
@@ -1678,6 +1821,13 @@ public class PayrollController {
 
         BigDecimal totalPay = incomeAfterDeductions.subtract(totalTax).add(totalAllowance).setScale(SCALE, RoundingMode.HALF_UP);
 
+        // Safety clamp for Preview/Confirm: if no earned time salary and net is negative, clamp net to 0
+        BigDecimal timeSalaryEpsilon = BigDecimal.ONE; // "safe" threshold
+        boolean clampNetPay = timeSalary.abs().compareTo(timeSalaryEpsilon) <= 0 && totalPay.compareTo(BigDecimal.ZERO) < 0;
+        if (clampNetPay) {
+            totalPay = BigDecimal.ZERO;
+        }
+
         // 5) Build DTO for FE: dùng PayrollDetailDTO
         return PayrollDetailDTO.builder()
                 .employeePayrollId(null)
@@ -1697,8 +1847,8 @@ public class PayrollController {
                 .lateCount(calc.getLateCount())
                 .latePenalty(calc.getLatePenalty())
                 .timeSalary(timeSalary)
-                .productCount(calc.getProductCount())
-                .unitPrice(calc.getUnitPrice())
+                .productCount(productCount)
+                .unitPrice(unitPrice)
                 .productBonus(productBonus)
                 .ot1Hours(otWeekday)
                 .ot2Hours(otHoliday)
@@ -1717,7 +1867,9 @@ public class PayrollController {
                 .incomeAfterDeductions(incomeAfterDeductions)
                 .allowance(totalAllowance)
                 .totalPay(totalPay)
-                .note(request.getNote() != null ? request.getNote() : calc.getCalculationNote())
+                .note(request.getNote() != null
+                        ? request.getNote()
+                        : (clampNetPay ? (calc.getCalculationNote() + " (NET clamped to 0)") : calc.getCalculationNote()))
                 .createdAt(Instant.now())
                 .build();
     }
@@ -1845,12 +1997,12 @@ public class PayrollController {
                 data.put("deptUsersNoAttendanceCount", deptNoAttendance.size());
                 data.put("deptUsersNoAttendanceSample", deptNoAttendance.stream().limit(50).toList());
 
-                var rawAttendances = attendanceRepository.findAttendanceByDateRangeNative(start, end);
+                List<TbAttendance> rawAttendances = attendanceRepository.findAttendanceByDateRangeNative(start, end);
                 data.put("nativeAttendanceRowsInRange", rawAttendances != null ? rawAttendances.size() : 0);
 
                 Set<Integer> nativeUserIds = new HashSet<>();
                 if (rawAttendances != null) {
-                    for (var a : rawAttendances) {
+                    for (TbAttendance a : rawAttendances) {
                         if (a.getUser() != null && a.getUser().getId() != null) {
                             nativeUserIds.add(a.getUser().getId());
                         }
@@ -1943,7 +2095,9 @@ public class PayrollController {
 
     //công cụ đối sooát Payroll
     private static BigDecimal normalizeRateToFraction(BigDecimal raw) {
-        if (raw == null) return BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+        if (raw == null) {
+            return BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+        }
 
         BigDecimal r = raw.abs();
 
@@ -2027,7 +2181,8 @@ public class PayrollController {
                     .multiply(new BigDecimal(lateCount))
                     .setScale(PayrollCalConstants.SCALE, RoundingMode.HALF_UP);
 
-            BigDecimal insurance = grossIncomeForTax
+            // Align with PayrollCalculationServiceImp.calDeductions(): insurance is based on baseSalary
+            BigDecimal insurance = baseSalary
                     .multiply(insuranceRateFraction)
                     .setScale(PayrollCalConstants.SCALE, RoundingMode.HALF_UP);
 
@@ -2067,7 +2222,7 @@ public class PayrollController {
                     .standardWorkingDays(stdDays)
                     .actualWorkingDays(actualDays)
                     .lateCount(lateCount)
-                    .latePenalty(latePenaltyPerTime)
+                    .latePenalty(lateCount > 0 ? latePenaltyPerTime : BigDecimal.ZERO)
                     .timeSalary(timeSalary)
                     .productCount(productCount)
                     .unitPrice(unitPrice)

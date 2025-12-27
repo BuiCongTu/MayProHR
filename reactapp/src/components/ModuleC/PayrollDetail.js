@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import {
+import { useEffect, useMemo, useRef, useState } from 'react';
+import
+{
   Alert,
   Badge,
   Button,
@@ -11,12 +11,22 @@ import {
   Pagination,
   Row,
   Spinner,
-  Table,
   Tab,
+  Table,
   Tabs
 } from 'react-bootstrap';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import payrollService from '../../services/moduleC/payrollService';
+import { getCurrentUser } from '../../services/authService';
+
+const isFactoryManagerRole = (roleName) =>
+{
+  const normalized = String(roleName || '')
+    .toLowerCase()
+    .replace(/\s+/g, '');
+  return normalized === 'factorymanager' || normalized === 'fmanager';
+};
 
 const toISODateFirstOfMonth = (yyyyMMOrIso) =>
 {
@@ -54,7 +64,7 @@ const formatCurrency = (value) =>
 const formatMonth = (monthStr) =>
 {
   if (!monthStr) return '';
-  return new Date(monthStr).toLocaleDateString('vi-VN', {
+  return new Date(monthStr).toLocaleDateString('en-US', {
     month: 'long',
     year: 'numeric'
   });
@@ -64,6 +74,9 @@ const PayrollDetail = () =>
 {
   const { payrollId } = useParams();
   const navigate = useNavigate();
+
+  const roleName = getCurrentUser()?.roleName;
+  const isFactoryManager = isFactoryManagerRole(roleName);
 
   const [payroll, setPayroll] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -75,13 +88,22 @@ const PayrollDetail = () =>
 
   // --- Employee list UX: search / sort / pagination ---
   const [searchName, setSearchName] = useState('');
-  const [statusSort, setStatusSort] = useState('asc'); // asc | desc
+  const [statusFilter, setStatusFilter] = useState('all'); // all | draft | pending | calculated | confirmed | approved | rejected
   const [empPage, setEmpPage] = useState(1);
   const [empPageSize, setEmpPageSize] = useState(10);
 
   // Modal (calculator-style preview)
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showModal, setShowModal] = useState(false);
+
+  // DB breakdown for accurate modal prefill
+  const [dbBreakdown, setDbBreakdown] = useState(null);
+  const [breakdownLoading, setBreakdownLoading] = useState(false);
+  const [breakdownError, setBreakdownError] = useState('');
+
+  // Prevent DB prefill from overwriting user edits
+  const [calcFormTouched, setCalcFormTouched] = useState(false);
+  const calcFormTouchedRef = useRef(false);
 
   const [calcTab, setCalcTab] = useState('input');
   const [calcForm, setCalcForm] = useState({
@@ -96,6 +118,78 @@ const PayrollDetail = () =>
   const [preview, setPreview] = useState(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const markCalcFormTouched = () =>
+  {
+    if (!calcFormTouchedRef.current)
+    {
+      calcFormTouchedRef.current = true;
+      setCalcFormTouched(true);
+    }
+  };
+
+  const buildCalcFormFromBreakdown = (breakdown, fallbackEmp) =>
+  {
+    const actualDays = breakdown?.actualWorkingDays ?? fallbackEmp?.actualWorkingDays ?? '';
+    const ot1 = breakdown?.otWeekdayHours ?? breakdown?.ot1Hours ?? fallbackEmp?.otWeekdayHours ?? fallbackEmp?.ot1Hours ?? '';
+    const ot2 = breakdown?.otHolidayHours ?? breakdown?.ot2Hours ?? fallbackEmp?.otHolidayHours ?? fallbackEmp?.ot2Hours ?? '';
+    const productCount = breakdown?.productCount ?? fallbackEmp?.productCount ?? '';
+    const unitPrice = breakdown?.unitPrice ?? fallbackEmp?.unitPrice ?? '';
+
+    return {
+      allowance: breakdown?.allowance ?? fallbackEmp?.allowance ?? 0,
+      note: breakdown?.note ?? fallbackEmp?.note ?? '',
+
+      overrideActualWorkingDays: actualDays,
+      overrideOtWeekdayHours: ot1,
+      overrideOtHolidayHours: ot2,
+      overrideProductCount: productCount,
+      overrideUnitPrice: unitPrice
+    };
+  };
+
+  useEffect(() =>
+  {
+    const employeePayrollId = selectedEmployee?.employeePayrollId;
+    if (!showModal || !employeePayrollId) return;
+
+    let cancelled = false;
+
+    const loadBreakdown = async () =>
+    {
+      try
+      {
+        setBreakdownLoading(true);
+        setBreakdownError('');
+        setDbBreakdown(null);
+
+        const data = await payrollService.getPayrollBreakdown(employeePayrollId);
+        if (cancelled) return;
+
+        setDbBreakdown(data);
+
+        // Only prefill if user hasn't started editing
+        if (!calcFormTouchedRef.current)
+        {
+          setCalcForm(buildCalcFormFromBreakdown(data, selectedEmployee));
+        }
+      } catch (err)
+      {
+        if (cancelled) return;
+        console.error('Error loading employee payroll breakdown:', err);
+        setBreakdownError(err?.response?.data?.message || err?.message || 'Cannot load breakdown from database');
+      } finally
+      {
+        if (!cancelled) setBreakdownLoading(false);
+      }
+    };
+
+    loadBreakdown();
+    return () =>
+    {
+      cancelled = true;
+    };
+  }, [showModal, selectedEmployee?.employeePayrollId]);
 
   useEffect(() =>
   {
@@ -163,7 +257,7 @@ const PayrollDetail = () =>
   {
     if (!payrollId) return;
 
-    const confirmed = window.confirm('Auto Calculate cho toàn bộ employee trong payroll này?');
+    const confirmed = window.confirm('Are you sure you want to Auto Calculate payroll for ALL employees in this payroll? This action may take several minutes.');
     if (!confirmed) return;
 
     try
@@ -181,47 +275,56 @@ const PayrollDetail = () =>
 
       if (result?.failed > 0)
       {
-        toast.error(`Auto Calcu All xong nhưng có ${result.failed}/${result.total} employee bị lỗi.`);
+        toast.error(`Auto Calcu All done but ${result.failed}/${result.total} employees failed.`);
       } else
       {
-        toast.success('Auto Calcu All thành công cho toàn bộ employee.');
+        toast.success('Auto Calcu All completed successfully for all employees.');
       }
     } catch (err)
     {
       console.error('Auto Calcu All error:', err);
-      toast.error(err?.response?.data?.message || err?.message || 'Auto Calcu All thất bại');
+      toast.error(err?.response?.data?.message || err?.message || 'Auto Calcu All failed');
     } finally
     {
       setAutoCalcRunning(false);
     }
   };
 
-    const handleRowClick = (emp) =>
-    {
-        setSelectedEmployee(emp);
-        setCalcTab('input');
-        setPreview(null);
+  const handleRowClick = (emp) =>
+  {
+    setSelectedEmployee(emp);
+    setCalcTab('input');
+    setPreview(null);
 
-        setCalcForm({
-            allowance: emp?.allowance ?? 0,
-            note: emp?.note || '',
+    // Reset DB prefill state for this modal open
+    setDbBreakdown(null);
+    setBreakdownError('');
+    setBreakdownLoading(false);
+    calcFormTouchedRef.current = false;
+    setCalcFormTouched(false);
 
-            overrideActualWorkingDays: '',
+    const actualDays = emp?.actualWorkingDays ?? '';
+    const ot1 = emp?.otWeekdayHours ?? emp?.ot1Hours ?? '';
+    const ot2 = emp?.otHolidayHours ?? emp?.ot2Hours ?? '';
+    const productCount = emp?.productCount ?? '';
+    const unitPrice = emp?.unitPrice ?? '';
 
-            overrideOtWeekdayHours: '',
-            overrideOtHolidayHours: '',
-            overrideProductCount: '',
-            overrideUnitPrice: ''
-        });
+    // Fallback prefill from list row; DB breakdown (loaded async) will replace if user hasn't edited.
+    setCalcForm(buildCalcFormFromBreakdown(null, emp));
 
-        setShowModal(true);
-    };
+    setShowModal(true);
+  };
 
 
-    const handleCloseModal = () =>
+  const handleCloseModal = () =>
   {
     setShowModal(false);
     setSelectedEmployee(null);
+    setDbBreakdown(null);
+    setBreakdownError('');
+    setBreakdownLoading(false);
+    calcFormTouchedRef.current = false;
+    setCalcFormTouched(false);
     setPreview(null);
     setLoadingPreview(false);
     setCalcTab('input');
@@ -265,71 +368,78 @@ const PayrollDetail = () =>
     {
       console.error('Preview error:', err);
       toast.error(err?.response?.data?.message || err?.message || 'Preview calculation failed');
-        return null;
+      return null;
     } finally
     {
       setLoadingPreview(false);
     }
   };
-    const handleConfirmAndSave = async () =>
+  const handleConfirmAndSave = async () =>
+  {
+    if (!previewPayload?.payrollId || !previewPayload?.userId || !previewPayload?.month)
     {
-        if (!previewPayload?.payrollId || !previewPayload?.userId || !previewPayload?.month)
-        {
-            toast.error('payrollId/userId/month not null');
-            return;
-        }
+      toast.error('payrollId/userId/month not null');
+      return;
+    }
 
-        try
-        {
-            setSaving(true);
+    try
+    {
+      setSaving(true);
 
-            // Nếu chưa preview thì preview trước để user thấy đúng số liệu
-            const ensuredPreview = preview || (await handlePreview());
-            if (!ensuredPreview)
-            {
-                setSaving(false);
-                return;
-            }
+      // Nếu chưa preview thì preview trước để user thấy đúng số liệu
+      const ensuredPreview = preview || (await handlePreview());
+      if (!ensuredPreview)
+      {
+        setSaving(false);
+        return;
+      }
 
-            await payrollService.confirmEmployeePayroll(previewPayload);
+      await payrollService.confirmEmployeePayroll(previewPayload);
 
-            toast.success('Confirm & Save succsessfully');
-            await fetchPayrollDetail(payrollId);
-            handleCloseModal();
-        } catch (err)
-        {
-            console.error('Confirm & Save error:', err);
-            toast.error(err?.response?.data?.message || err?.message || 'Confirm & Save failed');
-        } finally
-        {
-            setSaving(false);
-        }
-    };
+      toast.success('Confirm & Save succsessfully');
+      await fetchPayrollDetail(payrollId);
+      handleCloseModal();
+    } catch (err)
+    {
+      console.error('Confirm & Save error:', err);
+      toast.error(err?.response?.data?.message || err?.message || 'Confirm & Save failed');
+    } finally
+    {
+      setSaving(false);
+    }
+  };
 
 
-    const employees = payroll?.employeePayrolls || [];
+  const employees = payroll?.employeePayrolls || [];
 
   // Sorting by status (business order) + direction
   const statusSortRank = (status) =>
   {
     const s = String(status || '').toLowerCase();
-    // Order: pending -> calculated -> confirmed -> draft -> others
-    if (s === 'pending') return 1;
-    if (s === 'calculated') return 2;
-    if (s === 'confirmed') return 3;
-    if (s === 'draft') return 4;
+    // Workflow order: draft -> pending -> calculated -> confirmed -> approved -> rejected -> others
+    if (s === 'draft') return 1;
+    if (s === 'pending') return 2;
+    if (s === 'calculated') return 3;
+    if (s === 'confirmed') return 4;
+    if (s === 'approved') return 5;
+    if (s === 'rejected') return 6;
     return 99;
   };
 
   const filteredEmployees = useMemo(() =>
   {
     const q = String(searchName || '').trim().toLowerCase();
-    if (!q) return employees;
+    const statusQ = String(statusFilter || 'all').toLowerCase();
 
     return employees.filter(e =>
-      String(e?.fullName || '').toLowerCase().includes(q)
-    );
-  }, [employees, searchName]);
+    {
+      const matchesName = !q || String(e?.fullName || '').toLowerCase().includes(q);
+      if (!matchesName) return false;
+
+      if (!statusQ || statusQ === 'all') return true;
+      return String(e?.calculationStatus || '').toLowerCase() === statusQ;
+    });
+  }, [employees, searchName, statusFilter]);
 
   const sortedEmployees = useMemo(() =>
   {
@@ -338,14 +448,14 @@ const PayrollDetail = () =>
     {
       const ra = statusSortRank(a?.calculationStatus);
       const rb = statusSortRank(b?.calculationStatus);
-      if (ra !== rb) return statusSort === 'asc' ? ra - rb : rb - ra;
+      if (ra !== rb) return ra - rb;
 
       const na = String(a?.fullName || '').toLowerCase();
       const nb = String(b?.fullName || '').toLowerCase();
       return na.localeCompare(nb);
     });
     return arr;
-  }, [filteredEmployees, statusSort]);
+  }, [filteredEmployees]);
 
   const totalEmpPages = Math.max(1, Math.ceil(sortedEmployees.length / empPageSize));
 
@@ -358,7 +468,7 @@ const PayrollDetail = () =>
   useEffect(() =>
   {
     setEmpPage(1);
-  }, [searchName, statusSort, empPageSize, payrollId]);
+  }, [searchName, statusFilter, empPageSize, payrollId]);
 
   const totalNetPay = employees.reduce((sum, e) => sum + (Number(e.totalPay) || 0), 0);
 
@@ -404,7 +514,8 @@ const PayrollDetail = () =>
           <Button
             variant="primary"
             onClick={() => navigate(`/payroll/${payrollId}/calculate`)}
-            disabled={autoCalcRunning}
+            disabled={autoCalcRunning || isFactoryManager}
+            title={isFactoryManager ? 'Factory Manager is not allowed to calculate payroll.' : undefined}
           >
             Calculate Payroll
           </Button>
@@ -412,7 +523,8 @@ const PayrollDetail = () =>
           <Button
             variant="warning"
             onClick={handleAutoCalcuAll}
-            disabled={autoCalcRunning}
+            disabled={autoCalcRunning || isFactoryManager}
+            title={isFactoryManager ? 'Factory Manager is not allowed to auto calculate payroll.' : undefined}
           >
             {autoCalcRunning
               ? `Auto Calcu All... ${autoCalcProgress.done}/${autoCalcProgress.total || '?'}`
@@ -431,7 +543,13 @@ const PayrollDetail = () =>
 
       {autoCalcRunning && (
         <Alert variant="info">
-          Đang Auto Calculate... {autoCalcProgress.done}/{autoCalcProgress.total || '?'}
+          Auto Calculate... {autoCalcProgress.done}/{autoCalcProgress.total || '?'}
+        </Alert>
+      )}
+
+      {isFactoryManager && (
+        <Alert variant="warning" className="mb-3">
+          Factory Manager role: payroll calculation features are locked. Please use <strong>Reconcile Tool</strong>.
         </Alert>
       )}
 
@@ -479,12 +597,17 @@ const PayrollDetail = () =>
             <Form.Select
               size="sm"
               style={{ width: 180 }}
-              value={statusSort}
-              onChange={(e) => setStatusSort(e.target.value)}
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
               disabled={autoCalcRunning}
             >
-              <option value="asc">Sort status: A → Z</option>
-              <option value="desc">Sort status: Z → A</option>
+              <option value="all">All</option>
+              <option value="draft">Draft</option>
+              <option value="pending">Pending</option>
+              <option value="calculated">Calculated</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
             </Form.Select>
 
             <Form.Select
@@ -508,76 +631,78 @@ const PayrollDetail = () =>
           ) : paginatedEmployees.length === 0 ? (
             <div className="p-3 text-muted">No employees match your search.</div>
           ) : (
-              <div style={{ overflowX: 'auto' }}>
-                  <Table hover responsive className="mb-0">
-                      <thead className="bg-light">
-                      <tr>
-                          <th>ID</th>
-                          <th>Full Name</th>
-                          <th>Status</th>
+            <div style={{ overflowX: 'auto' }}>
+              <Table hover responsive className="mb-0">
+                <thead className="bg-light">
+                  <tr>
+                    <th>ID</th>
+                    <th>Full Name</th>
+                    <th>Status</th>
 
-                          <th className="text-end">Actual Days</th>
-                          <th className="text-end">OT1</th>
-                          <th className="text-end">OT2</th>
-                          <th className="text-end">Allowance</th>
+                    <th className="text-end">Actual Days</th>
+                    <th className="text-end">OT1</th>
+                    <th className="text-end">OT2</th>
+                    <th className="text-end">Allowance</th>
 
-                          <th className="text-end">Gross (Tax)</th>
-                          <th className="text-end text-danger">Cash Deduction</th>
-                          <th className="text-end text-danger">Personal Income Tax</th>
-                          <th className="text-end text-bg-primary">Net Pay</th>
+                    <th className="text-end">Gross (Tax)</th>
+                    <th className="text-end text-danger">Cash Deduction</th>
+                    <th className="text-end text-danger">Personal Income Tax</th>
+                    <th className="text-end text-bg-primary">Net Pay</th>
 
-                          <th>Action</th>
-                      </tr>
-                      </thead>
+                    <th>Action</th>
+                  </tr>
+                </thead>
 
-                      <tbody>
-                      {paginatedEmployees.map(emp => (
-                          <tr
-                              key={emp.employeePayrollId || emp.employeeCode || emp.userId}
-                              style={{ cursor: 'pointer' }}
-                              onClick={() => handleRowClick(emp)}
-                          >
-                              <td><strong>{emp.employeeCode ?? emp.userId ?? 'N/A'}</strong></td>
-                              <td>{emp.fullName || 'N/A'}</td>
-                              <td>
-                                  <Badge bg={getStatusBadge(emp.calculationStatus)}>
-                                      {getStatusLabel(emp.calculationStatus)}
-                                  </Badge>
-                              </td>
+                <tbody>
+                  {paginatedEmployees.map(emp => (
+                    <tr
+                      key={emp.employeePayrollId || emp.employeeCode || emp.userId}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => handleRowClick(emp)}
+                    >
+                      <td><strong>{emp.employeeCode ?? emp.userId ?? 'N/A'}</strong></td>
+                      <td>{emp.fullName || 'N/A'}</td>
+                      <td>
+                        <Badge bg={getStatusBadge(emp.calculationStatus)}>
+                          {getStatusLabel(emp.calculationStatus)}
+                        </Badge>
+                      </td>
 
-                              <td className="text-end">{emp.actualWorkingDays ?? 0}</td>
-                              <td className="text-end">{emp.otWeekdayHours ?? emp.ot1Hours ?? 0}</td>
-                              <td className="text-end">{emp.otHolidayHours ?? emp.ot2Hours ?? 0}</td>
-                              <td className="text-end">{formatCurrency(emp.allowance)}</td>
+                      <td className="text-end">{emp.actualWorkingDays ?? 0}</td>
+                      <td className="text-end">{emp.otWeekdayHours ?? emp.ot1Hours ?? 0}</td>
+                      <td className="text-end">{emp.otHolidayHours ?? emp.ot2Hours ?? 0}</td>
+                      <td className="text-end">{formatCurrency(emp.allowance)}</td>
 
-                              <td className="text-end">{formatCurrency(emp.grossIncomeForTax)}</td>
-                              <td className="text-end text-danger">{formatCurrency(emp.deduction)}</td>
-                              <td className="text-end text-danger">{formatCurrency(emp.personalIncomeTax)}</td>
-                              <td className="text-end text-bg-primary">
-                                  <strong>{formatCurrency(emp.totalPay)}</strong>
-                              </td>
+                      <td className="text-end">{formatCurrency(emp.grossIncomeForTax)}</td>
+                      <td className="text-end text-danger">{formatCurrency(emp.deduction)}</td>
+                      <td className="text-end text-danger">{formatCurrency(emp.personalIncomeTax)}</td>
+                      <td className="text-end text-bg-primary">
+                        <strong>{formatCurrency(emp.totalPay)}</strong>
+                      </td>
 
-                              <td onClick={(e) => e.stopPropagation()} className="d-flex flex-wrap gap-2">
-                                  <Button
-                                      size="sm"
-                                      variant="primary"
-                                      onClick={() =>
-                                          navigate(`/payroll/${payrollId}/calculate`, {
-                                              state: { userId: emp.userId, month: payroll.month }
-                                          })
-                                      }
-                                  >
-                                      Calc
-                                  </Button>
-                              </td>
-                          </tr>
-                      ))}
-                      </tbody>
-                  </Table>
-              </div>
+                      <td onClick={(e) => e.stopPropagation()} className="d-flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          disabled={isFactoryManager}
+                          title={isFactoryManager ? 'Factory Manager is not allowed to calculate payroll.' : undefined}
+                          onClick={() =>
+                            navigate(`/payroll/${payrollId}/calculate`, {
+                              state: { userId: emp.userId, month: payroll.month }
+                            })
+                          }
+                        >
+                          Calc
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
           )}
 
-            {sortedEmployees.length > 0 && (
+          {sortedEmployees.length > 0 && (
             <div className="d-flex justify-content-between align-items-center px-3 py-2 border-top">
               <div className="text-muted small">
                 Showing {(empPage - 1) * empPageSize + 1}–
@@ -659,6 +784,19 @@ const PayrollDetail = () =>
               <Tabs activeKey={calcTab} onSelect={(k) => setCalcTab(k || 'input')}>
                 <Tab eventKey="input" title="Input">
                   <div className="p-3">
+                    {breakdownLoading ? (
+                      <div className="d-flex align-items-center gap-2 text-muted small mb-3">
+                        <Spinner animation="border" size="sm" />
+                        Loading breakdown from database...
+                      </div>
+                    ) : null}
+
+                    {breakdownError ? (
+                      <Alert variant="warning" className="py-2 mb-3">
+                        {breakdownError}. Using values from the list row.
+                      </Alert>
+                    ) : null}
+
                     <Row className="g-3">
                       <Col md={6}>
                         <Form.Group>
@@ -666,7 +804,11 @@ const PayrollDetail = () =>
                           <Form.Control
                             type="number"
                             value={calcForm.allowance}
-                            onChange={(e) => setCalcForm(prev => ({ ...prev, allowance: e.target.value }))}
+                            onChange={(e) =>
+                            {
+                              markCalcFormTouched();
+                              setCalcForm(prev => ({ ...prev, allowance: e.target.value }));
+                            }}
                             min="0"
                             step="1"
                           />
@@ -678,7 +820,11 @@ const PayrollDetail = () =>
                           <Form.Label>Note</Form.Label>
                           <Form.Control
                             value={calcForm.note}
-                            onChange={(e) => setCalcForm(prev => ({ ...prev, note: e.target.value }))}
+                            onChange={(e) =>
+                            {
+                              markCalcFormTouched();
+                              setCalcForm(prev => ({ ...prev, note: e.target.value }));
+                            }}
                             placeholder="Optional note..."
                           />
                         </Form.Group>
@@ -690,7 +836,11 @@ const PayrollDetail = () =>
                           <Form.Control
                             type="number"
                             value={calcForm.overrideActualWorkingDays}
-                            onChange={(e) => setCalcForm(prev => ({ ...prev, overrideActualWorkingDays: e.target.value }))}
+                            onChange={(e) =>
+                            {
+                              markCalcFormTouched();
+                              setCalcForm(prev => ({ ...prev, overrideActualWorkingDays: e.target.value }));
+                            }}
                             step="0.5"
                             min="0"
                           />
@@ -703,7 +853,11 @@ const PayrollDetail = () =>
                           <Form.Control
                             type="number"
                             value={calcForm.overrideOtWeekdayHours}
-                            onChange={(e) => setCalcForm(prev => ({ ...prev, overrideOtWeekdayHours: e.target.value }))}
+                            onChange={(e) =>
+                            {
+                              markCalcFormTouched();
+                              setCalcForm(prev => ({ ...prev, overrideOtWeekdayHours: e.target.value }));
+                            }}
                             step="0.5"
                             min="0"
                           />
@@ -716,7 +870,11 @@ const PayrollDetail = () =>
                           <Form.Control
                             type="number"
                             value={calcForm.overrideOtHolidayHours}
-                            onChange={(e) => setCalcForm(prev => ({ ...prev, overrideOtHolidayHours: e.target.value }))}
+                            onChange={(e) =>
+                            {
+                              markCalcFormTouched();
+                              setCalcForm(prev => ({ ...prev, overrideOtHolidayHours: e.target.value }));
+                            }}
                             step="0.5"
                             min="0"
                           />
@@ -729,7 +887,11 @@ const PayrollDetail = () =>
                           <Form.Control
                             type="number"
                             value={calcForm.overrideProductCount}
-                            onChange={(e) => setCalcForm(prev => ({ ...prev, overrideProductCount: e.target.value }))}
+                            onChange={(e) =>
+                            {
+                              markCalcFormTouched();
+                              setCalcForm(prev => ({ ...prev, overrideProductCount: e.target.value }));
+                            }}
                             step="1"
                             min="0"
                           />
@@ -742,7 +904,11 @@ const PayrollDetail = () =>
                           <Form.Control
                             type="number"
                             value={calcForm.overrideUnitPrice}
-                            onChange={(e) => setCalcForm(prev => ({ ...prev, overrideUnitPrice: e.target.value }))}
+                            onChange={(e) =>
+                            {
+                              markCalcFormTouched();
+                              setCalcForm(prev => ({ ...prev, overrideUnitPrice: e.target.value }));
+                            }}
                             step="1"
                             min="0"
                           />
@@ -750,205 +916,221 @@ const PayrollDetail = () =>
                       </Col>
                     </Row>
 
-                      <div className="d-flex justify-content-end mt-3 gap-2">
-                          <Button variant="secondary" onClick={handleCloseModal} disabled={loadingPreview || saving}>
-                              Close
-                          </Button>
-                          <Button variant="primary" onClick={handlePreview} disabled={loadingPreview || saving}>
-                              {loadingPreview ? 'Calculating...' : 'Recalculate (Preview)'}
-                          </Button>
-                      </div>
+                    <div className="d-flex justify-content-end mt-3 gap-2">
+                      <Button variant="secondary" onClick={handleCloseModal} disabled={loadingPreview || saving}>
+                        Close
+                      </Button>
+                      <Button
+                        variant="primary"
+                        onClick={handlePreview}
+                        disabled={loadingPreview || saving || isFactoryManager}
+                        title={isFactoryManager ? 'Factory Manager is not allowed to preview/recalculate payroll.' : undefined}
+                      >
+                        {loadingPreview ? 'Calculating...' : 'Recalculate (Preview)'}
+                      </Button>
+                    </div>
                   </div>
                 </Tab>
 
-                  <Tab eventKey="result" title="Result">
-                      <div className="p-3">
-                          {!preview ? (
-                              <Alert variant="info" className="mb-0">
-                                  Chưa có dữ liệu preview. Bấm <strong>Recalculate (Preview)</strong> hoặc <strong>Confirm & Save</strong> (sẽ tự preview trước).
+                <Tab eventKey="result" title="Result">
+                  <div className="p-3">
+                    {!preview ? (
+                      <Alert variant="info" className="mb-0">
+                        No Data for Review, press <strong>Recalculate (Preview)</strong> OR <strong>Confirm & Save</strong>
+                      </Alert>
+                    ) : (
+                      <>
+                        <Card className="shadow-sm">
+                          <Card.Header className="bg-light fw-bold">
+                            Payroll Breakdown
+                          </Card.Header>
+                          <Card.Body>
+                            {(() =>
+                            {
+                              const lateCount = Number(preview?.lateCount ?? 0);
+                              const latePenaltyPerTime = Number(preview?.latePenalty ?? 0);
+                              const latePenaltyTotal = lateCount * latePenaltyPerTime;
+
+                              const insurance = Number(preview?.insurance ?? 0);
+                              const cashDeductionTotal = latePenaltyTotal + insurance;
+
+                              const gross = Number(preview?.grossIncomeForTax ?? 0);
+                              const incomeAfterCash = gross - cashDeductionTotal;
+
+                              return (
+                                <Table bordered responsive size="sm" className="mb-0">
+                                  <tbody>
+                                    <tr>
+                                      <td>Base Salary</td>
+                                      <td className="text-end">{formatCurrency(preview.baseSalary)}</td>
+                                    </tr>
+
+                                    <tr>
+                                      <td>Time Salary (A)</td>
+                                      <td className="text-end">{formatCurrency(preview.timeSalary)}</td>
+                                    </tr>
+
+                                    <tr>
+                                      <td>Product Bonus (B)</td>
+                                      <td className="text-end">{formatCurrency(preview.productBonus)}</td>
+                                    </tr>
+
+                                    <tr>
+                                      <td>Overtime Pay (C)</td>
+                                      <td className="text-end">{formatCurrency(preview.overtimePay)}</td>
+                                    </tr>
+
+                                    <tr>
+                                      <td><strong>Gross income for tax (D = A+B+C)</strong></td>
+                                      <td className="text-end">
+                                        <strong>{formatCurrency(preview.grossIncomeForTax)}</strong>
+                                      </td>
+                                    </tr>
+
+                                    <tr>
+                                      <td><strong>Cash deductions</strong></td>
+                                      <td></td>
+                                    </tr>
+
+                                    <tr>
+                                      <td>Late Count (E)</td>
+                                      <td className="text-end">{lateCount}</td>
+                                    </tr>
+
+                                    <tr>
+                                      <td>Late Penalty / time (F)</td>
+                                      <td className="text-end text-danger">-{formatCurrency(preview.latePenalty)}</td>
+                                    </tr>
+
+                                    <tr>
+                                      <td>Late Penalty Total (G = ExF)</td>
+                                      <td className="text-end text-danger">-{formatCurrency(latePenaltyTotal)}</td>
+                                    </tr>
+
+                                    <tr>
+                                      <td>Insurance (H)</td>
+                                      <td className="text-end text-danger">-{formatCurrency(preview.insurance)}</td>
+                                    </tr>
+
+                                    <tr>
+                                      <td><strong>Cash Deduction Total (I = G+H)</strong></td>
+                                      <td className="text-end text-danger">
+                                        <strong>-{formatCurrency(cashDeductionTotal)}</strong>
+                                      </td>
+                                    </tr>
+
+                                    <tr>
+                                      <td><strong>Income after cash deductions (J = D+I)</strong></td>
+                                      <td className="text-end">
+                                        <strong>{formatCurrency(incomeAfterCash)}</strong>
+                                      </td>
+                                    </tr>
+
+                                    <tr>
+                                      <td><strong>Tax deductions (from tax engine)</strong></td>
+                                      <td></td>
+                                    </tr>
+
+                                    <tr>
+                                      <td>Personal Deduction (K)</td>
+                                      <td className="text-end text-danger">-{formatCurrency(preview.personalDeduction)}</td>
+                                    </tr>
+
+                                    <tr>
+                                      <td>Dependent Deduction (L)</td>
+                                      <td className="text-end text-danger">-{formatCurrency(preview.dependentDeduction)}</td>
+                                    </tr>
+
+                                    <tr>
+                                      <td>Insurance Deduction (M - for tax)</td>
+                                      <td className="text-end text-danger">-{formatCurrency(preview.insuranceDeduction)}</td>
+                                    </tr>
+
+                                    <tr>
+                                      <td><strong>Total Tax Deduction (N = K+L+M</strong></td>
+                                      <td className="text-end text-danger">
+                                        <strong>-{formatCurrency(preview.taxDeductionTotal)}</strong>
+                                      </td>
+                                    </tr>
+
+                                    <tr>
+                                      <td><strong>Taxable Income (from tax engine) Q = J-N</strong></td>
+                                      <td className="text-end">
+                                        <strong>{formatCurrency(preview.taxableIncome)}</strong>
+                                      </td>
+                                    </tr>
+
+                                    <tr>
+                                      <td>Personal Income Tax (PIT) R = Q × (Tax Bracket)</td>
+                                      <td className="text-end text-danger">-{formatCurrency(preview.personalIncomeTax)}</td>
+                                    </tr>
+
+                                    <tr>
+                                      <td>Allowance (Total) S</td>
+                                      <td className="text-end">{formatCurrency(preview.allowance)}</td>
+                                    </tr>
+
+                                    <tr className="table-success">
+                                      <td><strong>Total Pay (NET) T = J-R+S</strong></td>
+                                      <td className="text-end">
+                                        <strong>{formatCurrency(preview.totalPay)}</strong>
+                                      </td>
+                                    </tr>
+                                  </tbody>
+                                </Table>
+                              );
+                            })()}
+
+                            {preview?.taxCalculation?.note ? (
+                              <Alert variant="secondary" className="mt-3 mb-0" style={{ whiteSpace: 'pre-wrap' }}>
+                                <strong>Tax calculation details:</strong>
+                                {'\n\n'}
+                                {preview.taxCalculation.note}
                               </Alert>
-                          ) : (
-                              <>
-                                  <Card className="shadow-sm">
-                                      <Card.Header className="bg-light fw-bold">
-                                          Payroll Breakdown
-                                      </Card.Header>
-                                      <Card.Body>
-                                          {(() => {
-                                              const lateCount = Number(preview?.lateCount ?? 0);
-                                              const latePenaltyPerTime = Number(preview?.latePenalty ?? 0);
-                                              const latePenaltyTotal = lateCount * latePenaltyPerTime;
-
-                                              const insurance = Number(preview?.insurance ?? 0);
-                                              const cashDeductionTotal = latePenaltyTotal + insurance;
-
-                                              const gross = Number(preview?.grossIncomeForTax ?? 0);
-                                              const incomeAfterCash = gross - cashDeductionTotal;
-
-                                              return (
-                                                  <Table bordered responsive size="sm" className="mb-0">
-                                                      <tbody>
-                                                      <tr>
-                                                          <td>Base Salary</td>
-                                                          <td className="text-end">{formatCurrency(preview.baseSalary)}</td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td>Time Salary</td>
-                                                          <td className="text-end">{formatCurrency(preview.timeSalary)}</td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td>Product Bonus</td>
-                                                          <td className="text-end">{formatCurrency(preview.productBonus)}</td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td>Overtime Pay</td>
-                                                          <td className="text-end">{formatCurrency(preview.overtimePay)}</td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td><strong>Gross income for tax (A+B+C)</strong></td>
-                                                          <td className="text-end">
-                                                              <strong>{formatCurrency(preview.grossIncomeForTax)}</strong>
-                                                          </td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td><strong>Cash deductions</strong></td>
-                                                          <td></td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td>Late Count</td>
-                                                          <td className="text-end">{lateCount}</td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td>Late Penalty / time</td>
-                                                          <td className="text-end text-danger">-{formatCurrency(preview.latePenalty)}</td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td>Late Penalty Total (lateCount × latePenalty)</td>
-                                                          <td className="text-end text-danger">-{formatCurrency(latePenaltyTotal)}</td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td>Insurance</td>
-                                                          <td className="text-end text-danger">-{formatCurrency(preview.insurance)}</td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td><strong>Cash Deduction Total</strong></td>
-                                                          <td className="text-end text-danger">
-                                                              <strong>-{formatCurrency(cashDeductionTotal)}</strong>
-                                                          </td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td><strong>Income after cash deductions</strong></td>
-                                                          <td className="text-end">
-                                                              <strong>{formatCurrency(incomeAfterCash)}</strong>
-                                                          </td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td><strong>Tax deductions (from tax engine)</strong></td>
-                                                          <td></td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td>Personal Deduction</td>
-                                                          <td className="text-end text-danger">-{formatCurrency(preview.personalDeduction)}</td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td>Dependent Deduction</td>
-                                                          <td className="text-end text-danger">-{formatCurrency(preview.dependentDeduction)}</td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td>Insurance Deduction (for tax)</td>
-                                                          <td className="text-end text-danger">-{formatCurrency(preview.insuranceDeduction)}</td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td><strong>Total Tax Deduction</strong></td>
-                                                          <td className="text-end text-danger">
-                                                              <strong>-{formatCurrency(preview.taxDeductionTotal)}</strong>
-                                                          </td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td><strong>Taxable Income (from tax engine)</strong></td>
-                                                          <td className="text-end">
-                                                              <strong>{formatCurrency(preview.taxableIncome)}</strong>
-                                                          </td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td>Personal Income Tax (PIT)</td>
-                                                          <td className="text-end text-danger">-{formatCurrency(preview.personalIncomeTax)}</td>
-                                                      </tr>
-
-                                                      <tr>
-                                                          <td>Allowance (Total)</td>
-                                                          <td className="text-end">{formatCurrency(preview.allowance)}</td>
-                                                      </tr>
-
-                                                      <tr className="table-success">
-                                                          <td><strong>Total Pay (NET)</strong></td>
-                                                          <td className="text-end">
-                                                              <strong>{formatCurrency(preview.totalPay)}</strong>
-                                                          </td>
-                                                      </tr>
-                                                      </tbody>
-                                                  </Table>
-                                              );
-                                          })()}
-
-                                          {preview?.taxCalculation?.note ? (
-                                              <Alert variant="secondary" className="mt-3 mb-0" style={{ whiteSpace: 'pre-wrap' }}>
-                                                  <strong>Tax calculation details:</strong>
-                                                  {'\n\n'}
-                                                  {preview.taxCalculation.note}
-                                              </Alert>
-                                          ) : null}
-                                      </Card.Body>
-                                  </Card>
+                            ) : null}
+                          </Card.Body>
+                        </Card>
 
 
-                                  <div className="d-flex justify-content-end mt-3 gap-2">
-                                      <Button variant="secondary" onClick={() => setCalcTab('input')} disabled={saving}>
-                                          Back to Input
-                                      </Button>
+                        <div className="d-flex justify-content-end mt-3 gap-2">
+                          <Button variant="secondary" onClick={() => setCalcTab('input')} disabled={saving}>
+                            Back to Input
+                          </Button>
 
-                                      <Button variant="success" onClick={handleConfirmAndSave} disabled={saving || loadingPreview}>
-                                          {saving ? 'Saving...' : 'Confirm & Save'}
-                                      </Button>
+                          <Button
+                            variant="success"
+                            onClick={handleConfirmAndSave}
+                            disabled={saving || loadingPreview || isFactoryManager}
+                            title={isFactoryManager ? 'Factory Manager is not allowed to confirm/save payroll calculation.' : undefined}
+                          >
+                            {saving ? 'Saving...' : 'Confirm & Save'}
+                          </Button>
 
-                                      <Button variant="outline-secondary" onClick={handleCloseModal} disabled={saving}>
-                                          Close
-                                      </Button>
-                                  </div>
-                              </>
-                          )}
+                          <Button variant="outline-secondary" onClick={handleCloseModal} disabled={saving}>
+                            Close
+                          </Button>
+                        </div>
+                      </>
+                    )}
 
-                          {/* Nếu chưa preview, vẫn cho nút save để auto preview */}
-                          {!preview ? (
-                              <div className="d-flex justify-content-end mt-3 gap-2">
-                                  <Button variant="secondary" onClick={() => setCalcTab('input')} disabled={saving}>
-                                      Back to Input
-                                  </Button>
-                                  <Button variant="success" onClick={handleConfirmAndSave} disabled={saving || loadingPreview}>
-                                      {saving ? 'Saving...' : 'Confirm & Save'}
-                                  </Button>
-                              </div>
-                          ) : null}
+                    {/* Nếu chưa preview, vẫn cho nút save để auto preview */}
+                    {!preview ? (
+                      <div className="d-flex justify-content-end mt-3 gap-2">
+                        <Button variant="secondary" onClick={() => setCalcTab('input')} disabled={saving}>
+                          Back to Input
+                        </Button>
+                        <Button
+                          variant="success"
+                          onClick={handleConfirmAndSave}
+                          disabled={saving || loadingPreview || isFactoryManager}
+                          title={isFactoryManager ? 'Factory Manager is not allowed to confirm/save payroll calculation.' : undefined}
+                        >
+                          {saving ? 'Saving...' : 'Confirm & Save'}
+                        </Button>
                       </div>
-                  </Tab>
+                    ) : null}
+                  </div>
+                </Tab>
               </Tabs>
             </>
           )}
